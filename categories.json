@@ -1,0 +1,225 @@
+{
+  "categories": [
+    {
+      "id": "cables",
+      "name": "Cables",
+      "name_fa": "کابل‌ها",
+      "products": [
+        {
+          "id": "c1",
+          "name": "2.5mm Twin & Earth Cable 100m",
+          "name_fa": "کابل دو هسته ۲.۵ میلی‌متر ۱۰۰ متر",
+          "price": 85.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "Standard building wire"
+        },
+        {
+          "id": "c2",
+          "name": "1.5mm Single Core Cable 50m",
+          "name_fa": "کابل تک هسته ۱.۵ میلی‌متر ۵۰ متر",
+          "price": 32.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "Flexible single core wire"
+        },
+        {
+          "id": "c3",
+          "name": "6mm Armoured Cable 25m",
+          "name_fa": "کابل زره‌دار ۶ میلی‌متر ۲۵ متر",
+          "price": 120.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "Heavy-duty armoured cable for outdoor use"
+        }
+      ]
+    },
+    {
+      "id": "light-bulbs",
+      "name": "Light Bulbs",
+      "name_fa": "لامپ‌ها",
+      "products": [
+        {
+          "id": "lb1",
+          "name": "LED Bulb E27 9W Warm White",
+          "name_fa": "لامپ LED پایه E27 ۹ وات سفید گرم",
+          "price": 4.50,
+          "wattage": 9,
+          "image_url": "https://images.unsplash.com/photo-1532007828672-7dc33afef17e?w=400&h=300&fit=crop",
+          "description": "Energy efficient LED bulb"
+        },
+        {
+          "id": "lb2",
+          "name": "LED Bulb E27 15W Daylight",
+          "name_fa": "لامپ LED پایه E27 ۱۵ وات نور روز",
+          "price": 6.00,
+          "wattage": 15,
+          "image_url": "https://images.unsplash.com/photo-1532007828672-7dc33afef17e?w=400&h=300&fit=crop",
+          "description": "Bright daylight LED bulb"
+        },
+        {
+          "id": "lb3",
+          "name": "Halogen Spotlight GU10 50W",
+          "name_fa": "لامپ هالوژن اسپات GU10 ۵۰ وات",
+          "price": 3.00,
+          "wattage": 50,
+          "image_url": "https://images.unsplash.com/photo-1532007828672-7dc33afef17e?w=400&h=300&fit=crop",
+          "description": "Classic halogen spotlight"
+        }
+      ]
+    },
+    {
+      "id": "lamps",
+      "name": "Lamps",
+      "name_fa": "چراغ‌ها",
+      "products": [
+        {
+          "id": "lm1",
+          "name": "Modern Desk Lamp LED",
+          "name_fa": "چراغ مطالعه مدرن LED",
+          "price": 45.00,
+          "wattage": 12,
+          "image_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=300&fit=crop",
+          "description": "Adjustable desk lamp with LED"
+        },
+        {
+          "id": "lm2",
+          "name": "Floor Standing Lamp",
+          "name_fa": "چراغ ایستاده پایه‌دار",
+          "price": 89.00,
+          "image_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=300&fit=crop",
+          "description": "Elegant floor lamp for living room"
+        },
+        {
+          "id": "lm3",
+          "name": "Bedside Table Lamp",
+          "name_fa": "چراغ خواب رومیزی",
+          "price": 35.00,
+          "image_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=300&fit=crop",
+          "description": "Compact lamp for nightstands"
+        }
+      ]
+    },
+    {
+      "id": "sockets",
+      "name": "Sockets",
+      "name_fa": "پریزها",
+      "products": [
+        {
+          "id": "s1",
+          "name": "Double Socket 13A White",
+          "name_fa": "پریز دوتایی ۱۳ آمپر سفید",
+          "price": 8.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "Standard UK double socket"
+        },
+        {
+          "id": "s2",
+          "name": "Single Socket 13A with USB",
+          "name_fa": "پریز تکی ۱۳ آمپر با USB",
+          "price": 12.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "Socket with built-in USB charging"
+        },
+        {
+          "id": "s3",
+          "name": "Outdoor Weatherproof Socket",
+          "name_fa": "پریز ضد آب فضای باز",
+          "price": 18.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "IP66 rated outdoor socket"
+        }
+      ]
+    },
+    {
+      "id": "extension-cables",
+      "name": "Extension Cables",
+      "name_fa": "سیم‌های رابط",
+      "products": [
+        {
+          "id": "ec1",
+          "name": "4-Way Extension Lead 2m",
+          "name_fa": "چندراهی ۴ خانه ۲ متری",
+          "price": 14.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "4 socket extension with surge protection"
+        },
+        {
+          "id": "ec2",
+          "name": "6-Way Extension Lead 5m",
+          "name_fa": "چندراهی ۶ خانه ۵ متری",
+          "price": 22.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "6 socket extension with individual switches"
+        },
+        {
+          "id": "ec3",
+          "name": "Cable Reel 25m Heavy Duty",
+          "name_fa": "قرقره کابل ۲۵ متری صنعتی",
+          "price": 45.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "Industrial cable reel with thermal cutout"
+        }
+      ]
+    },
+    {
+      "id": "fuse",
+      "name": "Fuse",
+      "name_fa": "فیوز",
+      "products": [
+        {
+          "id": "f1",
+          "name": "Plug Top Fuse 3A (Pack of 10)",
+          "name_fa": "فیوز دوشاخه ۳ آمپر (بسته ۱۰ تایی)",
+          "price": 3.50,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "BS1362 certified fuses"
+        },
+        {
+          "id": "f2",
+          "name": "Plug Top Fuse 13A (Pack of 10)",
+          "name_fa": "فیوز دوشاخه ۱۳ آمپر (بسته ۱۰ تایی)",
+          "price": 3.50,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "BS1362 certified fuses"
+        },
+        {
+          "id": "f3",
+          "name": "Cartridge Fuse 32A",
+          "name_fa": "فیوز کارتریجی ۳۲ آمپر",
+          "price": 2.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "High rupture capacity fuse"
+        }
+      ]
+    },
+    {
+      "id": "fuse-box",
+      "name": "Fuse Box",
+      "name_fa": "جعبه فیوز",
+      "products": [
+        {
+          "id": "fb1",
+          "name": "Consumer Unit 6-Way Metal",
+          "name_fa": "تابلو برق ۶ خانه فلزی",
+          "price": 55.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "6-way metal consumer unit with main switch"
+        },
+        {
+          "id": "fb2",
+          "name": "Consumer Unit 12-Way Dual RCD",
+          "name_fa": "تابلو برق ۱۲ خانه دو RCD",
+          "price": 95.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "12-way split load consumer unit"
+        },
+        {
+          "id": "fb3",
+          "name": "Garage Consumer Unit 2-Way",
+          "name_fa": "تابلو برق گاراژی ۲ خانه",
+          "price": 35.00,
+          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "description": "Compact unit for garage or shed"
+        }
+      ]
+    }
+  ]
+}

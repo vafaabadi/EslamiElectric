@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - Lighting Products</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col">
+  <header class="bg-slate-800 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div>
+        <h1 id="site-title" class="text-2xl font-bold tracking-tight">Lighting Products</h1>
+        <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+      </div>
+      <nav class="flex items-center gap-2" aria-label="Language">
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-xl w-full mx-auto px-4 py-8">
+    <h2 id="form-title" class="text-2xl font-bold text-slate-800 mb-6">Create an Account</h2>
+
+    <form id="account-form" class="bg-white rounded-xl shadow-md p-6 space-y-4">
+      <div>
+        <label id="label-type" for="account-type" class="block text-sm font-medium text-slate-700 mb-1">Account Type</label>
+        <select id="account-type" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <option value="person" id="option-person">Person</option>
+          <option value="company" id="option-company">Company</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label id="label-firstname" for="firstName" class="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
+          <input type="text" id="firstName" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-surname" for="surname" class="block text-sm font-medium text-slate-700 mb-1">Surname *</label>
+          <input type="text" id="surname" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+
+      <div>
+        <label id="label-dob" for="dob" class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+        <input type="date" id="dob" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label id="label-mobile" for="mobile" class="block text-sm font-medium text-slate-700 mb-1">Mobile *</label>
+          <input type="tel" id="mobile" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-landline" for="landline" class="block text-sm font-medium text-slate-700 mb-1">Landline</label>
+          <input type="tel" id="landline" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+
+      <div>
+        <label id="label-email" for="email" class="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+        <input type="email" id="email" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <div>
+        <label id="label-bank" for="bankDetails" class="block text-sm font-medium text-slate-700 mb-1">Bank Account Details</label>
+        <input type="text" id="bankDetails" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <div>
+        <label id="label-address" for="address" class="block text-sm font-medium text-slate-700 mb-1">Address *</label>
+        <textarea id="address" rows="2" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400"></textarea>
+      </div>
+
+      <div id="company-fields" class="hidden space-y-4 border-t pt-4">
+        <h3 id="company-section-title" class="font-semibold text-slate-700">Company Details</h3>
+        <div>
+          <label id="label-company-name" for="companyName" class="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
+          <input type="text" id="companyName" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-company-number" for="companyNumber" class="block text-sm font-medium text-slate-700 mb-1">Company Number *</label>
+          <input type="text" id="companyNumber" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-company-contact" for="companyContactNumber" class="block text-sm font-medium text-slate-700 mb-1">Company Contact Number</label>
+          <input type="tel" id="companyContactNumber" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-company-principal" for="companyPrincipalContact" class="block text-sm font-medium text-slate-700 mb-1">Principal Contact</label>
+          <input type="text" id="companyPrincipalContact" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+
+      <button id="submit-btn" type="submit" class="w-full bg-emerald-500 text-white font-semibold py-2 rounded hover:bg-emerald-600 transition-colors">
+        Sign Up
+      </button>
+      <p id="account-message" class="text-sm mt-2"></p>
+    </form>
+  </main>
+
+  <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+      <p>&copy; 2026 Lighting Products. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    const translations = {
+      en: {
+        siteTitle: 'Lighting Products',
+        siteSubtitle: 'Quality electrical supplies',
+        formTitle: 'Create an Account',
+        labelType: 'Account Type',
+        optionPerson: 'Person',
+        optionCompany: 'Company',
+        labelFirstname: 'First Name *',
+        labelSurname: 'Surname *',
+        labelDob: 'Date of Birth',
+        labelMobile: 'Mobile *',
+        labelLandline: 'Landline',
+        labelEmail: 'Email *',
+        labelBank: 'Bank Account Details',
+        labelAddress: 'Address *',
+        companySectionTitle: 'Company Details',
+        labelCompanyName: 'Company Name *',
+        labelCompanyNumber: 'Company Number *',
+        labelCompanyContact: 'Company Contact Number',
+        labelCompanyPrincipal: 'Principal Contact',
+        submitBtn: 'Sign Up',
+        accountSuccess: 'User account created successfully!',
+        accountError: 'Failed to create user account. Please try again.',
+        accountMissingFields: 'Please fill in all required fields.',
+        errorFirstName: 'First name must be 2-50 letters (English or Persian)',
+        errorSurname: 'Surname must be 2-50 letters (English or Persian)',
+        errorDob: 'Invalid date format (YYYY-MM-DD)',
+        errorMobile: 'Invalid mobile number format',
+        errorLandline: 'Invalid landline format',
+        errorEmail: 'Invalid email format',
+        errorAddress: 'Address must be 10-200 characters'
+      },
+      fa: {
+        siteTitle: 'محصولات روشنایی',
+        siteSubtitle: 'تجهیزات برقی با کیفیت',
+        formTitle: 'ایجاد حساب کاربری',
+        labelType: 'نوع حساب',
+        optionPerson: 'شخصی',
+        optionCompany: 'شرکتی',
+        labelFirstname: 'نام *',
+        labelSurname: 'نام خانوادگی *',
+        labelDob: 'تاریخ تولد',
+        labelMobile: 'موبایل *',
+        labelLandline: 'تلفن ثابت',
+        labelEmail: 'ایمیل *',
+        labelBank: 'اطلاعات حساب بانکی',
+        labelAddress: 'آدرس *',
+        companySectionTitle: 'اطلاعات شرکت',
+        labelCompanyName: 'نام شرکت *',
+        labelCompanyNumber: 'شماره ثبت شرکت *',
+        labelCompanyContact: 'شماره تماس شرکت',
+        labelCompanyPrincipal: 'نام مسئول اصلی',
+        submitBtn: 'ایجاد حساب',
+        accountSuccess: 'حساب کاربری با موفقیت ایجاد شد!',
+        accountError: 'خطا در ایجاد حساب کاربری. لطفاً دوباره تلاش کنید.',
+        accountMissingFields: 'لطفاً تمام فیلدهای الزامی را پر کنید.',
+        errorFirstName: 'نام باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
+        errorSurname: 'نام خانوادگی باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
+        errorDob: 'فرمت تاریخ نامعتبر است (YYYY-MM-DD)',
+        errorMobile: 'فرمت شماره موبایل نامعتبر است',
+        errorLandline: 'فرمت شماره تلفن ثابت نامعتبر است',
+        errorEmail: 'فرمت ایمیل نامعتبر است',
+        errorAddress: 'آدرس باید ۱۰ تا ۲۰۰ کاراکتر باشد'
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'en';
+
+    const validationPatterns = {
+      name: /^[\u0600-\u06FFa-zA-Z\s]{2,50}$/,
+      dob: /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/,
+      mobile: /^(\+98|0|0098)?9\d{9}$|^(\+|00)[1-9]\d{6,14}$/,
+      landline: /^0[1-9]{2}\d{8}$|^(\+|00)[1-9]\d{6,14}$/,
+      email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      address: /^[\u0600-\u06FFa-zA-Z0-9\s.,()/-]{10,200}$/
+    };
+
+    const accountForm = document.getElementById('account-form');
+    const accountType = document.getElementById('account-type');
+    const companyFields = document.getElementById('company-fields');
+    const accountMessage = document.getElementById('account-message');
+    const accountSubmitBtn = document.getElementById('submit-btn');
+
+    function applyPageLanguage() {
+      const t = translations[currentLang];
+      document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+      document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+
+      document.getElementById('site-title').textContent = t.siteTitle;
+      document.getElementById('site-subtitle').textContent = t.siteSubtitle;
+      document.getElementById('form-title').textContent = t.formTitle;
+      document.getElementById('label-type').textContent = t.labelType;
+      document.getElementById('option-person').textContent = t.optionPerson;
+      document.getElementById('option-company').textContent = t.optionCompany;
+      document.getElementById('label-firstname').textContent = t.labelFirstname;
+      document.getElementById('label-surname').textContent = t.labelSurname;
+      document.getElementById('label-dob').textContent = t.labelDob;
+      document.getElementById('label-mobile').textContent = t.labelMobile;
+      document.getElementById('label-landline').textContent = t.labelLandline;
+      document.getElementById('label-email').textContent = t.labelEmail;
+      document.getElementById('label-bank').textContent = t.labelBank;
+      document.getElementById('label-address').textContent = t.labelAddress;
+      document.getElementById('company-section-title').textContent = t.companySectionTitle;
+      document.getElementById('label-company-name').textContent = t.labelCompanyName;
+      document.getElementById('label-company-number').textContent = t.labelCompanyNumber;
+      document.getElementById('label-company-contact').textContent = t.labelCompanyContact;
+      document.getElementById('label-company-principal').textContent = t.labelCompanyPrincipal;
+      accountSubmitBtn.textContent = t.submitBtn;
+
+      document.getElementById('lang-en').className = currentLang === 'en'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+      document.getElementById('lang-fa').className = currentLang === 'fa'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+    }
+
+    function updateAccountTypeVisibility() {
+      if (accountType.value === 'company') {
+        companyFields.classList.remove('hidden');
+      } else {
+        companyFields.classList.add('hidden');
+      }
+    }
+
+    accountType.addEventListener('change', updateAccountTypeVisibility);
+
+    accountForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      accountMessage.textContent = '';
+      const t = translations[currentLang];
+
+      const type = accountType.value;
+      const body = {
+        type,
+        firstName: document.getElementById('firstName').value.trim(),
+        surname: document.getElementById('surname').value.trim(),
+        dob: document.getElementById('dob').value,
+        mobile: document.getElementById('mobile').value.trim(),
+        landline: document.getElementById('landline').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        bankDetails: document.getElementById('bankDetails').value.trim(),
+        address: document.getElementById('address').value.trim(),
+        companyName: document.getElementById('companyName').value.trim(),
+        companyNumber: document.getElementById('companyNumber').value.trim(),
+        companyContactNumber: document.getElementById('companyContactNumber').value.trim(),
+        companyPrincipalContact: document.getElementById('companyPrincipalContact').value.trim()
+      };
+
+      if (!body.firstName || !body.surname || !body.mobile || !body.email || !body.address) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.accountMissingFields;
+        return;
+      }
+
+      if (!validationPatterns.name.test(body.firstName)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.errorFirstName;
+        return;
+      }
+      if (!validationPatterns.name.test(body.surname)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.errorSurname;
+        return;
+      }
+      if (body.dob && !validationPatterns.dob.test(body.dob)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.errorDob;
+        return;
+      }
+      if (!validationPatterns.mobile.test(body.mobile)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.errorMobile;
+        return;
+      }
+      if (body.landline && !validationPatterns.landline.test(body.landline)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.errorLandline;
+        return;
+      }
+      if (!validationPatterns.email.test(body.email)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.errorEmail;
+        return;
+      }
+      if (!validationPatterns.address.test(body.address)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.errorAddress;
+        return;
+      }
+
+      if (type === 'company' && (!body.companyName || !body.companyNumber)) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.accountMissingFields;
+        return;
+      }
+
+      try {
+        accountSubmitBtn.disabled = true;
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          accountMessage.className = 'text-sm mt-2 text-red-600';
+          accountMessage.textContent = errorData.error || t.accountError;
+          return;
+        }
+
+        accountForm.reset();
+        accountType.value = 'person';
+        updateAccountTypeVisibility();
+
+        accountMessage.className = 'text-sm mt-2 text-emerald-600';
+        accountMessage.textContent = t.accountSuccess;
+      } catch (err) {
+        accountMessage.className = 'text-sm mt-2 text-red-600';
+        accountMessage.textContent = t.accountError;
+      } finally {
+        accountSubmitBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('lang-en').addEventListener('click', () => {
+      currentLang = 'en';
+      localStorage.setItem('lang', 'en');
+      applyPageLanguage();
+    });
+
+    document.getElementById('lang-fa').addEventListener('click', () => {
+      currentLang = 'fa';
+      localStorage.setItem('lang', 'fa');
+      applyPageLanguage();
+    });
+
+    applyPageLanguage();
+    updateAccountTypeVisibility();
+  </script>
+</body>
+</html>
