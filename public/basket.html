@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basket - Lighting Products</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col">
+  <header class="bg-slate-800 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div>
+        <a href="index.html" class="hover:opacity-80">
+          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Lighting Products</h1>
+          <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+        </a>
+      </div>
+      <nav class="flex items-center gap-2" aria-label="Navigation">
+        <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
+        <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
+        <a href="basket.html" id="nav-basket" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">Basket</a>
+        <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
+        <a href="account.html" id="go-account" rel="noopener" class="px-3 py-1.5 rounded text-sm font-medium bg-emerald-500 text-slate-900 hover:bg-emerald-400 transition-colors">Sign Up</a>
+        <button id="nav-logout" type="button" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Logout</button>
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
+    <h2 id="page-title" class="text-3xl font-bold text-slate-800 mb-6">Your Basket</h2>
+
+    <div id="basket-empty" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
+      <p id="empty-message" class="mb-4">Your basket is empty.</p>
+      <a href="products.html" id="empty-link" class="inline-block px-4 py-2 rounded bg-amber-500 text-slate-900 font-medium hover:bg-amber-400 transition-colors">Browse Products</a>
+    </div>
+
+    <div id="basket-content" class="hidden space-y-4">
+      <ul id="basket-list" class="space-y-3"></ul>
+      <div class="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+        <div class="text-right">
+          <p id="total-label" class="text-slate-600 text-sm">Total</p>
+          <p id="basket-total" class="text-2xl font-bold text-slate-900">$0.00</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+      <p>&copy; 2026 Lighting Products. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    const BASKET_KEY = 'basket';
+
+    const translations = {
+      en: {
+        siteTitle: 'Lighting Products',
+        siteSubtitle: 'Quality electrical supplies',
+        pageTitle: 'Your Basket',
+        emptyMessage: 'Your basket is empty.',
+        browseProducts: 'Browse Products',
+        totalLabel: 'Total',
+        quantity: 'Qty',
+        remove: 'Remove',
+        navHome: 'Home',
+        navProducts: 'Products',
+        navBasket: 'Basket',
+        navLogin: 'Login',
+        createAccount: 'Sign Up',
+        navLogout: 'Logout'
+      },
+      fa: {
+        siteTitle: 'محصولات روشنایی',
+        siteSubtitle: 'تجهیزات برقی با کیفیت',
+        pageTitle: 'سبد خرید شما',
+        emptyMessage: 'سبد خرید شما خالی است.',
+        browseProducts: 'مشاهده محصولات',
+        totalLabel: 'مجموع',
+        quantity: 'تعداد',
+        remove: 'حذف',
+        navHome: 'خانه',
+        navProducts: 'محصولات',
+        navBasket: 'سبد خرید',
+        navLogin: 'ورود',
+        createAccount: 'ایجاد حساب کاربری',
+        navLogout: 'خروج'
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'en';
+
+    function getBasket() {
+      try {
+        const raw = localStorage.getItem(BASKET_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function setBasket(items) {
+      localStorage.setItem(BASKET_KEY, JSON.stringify(items));
+      renderBasket();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function applyPageLanguage() {
+      const t = translations[currentLang];
+      document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+      document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+
+      document.getElementById('site-title').textContent = t.siteTitle;
+      document.getElementById('site-subtitle').textContent = t.siteSubtitle;
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.getElementById('empty-message').textContent = t.emptyMessage;
+      document.getElementById('empty-link').textContent = t.browseProducts;
+      document.getElementById('total-label').textContent = t.totalLabel;
+      document.getElementById('nav-home').textContent = t.navHome;
+      document.getElementById('nav-products').textContent = t.navProducts;
+      document.getElementById('nav-basket').textContent = t.navBasket;
+      document.getElementById('nav-login').textContent = t.navLogin;
+      document.getElementById('go-account').textContent = t.createAccount;
+      document.getElementById('nav-logout').textContent = t.navLogout;
+
+      document.getElementById('lang-en').className = currentLang === 'en'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+      document.getElementById('lang-fa').className = currentLang === 'fa'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+
+      const token = localStorage.getItem('token');
+      document.getElementById('nav-login').classList.toggle('hidden', !!token);
+      document.getElementById('nav-logout').classList.toggle('hidden', !token);
+      document.getElementById('go-account').classList.toggle('hidden', !!token);
+
+      renderBasket();
+    }
+
+    function renderBasket() {
+      const basket = getBasket();
+      const t = translations[currentLang];
+      const emptyEl = document.getElementById('basket-empty');
+      const contentEl = document.getElementById('basket-content');
+      const listEl = document.getElementById('basket-list');
+      const totalEl = document.getElementById('basket-total');
+
+      if (basket.length === 0) {
+        emptyEl.classList.remove('hidden');
+        contentEl.classList.add('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      contentEl.classList.remove('hidden');
+      listEl.innerHTML = '';
+
+      let total = 0;
+
+      basket.forEach((item, index) => {
+        const name = currentLang === 'fa' && item.name_fa ? item.name_fa : item.name;
+        const price = Number(item.price) || 0;
+        const qty = item.quantity || 1;
+        const lineTotal = price * qty;
+        total += lineTotal;
+
+        const li = document.createElement('li');
+        li.className = 'bg-white rounded-xl shadow p-4 flex flex-wrap items-center gap-4';
+        li.innerHTML = `
+          <div class="w-20 h-20 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
+            <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover">
+          </div>
+          <div class="flex-grow min-w-0">
+            <h3 class="font-semibold text-slate-800">${escapeHtml(name)}</h3>
+            <p class="text-slate-500 text-sm">$${price.toFixed(2)} each</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center border border-slate-300 rounded overflow-hidden">
+              <button type="button" class="btn-basket-minus w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium" data-index="${index}" aria-label="Decrease quantity">−</button>
+              <span class="basket-qty-display w-10 text-center text-sm font-medium border-x border-slate-300">${qty}</span>
+              <button type="button" class="btn-basket-plus w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium" data-index="${index}" aria-label="Increase quantity">+</button>
+            </div>
+            <span class="font-semibold text-slate-900 w-20 text-right basket-line-total">$${lineTotal.toFixed(2)}</span>
+            <button type="button" class="btn-remove px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded" data-index="${index}">${t.remove}</button>
+          </div>
+        `;
+        listEl.appendChild(li);
+      });
+
+      totalEl.textContent = '$' + total.toFixed(2);
+
+      listEl.querySelectorAll('.btn-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-index'), 10);
+          const newBasket = getBasket().filter((_, i) => i !== idx);
+          setBasket(newBasket);
+        });
+      });
+
+      listEl.querySelectorAll('.btn-basket-plus').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-index'), 10);
+          const basket = getBasket();
+          if (basket[idx]) {
+            basket[idx].quantity = (basket[idx].quantity || 1) + 1;
+            setBasket(basket);
+          }
+        });
+      });
+
+      listEl.querySelectorAll('.btn-basket-minus').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-index'), 10);
+          const basket = getBasket();
+          if (!basket[idx]) return;
+          const current = basket[idx].quantity || 1;
+          if (current <= 1) {
+            setBasket(basket.filter((_, i) => i !== idx));
+          } else {
+            basket[idx].quantity = current - 1;
+            setBasket(basket);
+          }
+        });
+      });
+    }
+
+    document.getElementById('lang-en').addEventListener('click', () => {
+      currentLang = 'en';
+      localStorage.setItem('lang', 'en');
+      applyPageLanguage();
+    });
+    document.getElementById('lang-fa').addEventListener('click', () => {
+      currentLang = 'fa';
+      localStorage.setItem('lang', 'fa');
+      applyPageLanguage();
+    });
+    document.getElementById('nav-logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.reload();
+    });
+
+    applyPageLanguage();
+  </script>
+</body>
+</html>

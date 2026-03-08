@@ -3,18 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lighting Products</title>
+  <title>Eslami Electric</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col">
   <header class="bg-slate-800 text-white shadow-md">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div>
-        <h1 id="site-title" class="text-2xl font-bold tracking-tight">Lighting Products</h1>
-        <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
+        <h1 id="site-title" class="text-2xl font-bold tracking-tight">Eslami Electric</h1>
+        <p id="site-subtitle" class="text-slate-400 text-sm">Quality Building electrical appliances and lighting</p>
+      </div>
+      <div class="relative w-full sm:max-w-xs flex-shrink-0">
+        <input
+          type="search"
+          id="product-search"
+          autocomplete="off"
+          placeholder="Search products..."
+          class="w-full rounded-lg border border-slate-600 bg-slate-700/50 text-white placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+          aria-label="Search products"
+          aria-expanded="false"
+          aria-controls="search-dropdown"
+        >
+        <div id="search-dropdown" class="absolute left-0 right-0 top-full mt-1 rounded-lg border border-slate-600 bg-slate-800 shadow-xl z-50 max-h-72 overflow-y-auto hidden" role="listbox" aria-label="Product suggestions"></div>
       </div>
       <nav class="flex items-center gap-2" aria-label="Language and actions">
         <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
+        <a href="basket.html" id="nav-basket" class="relative inline-flex px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket<span id="basket-count" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span></a>
+        <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
         <a
           id="go-account"
           href="account.html"
@@ -23,6 +38,7 @@
         >
           Sign Up
         </a>
+        <button id="nav-logout" type="button" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Logout</button>
         <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
         <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
       </nav>
@@ -41,18 +57,18 @@
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
         <div>
           <p id="address-label" class="font-medium text-slate-400">Address</p>
-          <p id="address-value">123 Electric Avenue, London, UK, EC1A 1BB</p>
+          <p id="address-value">Eslami Electric, Azadi Avenue, Zahedan, Sistan and Baluchestan, Iran</p>
         </div>
         <div>
           <p id="mobile-label" class="font-medium text-slate-400">Mobile</p>
-          <p>+44 7700 900123</p>
+          <p>+98 912 345 6789</p>
           <p id="landline-label" class="font-medium text-slate-400 mt-2">Landline</p>
-          <p>+44 20 7946 0958</p>
+          <p>+98 21 3456 7890</p>
         </div>
         <div>
-          <p id="social-label" class="font-medium text-slate-400">Social</p>
-          <p>Telegram: <a href="https://t.me/lightingproducts" target="_blank" rel="noopener" class="text-amber-400 hover:underline">@lightingproducts</a></p>
-          <p>Instagram: <a href="https://instagram.com/lightingproducts" target="_blank" rel="noopener" class="text-amber-400 hover:underline">@lightingproducts</a></p>
+          <p id="social-label" class="font-medium text-slate-400">Social Media</p>
+          <p>Telegram: <a href="https://t.me/EslamiElectric" target="_blank" rel="noopener" class="text-amber-400 hover:underline">@EslamiElectric</a></p>
+          <p>Instagram: <a href="https://instagram.com/EslamiElectric" target="_blank" rel="noopener" class="text-amber-400 hover:underline">@EslamiElectric</a></p>
         </div>
       </div>
     </div>
@@ -61,34 +77,46 @@
   <script>
     const translations = {
       en: {
-        siteTitle: 'Lighting Products',
-        siteSubtitle: 'Quality electrical supplies',
+        siteTitle: 'Eslami Electric',
+        siteSubtitle: 'Building electrical appliances and lighting',
         loading: 'Loading products...',
         errorLoad: 'Failed to load products.',
         contactTitle: 'Contact Us',
         addressLabel: 'Address',
-        addressValue: '123 Electric Avenue, London, UK, EC1A 1BB',
+        addressValue: 'Eslami Electric, Azadi Avenue, Zahedan, Sistan and Baluchestan, Iran',
         mobileLabel: 'Mobile',
         landlineLabel: 'Landline',
-        socialLabel: 'Social',
+        socialLabel: 'Social Media',
         navProducts: 'Products',
+        navBasket: 'Basket',
+        navLogin: 'Login',
+        navLogout: 'Logout',
         createAccount: 'Sign Up',
-        wattage: 'W'
+        wattage: 'W',
+        searchPlaceholder: 'Search products...',
+        addToBasket: 'Add',
+        quantity: 'Qty'
       },
       fa: {
-        siteTitle: 'محصولات روشنایی',
-        siteSubtitle: 'تجهیزات برقی با کیفیت',
+        siteTitle: 'الکتریکی‌ اسلامی',
+        siteSubtitle: 'لوازم برق ساختمان و روشنایی',
         loading: 'در حال بارگذاری محصولات...',
         errorLoad: 'بارگذاری محصولات ناموفق بود.',
         contactTitle: 'تماس با ما',
         addressLabel: 'آدرس',
-        addressValue: '۱۲۳ خیابان الکتریک، لندن، انگلستان',
+        addressValue: 'لوازم برق ساختمان و روشنایی اسلامی، بلوار آزادی، زاهدان، ایران',
         mobileLabel: 'موبایل',
         landlineLabel: 'تلفن ثابت',
         socialLabel: 'شبکه‌های اجتماعی',
         navProducts: 'محصولات',
+        navBasket: 'سبد خرید',
+        navLogin: 'ورود',
+        navLogout: 'خروج',
         createAccount: 'ایجاد حساب کاربری',
-        wattage: 'وات'
+        wattage: 'وات',
+        searchPlaceholder: 'جستجوی محصولات...',
+        addToBasket: 'افزودن',
+        quantity: 'تعداد'
       }
     };
 
@@ -98,6 +126,43 @@
     const grid = document.getElementById('product-grid');
     const loading = document.getElementById('loading');
     const errorEl = document.getElementById('error');
+    const searchInput = document.getElementById('product-search');
+    const searchDropdown = document.getElementById('search-dropdown');
+
+    const BASKET_KEY = 'basket';
+
+    function getBasket() {
+      try {
+        const raw = localStorage.getItem(BASKET_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function setBasket(items) {
+      localStorage.setItem(BASKET_KEY, JSON.stringify(items));
+      updateBasketCount();
+    }
+
+    function addToBasket(product, quantity) {
+      const basket = getBasket();
+      const existing = basket.find(item => item.id === product.id);
+      if (existing) existing.quantity += quantity;
+      else basket.push({ id: product.id, categoryId: product.categoryId, name: product.name, name_fa: product.name_fa, image_url: product.image_url, price: product.price, quantity });
+      setBasket(basket);
+    }
+
+    function updateBasketCount() {
+      const basket = getBasket();
+      const total = basket.reduce((sum, item) => sum + item.quantity, 0);
+      const el = document.getElementById('basket-count');
+      if (!el) return;
+      if (total > 0) {
+        el.textContent = total > 99 ? '99+' : total;
+        el.classList.remove('hidden');
+      } else el.classList.add('hidden');
+    }
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -119,7 +184,16 @@
       document.getElementById('landline-label').textContent = t.landlineLabel;
       document.getElementById('social-label').textContent = t.socialLabel;
       document.getElementById('nav-products').textContent = t.navProducts;
+      document.getElementById('nav-basket').innerHTML = t.navBasket + '<span id="basket-count" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span>';
+      updateBasketCount();
+      document.getElementById('nav-login').textContent = t.navLogin;
+      document.getElementById('nav-logout').textContent = t.navLogout;
       document.getElementById('go-account').textContent = t.createAccount;
+      searchInput.placeholder = t.searchPlaceholder;
+
+      const token = localStorage.getItem('token');
+      document.getElementById('nav-login').classList.toggle('hidden', !!token);
+      document.getElementById('nav-logout').classList.toggle('hidden', !token);
 
       document.getElementById('lang-en').className = currentLang === 'en'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
@@ -140,8 +214,9 @@
         const wattageHtml = p.wattage != null
           ? `<p class="text-slate-500 text-sm mt-1">${p.wattage} ${t.wattage}</p>`
           : '';
+        const pid = escapeHtml(p.id || '');
         grid.insertAdjacentHTML('beforeend', `
-          <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+          <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow" data-product-id="${pid}">
             <div class="aspect-[4/3] bg-slate-200 overflow-hidden">
               <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover" loading="lazy">
             </div>
@@ -150,11 +225,101 @@
               <h2 class="text-lg font-semibold text-slate-800 mt-1">${escapeHtml(name)}</h2>
               ${wattageHtml}
               <p class="text-xl font-bold text-slate-900 mt-2">$${Number(p.price).toFixed(2)}</p>
+              <div class="mt-3 flex items-center gap-2 flex-wrap">
+                <div class="flex items-center border border-slate-300 rounded overflow-hidden">
+                  <button type="button" class="btn-qty-minus w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium" aria-label="Decrease quantity">−</button>
+                  <span class="qty-display w-10 text-center text-sm font-medium border-x border-slate-300">1</span>
+                  <button type="button" class="btn-qty-plus w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium" aria-label="Increase quantity">+</button>
+                </div>
+                <button type="button" class="btn-add-to-basket px-4 py-2 rounded bg-amber-500 text-slate-900 font-medium text-sm hover:bg-amber-400 transition-colors">${t.addToBasket}</button>
+              </div>
             </div>
           </article>
         `);
       });
     }
+
+    grid.addEventListener('click', (e) => {
+      const article = e.target.closest('article[data-product-id]');
+      if (!article) return;
+      const productId = article.getAttribute('data-product-id');
+      const product = productsData.find(p => (p.id || '') === productId);
+      if (!product) return;
+
+      const qtyEl = article.querySelector('.qty-display');
+      let qty = parseInt(qtyEl.textContent, 10) || 1;
+
+      if (e.target.classList.contains('btn-qty-minus')) {
+        if (qty > 1) { qty--; qtyEl.textContent = qty; }
+      } else if (e.target.classList.contains('btn-qty-plus')) {
+        qty++; qtyEl.textContent = qty;
+      } else if (e.target.classList.contains('btn-add-to-basket')) {
+        addToBasket(product, qty);
+        qtyEl.textContent = '1';
+      }
+    });
+
+    function getProductDisplayName(p) {
+      return (currentLang === 'fa' && p.name_fa) ? p.name_fa : p.name;
+    }
+
+    function getProductCategory(p) {
+      return (currentLang === 'fa' && p.category_fa) ? p.category_fa : p.category;
+    }
+
+    function showSearchSuggestions(query) {
+      const q = (query || '').trim().toLowerCase();
+      searchDropdown.innerHTML = '';
+      searchDropdown.classList.add('hidden');
+      searchInput.setAttribute('aria-expanded', 'false');
+      if (q.length < 1) return;
+
+      const matches = productsData.filter(p => {
+        const name = getProductDisplayName(p).toLowerCase();
+        const category = getProductCategory(p).toLowerCase();
+        const nameEn = (p.name || '').toLowerCase();
+        const nameFa = (p.name_fa || '').toLowerCase();
+        return name.includes(q) || category.includes(q) || nameEn.includes(q) || nameFa.includes(q);
+      }).slice(0, 8);
+
+      if (matches.length === 0) {
+        searchDropdown.innerHTML = '<p class="px-3 py-2 text-slate-400 text-sm">No products found</p>';
+      } else {
+        matches.forEach(p => {
+          const name = getProductDisplayName(p);
+          const category = getProductCategory(p);
+          const item = document.createElement('a');
+          const params = new URLSearchParams();
+          if (p.categoryId) params.set('category', p.categoryId);
+          if (p.id) params.set('product', p.id);
+          item.href = 'products.html' + (params.toString() ? '?' + params.toString() : '');
+          item.className = 'block px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700 last:border-0';
+          item.setAttribute('role', 'option');
+          item.innerHTML = '<span class="font-medium">' + escapeHtml(name) + '</span><span class="text-slate-400 text-xs block mt-0.5">' + escapeHtml(category) + '</span>';
+          searchDropdown.appendChild(item);
+        });
+      }
+      searchDropdown.classList.remove('hidden');
+      searchInput.setAttribute('aria-expanded', 'true');
+    }
+
+    function hideSearchSuggestions() {
+      searchDropdown.classList.add('hidden');
+      searchDropdown.innerHTML = '';
+      searchInput.setAttribute('aria-expanded', 'false');
+    }
+
+    searchInput.addEventListener('input', () => showSearchSuggestions(searchInput.value));
+    searchInput.addEventListener('focus', () => showSearchSuggestions(searchInput.value));
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        searchInput.blur();
+        hideSearchSuggestions();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) hideSearchSuggestions();
+    });
 
     async function loadProducts() {
       try {
@@ -180,6 +345,11 @@
       currentLang = 'fa';
       localStorage.setItem('lang', 'fa');
       applyLanguage();
+    });
+
+    document.getElementById('nav-logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.reload();
     });
 
     loadProducts();

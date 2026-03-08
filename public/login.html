@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log In - Lighting Products</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col">
+  <header class="bg-slate-800 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div>
+        <a href="index.html" class="hover:opacity-80">
+          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Lighting Products</h1>
+          <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+        </a>
+      </div>
+      <nav class="flex items-center gap-2" aria-label="Language">
+        <a href="account.html" id="nav-signup" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Sign Up</a>
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-md w-full mx-auto px-4 py-8">
+    <h2 id="form-title" class="text-2xl font-bold text-slate-800 mb-6">Log In</h2>
+
+    <form id="login-form" class="bg-white rounded-xl shadow-md p-6 space-y-4">
+      <div>
+        <label id="label-email" for="email" class="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+        <input type="email" id="email" required autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label id="label-password" for="password" class="block text-sm font-medium text-slate-700">Password *</label>
+          <a href="forgot-password.html" id="link-forgot" class="text-sm text-amber-600 hover:underline">Forgot password?</a>
+        </div>
+        <input type="password" id="password" required autocomplete="current-password" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-colors">
+        Log In
+      </button>
+      <p id="login-message" class="text-sm mt-2"></p>
+    </form>
+
+    <p class="mt-4 text-center text-slate-600 text-sm">
+      <span id="no-account-label">Don't have an account?</span>
+      <a href="account.html" class="text-amber-600 font-medium hover:underline">Sign Up</a>
+    </p>
+  </main>
+
+  <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+      <p>&copy; 2026 Lighting Products. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    const translations = {
+      en: {
+        siteTitle: 'Lighting Products',
+        siteSubtitle: 'Quality electrical supplies',
+        formTitle: 'Log In',
+        labelEmail: 'Email *',
+        labelPassword: 'Password *',
+        forgotPassword: 'Forgot password?',
+        submitBtn: 'Log In',
+        noAccountLabel: "Don't have an account?",
+        loginSuccess: 'Login successful! Redirecting...',
+        loginError: 'Invalid email or password.',
+        loginFailed: 'Login failed. Please try again.'
+      },
+      fa: {
+        siteTitle: 'محصولات روشنایی',
+        siteSubtitle: 'تجهیزات برقی با کیفیت',
+        formTitle: 'ورود',
+        labelEmail: 'ایمیل *',
+        labelPassword: 'رمز عبور *',
+        forgotPassword: 'رمز عبور را فراموش کرده‌اید؟',
+        submitBtn: 'ورود',
+        noAccountLabel: 'حساب کاربری ندارید؟',
+        loginSuccess: 'ورود موفق! در حال انتقال...',
+        loginError: 'ایمیل یا رمز عبور اشتباه است.',
+        loginFailed: 'ورود ناموفق. لطفاً دوباره تلاش کنید.'
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'en';
+
+    const loginForm = document.getElementById('login-form');
+    const loginMessage = document.getElementById('login-message');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function applyPageLanguage() {
+      const t = translations[currentLang];
+      document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+      document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+
+      document.getElementById('site-title').textContent = t.siteTitle;
+      document.getElementById('site-subtitle').textContent = t.siteSubtitle;
+      document.getElementById('form-title').textContent = t.formTitle;
+      document.getElementById('label-email').textContent = t.labelEmail;
+      document.getElementById('label-password').textContent = t.labelPassword;
+      document.getElementById('link-forgot').textContent = t.forgotPassword;
+      document.getElementById('submit-btn').textContent = t.submitBtn;
+      document.getElementById('no-account-label').textContent = t.noAccountLabel;
+      document.getElementById('nav-signup').textContent = 'Sign Up';
+
+      document.getElementById('lang-en').className = currentLang === 'en'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+      document.getElementById('lang-fa').className = currentLang === 'fa'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+    }
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginMessage.textContent = '';
+      const t = translations[currentLang];
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        loginMessage.className = 'text-sm mt-2 text-red-600';
+        loginMessage.textContent = t.loginError;
+        return;
+      }
+
+      try {
+        submitBtn.disabled = true;
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          loginMessage.className = 'text-sm mt-2 text-red-600';
+          loginMessage.textContent = data.error || t.loginFailed;
+          return;
+        }
+
+        if (data.token) localStorage.setItem('token', data.token);
+
+        loginMessage.className = 'text-sm mt-2 text-emerald-600';
+        loginMessage.textContent = t.loginSuccess;
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 800);
+      } catch (err) {
+        loginMessage.className = 'text-sm mt-2 text-red-600';
+        loginMessage.textContent = t.loginFailed;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('lang-en').addEventListener('click', () => {
+      currentLang = 'en';
+      localStorage.setItem('lang', 'en');
+      applyPageLanguage();
+    });
+    document.getElementById('lang-fa').addEventListener('click', () => {
+      currentLang = 'fa';
+      localStorage.setItem('lang', 'fa');
+      applyPageLanguage();
+    });
+
+    applyPageLanguage();
+  </script>
+</body>
+</html>
