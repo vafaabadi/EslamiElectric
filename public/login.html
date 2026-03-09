@@ -106,7 +106,12 @@
       document.getElementById('link-forgot').textContent = t.forgotPassword;
       document.getElementById('submit-btn').textContent = t.submitBtn;
       document.getElementById('no-account-label').textContent = t.noAccountLabel;
-      document.getElementById('nav-signup').textContent = 'Sign Up';
+      document.getElementById('nav-signup').textContent = currentLang === 'fa' ? 'ایجاد حساب کاربری' : 'Sign Up';
+      const token = localStorage.getItem('token');
+      const navSignup = document.getElementById('nav-signup');
+      if (navSignup) navSignup.classList.toggle('hidden', !!token);
+      const noAccountBlock = document.querySelector('.mt-4.text-center.text-slate-600');
+      if (noAccountBlock) noAccountBlock.classList.toggle('hidden', !!token);
 
       document.getElementById('lang-en').className = currentLang === 'en'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'

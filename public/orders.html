@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Orders - Lighting Products</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col">
+  <header class="bg-slate-800 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div>
+        <a href="index.html" class="hover:opacity-80">
+          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Lighting Products</h1>
+          <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+        </a>
+      </div>
+      <nav class="flex items-center gap-2" aria-label="Navigation">
+        <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
+        <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
+        <a href="basket.html" id="nav-basket" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket</a>
+        <a href="orders.html" id="nav-orders" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">My Orders</a>
+        <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
+        <a href="account.html" id="go-account" class="px-3 py-1.5 rounded text-sm font-medium bg-emerald-500 text-slate-900 hover:bg-emerald-400 transition-colors">Sign Up</a>
+        <button id="nav-logout" type="button" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Logout</button>
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
+    <h2 id="page-title" class="text-3xl font-bold text-slate-800 mb-6">My Orders</h2>
+
+    <div id="orders-login-required" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-600">
+      <p id="login-required-message" class="mb-4">Log in to view your orders.</p>
+      <a href="login.html" id="login-required-link" class="inline-block px-4 py-2 rounded bg-amber-500 text-slate-900 font-medium hover:bg-amber-400 transition-colors">Log In</a>
+    </div>
+
+    <div id="orders-loading" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
+      <p>Loading orders…</p>
+    </div>
+
+    <div id="orders-empty" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
+      <p id="orders-empty-message" class="mb-4">You have no orders yet.</p>
+      <a href="products.html" id="orders-empty-link" class="inline-block px-4 py-2 rounded bg-amber-500 text-slate-900 font-medium hover:bg-amber-400 transition-colors">Browse Products</a>
+    </div>
+
+    <ul id="orders-list" class="space-y-4"></ul>
+  </main>
+
+  <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+      <p>&copy; 2026 Lighting Products. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    const translations = {
+      en: {
+        siteTitle: 'Lighting Products',
+        siteSubtitle: 'Quality electrical supplies',
+        pageTitle: 'My Orders',
+        navHome: 'Home',
+        navProducts: 'Products',
+        navBasket: 'Basket',
+        navOrders: 'My Orders',
+        navLogin: 'Login',
+        createAccount: 'Sign Up',
+        navLogout: 'Logout',
+        loginRequiredMessage: 'Log in to view your orders.',
+        logIn: 'Log In',
+        loadingOrders: 'Loading orders…',
+        noOrdersYet: 'You have no orders yet.',
+        browseProducts: 'Browse Products',
+        orderDate: 'Date',
+        orderTotal: 'Total',
+        orderStatus: 'Status',
+        statusPaid: 'Paid',
+        viewDetails: 'Details',
+        items: 'Items'
+      },
+      fa: {
+        siteTitle: 'محصولات روشنایی',
+        siteSubtitle: 'تجهیزات برقی با کیفیت',
+        pageTitle: 'سفارشات من',
+        navHome: 'خانه',
+        navProducts: 'محصولات',
+        navBasket: 'سبد خرید',
+        navOrders: 'سفارشات من',
+        navLogin: 'ورود',
+        createAccount: 'ایجاد حساب کاربری',
+        navLogout: 'خروج',
+        loginRequiredMessage: 'برای مشاهده سفارشات وارد شوید.',
+        logIn: 'ورود',
+        loadingOrders: 'در حال بارگذاری سفارشات…',
+        noOrdersYet: 'هنوز سفارشی ندارید.',
+        browseProducts: 'مشاهده محصولات',
+        orderDate: 'تاریخ',
+        orderTotal: 'مجموع',
+        orderStatus: 'وضعیت',
+        statusPaid: 'پرداخت شده',
+        viewDetails: 'جزئیات',
+        items: 'اقلام'
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'en';
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      return currentLang === 'fa' ? d.toLocaleDateString('fa-IR') : d.toLocaleDateString();
+    }
+
+    function formatAmount(cents, currency) {
+      const n = (cents / 100).toFixed(2);
+      return currency === 'usd' ? '$' + n : n + ' ' + (currency || '').toUpperCase();
+    }
+
+    function applyPageLanguage() {
+      const t = translations[currentLang];
+      document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+      document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+      document.getElementById('site-title').textContent = t.siteTitle;
+      document.getElementById('site-subtitle').textContent = t.siteSubtitle;
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.getElementById('nav-home').textContent = t.navHome;
+      document.getElementById('nav-products').textContent = t.navProducts;
+      document.getElementById('nav-basket').textContent = t.navBasket;
+      document.getElementById('nav-orders').textContent = t.navOrders;
+      document.getElementById('nav-login').textContent = t.navLogin;
+      document.getElementById('go-account').textContent = t.createAccount;
+      document.getElementById('nav-logout').textContent = t.navLogout;
+      document.getElementById('login-required-message').textContent = t.loginRequiredMessage;
+      document.getElementById('login-required-link').textContent = t.logIn;
+      document.getElementById('orders-empty-message').textContent = t.noOrdersYet;
+      document.getElementById('orders-empty-link').textContent = t.browseProducts;
+      document.getElementById('lang-en').className = currentLang === 'en'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+      document.getElementById('lang-fa').className = currentLang === 'fa'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+      const token = localStorage.getItem('token');
+      document.getElementById('nav-login').classList.toggle('hidden', !!token);
+      document.getElementById('nav-logout').classList.toggle('hidden', !token);
+      document.getElementById('go-account').classList.toggle('hidden', !!token);
+    }
+
+    function showSection(id) {
+      ['orders-login-required', 'orders-loading', 'orders-empty', 'orders-list'].forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.classList.add('hidden');
+      });
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.remove('hidden');
+        if (id === 'orders-list') el.style.display = '';
+      }
+    }
+
+    function renderOrders(orders) {
+      const listEl = document.getElementById('orders-list');
+      listEl.innerHTML = '';
+      const t = translations[currentLang];
+      const statusLabel = (s) => (s === 'paid' ? t.statusPaid : s);
+
+      orders.forEach((order) => {
+        const li = document.createElement('li');
+        li.className = 'bg-white rounded-xl shadow-md overflow-hidden';
+        const lineItems = order.line_items || [];
+        const itemsSummary = lineItems.length
+          ? lineItems.map(i => escapeHtml(i.name) + (i.quantity > 1 ? ' × ' + i.quantity : '')).join(', ')
+          : '—';
+        li.innerHTML = `
+          <div class="p-4 flex flex-wrap items-center justify-between gap-4 cursor-pointer order-header" data-order-id="${escapeHtml(order.id)}">
+            <div class="flex-1 min-w-0">
+              <p class="text-slate-500 text-sm">${t.orderDate}: ${formatDate(order.created_at)}</p>
+              <p class="font-semibold text-slate-800 mt-0.5">${formatAmount(order.amount_total, order.currency)}</p>
+              <p class="text-slate-600 text-sm mt-1 truncate" title="${itemsSummary}">${itemsSummary}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-800">${statusLabel(order.status)}</span>
+              <span class="order-toggle text-slate-400" aria-hidden="true">▼</span>
+            </div>
+          </div>
+          <div class="order-details hidden border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+            <p class="text-sm font-medium text-slate-600 mb-2">${t.items}</p>
+            <ul class="space-y-1 text-sm text-slate-700"></ul>
+          </div>
+        `;
+        const detailsEl = li.querySelector('.order-details');
+        const itemsListEl = li.querySelector('.order-details ul');
+        if (lineItems.length) {
+          lineItems.forEach((item) => {
+            const qty = item.quantity || 1;
+            const amt = item.amount_total != null ? formatAmount(item.amount_total, order.currency) : '';
+            const row = document.createElement('li');
+            row.textContent = `${escapeHtml(item.name)} × ${qty}${amt ? ' — ' + amt : ''}`;
+            itemsListEl.appendChild(row);
+          });
+        } else {
+          itemsListEl.innerHTML = '<li class="text-slate-500">—</li>';
+        }
+        li.querySelector('.order-header').addEventListener('click', () => {
+          detailsEl.classList.toggle('hidden');
+          const toggle = li.querySelector('.order-toggle');
+          if (toggle) toggle.textContent = detailsEl.classList.contains('hidden') ? '▼' : '▲';
+        });
+        listEl.appendChild(li);
+      });
+    }
+
+    async function loadOrders() {
+      const token = localStorage.getItem('token');
+      showSection('orders-loading');
+      document.getElementById('orders-loading').querySelector('p').textContent = translations[currentLang].loadingOrders;
+
+      if (!token) {
+        showSection('orders-login-required');
+        applyPageLanguage();
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/orders', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (res.status === 401) {
+          showSection('orders-login-required');
+          applyPageLanguage();
+          return;
+        }
+        if (!res.ok) throw new Error('Failed to load orders');
+        let orders = await res.json();
+        applyPageLanguage();
+        if (!orders || orders.length === 0) {
+          showSection('orders-empty');
+          return;
+        }
+        var pending = orders.filter(function (o) { return o.status === 'pending'; });
+        if (pending.length > 0) {
+          var updated = false;
+          await Promise.all(pending.map(function (o) {
+            return fetch('/api/orders/confirm-by-session/' + encodeURIComponent(o.stripe_session_id), { method: 'POST' })
+              .then(function (r) { return r.json(); })
+              .then(function (data) { if (data && data.updated) updated = true; })
+              .catch(function () {});
+          }));
+          if (updated) {
+            var res2 = await fetch('/api/orders', { headers: { Authorization: 'Bearer ' + token } });
+            if (res2.ok) orders = await res2.json();
+          }
+        }
+        showSection('orders-list');
+        renderOrders(orders);
+      } catch (e) {
+        showSection('orders-login-required');
+        document.getElementById('login-required-message').textContent = 'Could not load orders. Please try again.';
+        applyPageLanguage();
+      }
+    }
+
+    document.getElementById('lang-en').addEventListener('click', () => {
+      currentLang = 'en';
+      localStorage.setItem('lang', 'en');
+      applyPageLanguage();
+    });
+    document.getElementById('lang-fa').addEventListener('click', () => {
+      currentLang = 'fa';
+      localStorage.setItem('lang', 'fa');
+      applyPageLanguage();
+    });
+    document.getElementById('nav-logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.reload();
+    });
+
+    applyPageLanguage();
+    loadOrders();
+  </script>
+</body>
+</html>

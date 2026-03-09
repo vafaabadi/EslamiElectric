@@ -19,6 +19,7 @@
         <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
         <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
         <a href="basket.html" id="nav-basket" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">Basket</a>
+        <a href="orders.html" id="nav-orders" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
         <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
         <a href="account.html" id="go-account" rel="noopener" class="px-3 py-1.5 rounded text-sm font-medium bg-emerald-500 text-slate-900 hover:bg-emerald-400 transition-colors">Sign Up</a>
         <button id="nav-logout" type="button" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Logout</button>
@@ -38,10 +39,17 @@
 
     <div id="basket-content" class="hidden space-y-4">
       <ul id="basket-list" class="space-y-3"></ul>
-      <div class="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+      <div class="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-end justify-end gap-4">
         <div class="text-right">
           <p id="total-label" class="text-slate-600 text-sm">Total</p>
           <p id="basket-total" class="text-2xl font-bold text-slate-900">$0.00</p>
+        </div>
+        <div id="checkout-actions" class="flex flex-col items-end gap-2">
+          <p id="checkout-error" class="hidden text-sm text-red-600"></p>
+          <button type="button" id="btn-checkout" class="px-6 py-3 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            <span id="btn-checkout-text">Proceed to checkout</span>
+            <span id="btn-checkout-loading" class="hidden">...</span>
+          </button>
         </div>
       </div>
     </div>
@@ -70,8 +78,11 @@
         navProducts: 'Products',
         navBasket: 'Basket',
         navLogin: 'Login',
+        navOrders: 'My Orders',
         createAccount: 'Sign Up',
-        navLogout: 'Logout'
+        navLogout: 'Logout',
+        proceedToCheckout: 'Proceed to checkout',
+        checkoutError: 'Could not start checkout. Please try again.'
       },
       fa: {
         siteTitle: 'محصولات روشنایی',
@@ -86,8 +97,11 @@
         navProducts: 'محصولات',
         navBasket: 'سبد خرید',
         navLogin: 'ورود',
+        navOrders: 'سفارشات من',
         createAccount: 'ایجاد حساب کاربری',
-        navLogout: 'خروج'
+        navLogout: 'خروج',
+        proceedToCheckout: 'ادامه به پرداخت',
+        checkoutError: 'شروع پرداخت ممکن نشد. دوباره تلاش کنید.'
       }
     };
 
@@ -129,6 +143,9 @@
       document.getElementById('nav-login').textContent = t.navLogin;
       document.getElementById('go-account').textContent = t.createAccount;
       document.getElementById('nav-logout').textContent = t.navLogout;
+      const navOrdersEl = document.getElementById('nav-orders');
+      if (navOrdersEl && t.navOrders) navOrdersEl.textContent = t.navOrders;
+      document.getElementById('btn-checkout-text').textContent = t.proceedToCheckout;
 
       document.getElementById('lang-en').className = currentLang === 'en'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
@@ -141,6 +158,8 @@
       document.getElementById('nav-login').classList.toggle('hidden', !!token);
       document.getElementById('nav-logout').classList.toggle('hidden', !token);
       document.getElementById('go-account').classList.toggle('hidden', !!token);
+      const navOrders = document.getElementById('nav-orders');
+      if (navOrders) navOrders.classList.toggle('hidden', !token);
 
       renderBasket();
     }
@@ -197,6 +216,9 @@
 
       totalEl.textContent = '$' + total.toFixed(2);
 
+      const btnCheckout = document.getElementById('btn-checkout');
+      if (btnCheckout) btnCheckout.disabled = false;
+
       listEl.querySelectorAll('.btn-remove').forEach(btn => {
         btn.addEventListener('click', () => {
           const idx = parseInt(btn.getAttribute('data-index'), 10);
@@ -245,6 +267,64 @@
     document.getElementById('nav-logout').addEventListener('click', () => {
       localStorage.removeItem('token');
       window.location.reload();
+    });
+
+    document.getElementById('btn-checkout').addEventListener('click', async () => {
+      const basket = getBasket();
+      if (!basket.length) return;
+
+      const btnCheckout = document.getElementById('btn-checkout');
+      const btnText = document.getElementById('btn-checkout-text');
+      const btnLoading = document.getElementById('btn-checkout-loading');
+      const errEl = document.getElementById('checkout-error');
+      const t = translations[currentLang];
+
+      errEl.classList.add('hidden');
+      errEl.textContent = '';
+      btnCheckout.disabled = true;
+      btnText.classList.add('hidden');
+      btnLoading.classList.remove('hidden');
+
+      const lineItems = basket.map((item) => {
+        const name = currentLang === 'fa' && item.name_fa ? item.name_fa : item.name;
+        return {
+          name: name || 'Item',
+          price: Number(item.price) || 0,
+          quantity: item.quantity || 1
+        };
+      });
+
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const res = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ lineItems })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errEl.textContent = data.error || t.checkoutError;
+          errEl.classList.remove('hidden');
+          btnCheckout.disabled = false;
+          btnText.classList.remove('hidden');
+          btnLoading.classList.add('hidden');
+          return;
+        }
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        errEl.textContent = t.checkoutError;
+        errEl.classList.remove('hidden');
+      } catch (e) {
+        errEl.textContent = t.checkoutError;
+        errEl.classList.remove('hidden');
+      }
+      btnCheckout.disabled = false;
+      btnText.classList.remove('hidden');
+      btnLoading.classList.add('hidden');
     });
 
     applyPageLanguage();

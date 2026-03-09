@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -25,6 +26,10 @@ if (!jwtSecret) {
 }
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+
 const validationPatterns = {
   name: /^[\u0600-\u06FFa-zA-Z\s]{2,50}$/,
   dob: /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/,
@@ -33,6 +38,88 @@ const validationPatterns = {
   email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
   address: /^[\u0600-\u06FFa-zA-Z0-9\s.,()/-]{10,200}$/
 };
+
+// Stripe webhook needs raw body for signature verification (must be before express.json())
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe || !stripeWebhookSecret) {
+    return res.status(503).send('Webhook not configured');
+  }
+  const sig = req.headers['stripe-signature'];
+  if (!sig) return res.status(400).send('Missing stripe-signature');
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret);
+  } catch (err) {
+    return res.status(400).send('Webhook signature verification failed');
+  }
+  if (event.type !== 'checkout.session.completed') {
+    return res.status(200).send('OK');
+  }
+  const session = event.data.object;
+  const userId = session.client_reference_id || null;
+  const stripeSessionId = session.id;
+  const amountTotal = session.amount_total || 0;
+  const currency = (session.currency || 'usd').toLowerCase();
+  const customerEmail = session.customer_email || session.customer_details?.email || null;
+  let lineItems = [];
+  try {
+    const fullSession = await stripe.checkout.sessions.retrieve(stripeSessionId, { expand: ['line_items.data.price.product'] });
+    if (fullSession.line_items && fullSession.line_items.data) {
+      lineItems = fullSession.line_items.data.map((li) => ({
+        name: (li.price && li.price.product && typeof li.price.product === 'object' && li.price.product.name) ? li.price.product.name : (li.description || 'Item'),
+        quantity: li.quantity || 1,
+        unit_amount: li.price ? li.price.unit_amount : 0,
+        amount_total: li.amount_total
+      }));
+    }
+  } catch (e) {
+    console.error('Stripe session retrieve error:', e);
+  }
+  try {
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('stripe_session_id', stripeSessionId)
+      .single();
+
+    if (existingOrder) {
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          status: 'paid',
+          amount_total: amountTotal,
+          currency,
+          line_items: lineItems,
+          customer_email: customerEmail
+        })
+        .eq('stripe_session_id', stripeSessionId);
+      if (updateError) {
+        console.error('Orders update error:', updateError);
+        return res.status(500).send('Error updating order');
+      }
+    } else {
+      const { error } = await supabase.from('orders').insert({
+        user_id: userId || null,
+        stripe_session_id: stripeSessionId,
+        amount_total: amountTotal,
+        currency,
+        status: 'paid',
+        line_items: lineItems,
+        customer_email: customerEmail
+      });
+      if (error) {
+        if (error.code === '23505') return res.status(200).send('OK');
+        console.error('Orders insert error:', error);
+        return res.status(500).send('Error recording order');
+      }
+    }
+  } catch (e) {
+    console.error('Webhook order create error:', e);
+    return res.status(500).send('Error recording order');
+  }
+  res.status(200).send('OK');
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -344,6 +431,186 @@ app.post('/api/reset-password', async (req, res) => {
   } catch (err) {
     console.error('Reset password error:', err);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Stripe Checkout: create session (priceId, amount in cents, or lineItems from basket)
+app.post('/api/create-checkout-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY in .env' });
+  }
+  try {
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (token) {
+      try {
+        const payload = jwt.verify(token, jwtSecret);
+        userId = payload.userId;
+      } catch (_) { /* optional auth */ }
+    }
+    const { priceId, amount, lineItems: bodyLineItems } = req.body || {};
+    const successUrl = baseUrl.replace(/\/$/, '') + '/checkout-success.html?session_id={CHECKOUT_SESSION_ID}';
+    const cancelUrl = baseUrl.replace(/\/$/, '') + '/basket.html';
+
+    let lineItems;
+    if (priceId) {
+      lineItems = [{ price: priceId, quantity: 1 }];
+    } else if (Array.isArray(bodyLineItems) && bodyLineItems.length > 0) {
+      lineItems = bodyLineItems.map((item) => ({
+        price_data: {
+          currency: 'usd',
+          unit_amount: Math.round(Number(item.price) * 100),
+          product_data: { name: item.name || 'Item' }
+        },
+        quantity: item.quantity || 1
+      }));
+    } else if (amount != null && Number(amount) > 0) {
+      const amountCents = Math.round(Number(amount));
+      lineItems = [{
+        price_data: {
+          currency: 'usd',
+          unit_amount: amountCents,
+          product_data: { name: 'Order' }
+        },
+        quantity: 1
+      }];
+    } else {
+      return res.status(400).json({ error: 'Provide priceId, amount (in cents), or lineItems' });
+    }
+
+    const sessionParams = {
+      mode: 'payment',
+      line_items: lineItems,
+      success_url: successUrl,
+      cancel_url: cancelUrl
+    };
+    if (userId) sessionParams.client_reference_id = String(userId);
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    const amountTotal = session.amount_total || 0;
+    const lineItemsForDb = Array.isArray(bodyLineItems) && bodyLineItems.length > 0
+      ? bodyLineItems.map((item) => ({
+          name: item.name || 'Item',
+          quantity: item.quantity || 1,
+          unit_amount: Math.round(Number(item.price) * 100),
+          amount_total: Math.round(Number(item.price) * 100) * (item.quantity || 1)
+        }))
+      : [];
+    await supabase.from('orders').insert({
+      user_id: userId || null,
+      stripe_session_id: session.id,
+      amount_total: amountTotal,
+      currency: 'usd',
+      status: 'pending',
+      line_items: lineItemsForDb
+    });
+
+    res.json({ url: session.url, sessionId: session.id });
+  } catch (err) {
+    console.error('Stripe checkout error:', err);
+    res.status(500).json({ error: err.message || 'Failed to create checkout session' });
+  }
+});
+
+// Get current user's orders (requires auth)
+app.get('/api/orders', authMiddleware, async (req, res) => {
+  try {
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('id, stripe_session_id, amount_total, currency, status, line_items, created_at')
+      .eq('user_id', req.userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Orders fetch error:', error);
+      return res.status(500).json({ error: 'Failed to load orders' });
+    }
+    res.json(orders || []);
+  } catch (err) {
+    console.error('Get orders error:', err);
+    res.status(500).json({ error: 'Failed to load orders' });
+  }
+});
+
+// Get single order by Stripe session ID (for success page; no auth)
+app.get('/api/orders/by-session/:sessionId', async (req, res) => {
+  try {
+    const sessionId = req.params.sessionId;
+    if (!sessionId || !sessionId.startsWith('cs_')) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('id, stripe_session_id, amount_total, currency, status, line_items, customer_email, created_at')
+      .eq('stripe_session_id', sessionId)
+      .single();
+
+    if (error || !order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
+  } catch (err) {
+    console.error('Get order by session error:', err);
+    res.status(500).json({ error: 'Failed to load order' });
+  }
+});
+
+// Confirm payment and set order to paid using Stripe session (for success page; no auth)
+// Use when webhook did not run (e.g. local testing). Idempotent.
+app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  if (!stripe) {
+    return res.status(503).json({ error: 'Stripe not configured' });
+  }
+  try {
+    const sessionId = req.params.sessionId;
+    if (!sessionId || !sessionId.startsWith('cs_')) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+    const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['line_items.data.price.product'] });
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Session not paid' });
+    }
+    const amountTotal = session.amount_total || 0;
+    const currency = (session.currency || 'usd').toLowerCase();
+    const customerEmail = session.customer_email || session.customer_details?.email || null;
+    let lineItems = [];
+    if (session.line_items && session.line_items.data) {
+      lineItems = session.line_items.data.map((li) => ({
+        name: (li.price && li.price.product && typeof li.price.product === 'object' && li.price.product.name) ? li.price.product.name : (li.description || 'Item'),
+        quantity: li.quantity || 1,
+        unit_amount: li.price ? li.price.unit_amount : 0,
+        amount_total: li.amount_total
+      }));
+    }
+    const { data: order, error: findError } = await supabase
+      .from('orders')
+      .select('id, status')
+      .eq('stripe_session_id', sessionId)
+      .single();
+    if (findError || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (order.status === 'paid') {
+      return res.json({ updated: false, status: 'paid' });
+    }
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        status: 'paid',
+        amount_total: amountTotal,
+        currency,
+        line_items: lineItems,
+        customer_email: customerEmail
+      })
+      .eq('stripe_session_id', sessionId);
+    if (updateError) {
+      console.error('Confirm order update error:', updateError);
+      return res.status(500).json({ error: 'Failed to update order' });
+    }
+    res.json({ updated: true, status: 'paid' });
+  } catch (err) {
+    console.error('Confirm by session error:', err);
+    res.status(500).json({ error: err.message || 'Failed to confirm order' });
   }
 });
 
