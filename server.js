@@ -124,6 +124,52 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/api/config', (req, res) => {
+  const supabaseUrl = process.env.SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
+  res.json({ supabaseUrl, supabaseAnonKey, baseUrl: baseUrl.replace(/\/$/, '') });
+});
+
+// Exchange Supabase Auth access token for app JWT (for login/sign-up using Supabase Auth)
+const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET;
+app.post('/api/auth/token', async (req, res) => {
+  if (!supabaseJwtSecret) {
+    return res.status(503).json({ error: 'Auth not configured' });
+  }
+  try {
+    const { accessToken } = req.body || {};
+    if (!accessToken || typeof accessToken !== 'string') {
+      return res.status(400).json({ error: 'accessToken required' });
+    }
+    const payload = jwt.verify(accessToken, supabaseJwtSecret, { algorithms: ['HS256'] });
+    const userId = payload.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, first_name, surname')
+      .eq('id', userId)
+      .single();
+    if (error || !user) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+    const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
+    res.json({
+      ok: true,
+      token,
+      user: { id: user.id, email: user.email, firstName: user.first_name, surname: user.surname }
+    });
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    console.error('Auth token error:', err);
+    res.status(500).json({ error: 'Failed to issue token' });
+  }
+});
+
 function getCategories() {
   const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
   return JSON.parse(data).categories;

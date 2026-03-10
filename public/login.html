@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Log In - Lighting Products</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col">
   <header class="bg-slate-800 text-white shadow-md">
@@ -126,7 +127,7 @@
       loginMessage.textContent = '';
       const t = translations[currentLang];
 
-      const email = document.getElementById('email').value.trim();
+      const email = document.getElementById('email').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
 
       if (!email || !password) {
@@ -137,27 +138,35 @@
 
       try {
         submitBtn.disabled = true;
-        const res = await fetch('/api/login', {
+        const configRes = await fetch('/api/config');
+        const config = await configRes.json();
+        if (!config.supabaseUrl || !config.supabaseAnonKey) {
+          loginMessage.className = 'text-sm mt-2 text-red-600';
+          loginMessage.textContent = t.loginFailed;
+          return;
+        }
+        const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        if (authError) {
+          loginMessage.className = 'text-sm mt-2 text-red-600';
+          loginMessage.textContent = authError.message || t.loginError;
+          return;
+        }
+        const tokenRes = await fetch('/api/auth/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ accessToken: authData.session.access_token })
         });
-
-        const data = await res.json();
-
-        if (!res.ok) {
+        const data = await tokenRes.json();
+        if (!tokenRes.ok) {
           loginMessage.className = 'text-sm mt-2 text-red-600';
           loginMessage.textContent = data.error || t.loginFailed;
           return;
         }
-
         if (data.token) localStorage.setItem('token', data.token);
-
         loginMessage.className = 'text-sm mt-2 text-emerald-600';
         loginMessage.textContent = t.loginSuccess;
-        setTimeout(() => {
-          window.location.href = 'index.html';
-        }, 800);
+        setTimeout(() => { window.location.href = 'index.html'; }, 800);
       } catch (err) {
         loginMessage.className = 'text-sm mt-2 text-red-600';
         loginMessage.textContent = t.loginFailed;

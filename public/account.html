@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up - Lighting Products</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col">
   <header class="bg-slate-800 text-white shadow-md">
@@ -343,28 +344,63 @@
 
       try {
         accountSubmitBtn.disabled = true;
-        const res = await fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...body, confirmPassword: undefined })
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json();
+        const configRes = await fetch('/api/config');
+        const config = await configRes.json();
+        if (!config.supabaseUrl || !config.supabaseAnonKey) {
           accountMessage.className = 'text-sm mt-2 text-red-600';
-          accountMessage.textContent = errorData.error || t.accountError;
+          accountMessage.textContent = t.accountError;
           return;
         }
-
-        const data = await res.json();
-        if (data.token) localStorage.setItem('token', data.token);
-
+        const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+        const email = body.email.trim().toLowerCase();
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password: body.password,
+          options: {
+            data: {
+              first_name: body.firstName,
+              surname: body.surname,
+              type: type,
+              dob: body.dob || null,
+              mobile: body.mobile,
+              landline: body.landline || null,
+              address: body.address,
+              bank_details: body.bankDetails || null,
+              company_name: type === 'company' ? body.companyName : null,
+              company_number: type === 'company' ? body.companyNumber : null,
+              company_contact_number: type === 'company' ? body.companyContactNumber : null,
+              company_principal_contact: type === 'company' ? body.companyPrincipalContact : null
+            }
+          }
+        });
+        if (signUpError) {
+          accountMessage.className = 'text-sm mt-2 text-red-600';
+          accountMessage.textContent = signUpError.message || t.accountError;
+          return;
+        }
+        var hasAppToken = false;
+        if (authData.session) {
+          const tokenRes = await fetch('/api/auth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken: authData.session.access_token })
+          });
+          const tokenData = await tokenRes.json().catch(function() { return {}; });
+          if (tokenRes.ok && tokenData.token) {
+            localStorage.setItem('token', tokenData.token);
+            hasAppToken = true;
+          }
+        }
         accountForm.reset();
         accountType.value = 'person';
         updateAccountTypeVisibility();
-
         accountMessage.className = 'text-sm mt-2 text-emerald-600';
-        accountMessage.textContent = t.accountSuccess;
+        accountMessage.textContent = authData.user && !authData.session
+          ? (currentLang === 'fa' ? 'حساب ایجاد شد. لطفاً ایمیل خود را برای تأیید بررسی کنید.' : "Account created. Please check your email to confirm your account.")
+          : t.accountSuccess;
+        if (hasAppToken) {
+          setTimeout(function() { window.location.href = 'index.html'; }, 1200);
+        }
       } catch (err) {
         accountMessage.className = 'text-sm mt-2 text-red-600';
         accountMessage.textContent = t.accountError;
