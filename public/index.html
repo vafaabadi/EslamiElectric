@@ -7,6 +7,31 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+  (function() {
+    var hash = window.location.hash;
+    if (!hash || hash.indexOf('access_token') === -1) return;
+    (async function() {
+      try {
+        var configRes = await fetch('/api/config');
+        var config = await configRes.json();
+        if (!config.supabaseUrl || !config.supabaseAnonKey) return;
+        var supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+        if (typeof supabase.auth.initialize === 'function') await supabase.auth.initialize();
+        var session = (await supabase.auth.getSession()).data.session;
+        if (!session || !session.access_token) return;
+        var tokenRes = await fetch('/api/auth/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: session.access_token }) });
+        var data = await tokenRes.json();
+        if (tokenRes.ok && data.token) {
+          localStorage.setItem('token', data.token);
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+          window.location.reload();
+        }
+      } catch (e) {}
+    })();
+  })();
+  </script>
   <header class="bg-slate-800 text-white shadow-md">
     <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">

@@ -131,21 +131,60 @@ app.get('/api/config', (req, res) => {
   res.json({ supabaseUrl, supabaseAnonKey, baseUrl: baseUrl.replace(/\/$/, '') });
 });
 
-// Exchange Supabase Auth access token for app JWT (for login/sign-up using Supabase Auth)
-const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET;
 app.post('/api/auth/token', async (req, res) => {
-  if (!supabaseJwtSecret) {
-    return res.status(503).json({ error: 'Auth not configured' });
-  }
   try {
     const { accessToken } = req.body || {};
     if (!accessToken || typeof accessToken !== 'string') {
       return res.status(400).json({ error: 'accessToken required' });
     }
-    const payload = jwt.verify(accessToken, supabaseJwtSecret, { algorithms: ['HS256'] });
-    const userId = payload.sub;
-    if (!userId) {
-      return res.status(401).json({ error: 'Invalid token' });
+    // Ask Supabase Auth to validate the access token and return the user.
+    const { data: authUserData, error: authErr } = await supabase.auth.getUser(accessToken);
+    if (authErr || !authUserData || !authUserData.user) {
+      console.error('Auth getUser error:', authErr);
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    const authUser = authUserData.user;
+    const userId = authUser.id;
+    const meta = authUser.user_metadata || {};
+    const email = (authUser.email || '').trim() || '';
+    const firstName = (meta.first_name || '').trim() || '';
+    const surname = (meta.surname || '').trim() || '';
+    const type = (meta.type || '').trim() || 'person';
+    const mobile = (meta.mobile || '').trim() || '';
+    const address = (meta.address || '').trim() || '';
+    const landline = (meta.landline || '').trim() || null;
+    const bankDetails = (meta.bank_details || '').trim() || null;
+    const companyName = (meta.company_name || '').trim() || null;
+    const companyNumber = (meta.company_number || '').trim() || null;
+    const companyContactNumber = (meta.company_contact_number || '').trim() || null;
+    const companyPrincipalContact = (meta.company_principal_contact || '').trim() || null;
+    let dob = null;
+    if (meta.dob && String(meta.dob).trim()) {
+      const d = new Date(meta.dob);
+      if (!isNaN(d.getTime())) dob = d.toISOString().slice(0, 10);
+    }
+    const { error: upsertErr } = await supabase.from('users').upsert(
+      {
+        id: userId,
+        email,
+        first_name: firstName,
+        surname,
+        type,
+        dob: dob || null,
+        mobile,
+        landline,
+        address,
+        bank_details: bankDetails,
+        company_name: companyName,
+        company_number: companyNumber,
+        company_contact_number: companyContactNumber,
+        company_principal_contact: companyPrincipalContact
+      },
+      { onConflict: 'id' }
+    );
+    if (upsertErr) {
+      console.error('Users upsert error:', upsertErr);
+      return res.status(500).json({ error: 'Failed to sync profile' });
     }
     const { data: user, error } = await supabase
       .from('users')
@@ -162,9 +201,6 @@ app.post('/api/auth/token', async (req, res) => {
       user: { id: user.id, email: user.email, firstName: user.first_name, surname: user.surname }
     });
   } catch (err) {
-    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
     console.error('Auth token error:', err);
     res.status(500).json({ error: 'Failed to issue token' });
   }

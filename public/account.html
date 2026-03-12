@@ -146,6 +146,7 @@
         navLogin: 'Log In',
         accountSuccess: 'Account created successfully!',
         accountError: 'Failed to create user account. Please try again.',
+        accountEmailTaken: 'Email address already registered. Please use a different email address to register.',
         accountMissingFields: 'Please fill in all required fields.',
         errorFirstName: 'First name must be 2-50 letters (English or Persian)',
         errorSurname: 'Surname must be 2-50 letters (English or Persian)',
@@ -183,6 +184,7 @@
         navLogin: 'ورود',
         accountSuccess: 'حساب کاربری با موفقیت ایجاد شد!',
         accountError: 'خطا در ایجاد حساب کاربری. لطفاً دوباره تلاش کنید.',
+        accountEmailTaken: 'این آدرس ایمیل قبلاً ثبت شده است. لطفاً از یک ایمیل دیگر برای ثبت‌نام استفاده کنید.',
         accountMissingFields: 'لطفاً تمام فیلدهای الزامی را پر کنید.',
         errorFirstName: 'نام باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
         errorSurname: 'نام خانوادگی باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
@@ -353,10 +355,12 @@
         }
         const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
         const email = body.email.trim().toLowerCase();
+        const redirectTo = (config.baseUrl || window.location.origin) + '/auth-callback.html';
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password: body.password,
           options: {
+            emailRedirectTo: redirectTo,
             data: {
               first_name: body.firstName,
               surname: body.surname,
@@ -375,7 +379,11 @@
         });
         if (signUpError) {
           accountMessage.className = 'text-sm mt-2 text-red-600';
-          accountMessage.textContent = signUpError.message || t.accountError;
+          var errMsg = signUpError.message || t.accountError;
+          if (signUpError.message && signUpError.message.toLowerCase().indexOf('user already registered') !== -1) {
+            errMsg = t.accountEmailTaken;
+          }
+          accountMessage.textContent = errMsg;
           return;
         }
         var hasAppToken = false;

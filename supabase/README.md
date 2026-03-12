@@ -12,7 +12,10 @@
 ## 2. Enable Supabase Auth (Email)
 
 1. In Supabase: **Authentication** → **Providers** → **Email** → enable and save.
-2. (Optional) Under **Authentication** → **URL Configuration**, add **Redirect URLs** for your app (e.g. `http://localhost:3000/update-password.html`, `https://your-domain.com/update-password.html`).
+2. Under **Authentication** → **URL Configuration**, add **Redirect URLs**:
+   - `http://localhost:3000/auth-callback.html` (and `https://your-domain.com/auth-callback.html` for production)
+   - `http://localhost:3000/update-password.html` (for forgot-password links)
+   There is no separate "Confirm email redirect" setting; the app passes `emailRedirectTo: baseUrl + '/auth-callback.html'` when the user signs up, so the confirmation email link sends them to `auth-callback.html`, which syncs them to `public.users` and logs them in.
 3. To skip email confirmation so users are signed in immediately after sign-up: **Authentication** → **Providers** → **Email** → disable "Confirm email".
 
 ## 3. Configure the app
