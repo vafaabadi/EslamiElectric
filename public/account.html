@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Up - Lighting Products</title>
+  <title>Sign Up - Eslami Electric</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -11,10 +11,13 @@
   <header class="bg-slate-800 text-white shadow-md">
     <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
       <div>
-        <h1 id="site-title" class="text-2xl font-bold tracking-tight">Lighting Products</h1>
-        <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+        <a href="index.html" class="hover:opacity-80">
+          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Eslami Electric</h1>
+          <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+        </a>
       </div>
-      <nav class="flex items-center gap-2" aria-label="Language">
+      <nav class="flex items-center gap-2" aria-label="Navigation">
+        <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
         <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Log In</a>
         <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
         <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
@@ -114,14 +117,14 @@
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-      <p>&copy; 2026 Lighting Products. All rights reserved.</p>
+      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
     </div>
   </footer>
 
   <script>
     const translations = {
       en: {
-        siteTitle: 'Lighting Products',
+        siteTitle: 'Eslami Electric',
         siteSubtitle: 'Quality electrical supplies',
         formTitle: 'Create an Account',
         labelType: 'Account Type',
@@ -143,6 +146,7 @@
         labelCompanyContact: 'Company Contact Number',
         labelCompanyPrincipal: 'Principal Contact',
         submitBtn: 'Sign Up',
+        navHome: 'Home',
         navLogin: 'Log In',
         accountSuccess: 'Account created successfully!',
         accountError: 'Failed to create user account. Please try again.',
@@ -159,7 +163,7 @@
         errorPasswordMismatch: 'Passwords do not match'
       },
       fa: {
-        siteTitle: 'محصولات روشنایی',
+        siteTitle: 'الکتریکی اسلامی',
         siteSubtitle: 'تجهیزات برقی با کیفیت',
         formTitle: 'ایجاد حساب کاربری',
         labelType: 'نوع حساب',
@@ -181,6 +185,7 @@
         labelCompanyContact: 'شماره تماس شرکت',
         labelCompanyPrincipal: 'نام مسئول اصلی',
         submitBtn: 'ایجاد حساب',
+        navHome: 'خانه',
         navLogin: 'ورود',
         accountSuccess: 'حساب کاربری با موفقیت ایجاد شد!',
         accountError: 'خطا در ایجاد حساب کاربری. لطفاً دوباره تلاش کنید.',
@@ -242,6 +247,7 @@
       document.getElementById('label-company-contact').textContent = t.labelCompanyContact;
       document.getElementById('label-company-principal').textContent = t.labelCompanyPrincipal;
       accountSubmitBtn.textContent = t.submitBtn;
+      document.getElementById('nav-home').textContent = t.navHome;
       document.getElementById('nav-login').textContent = t.navLogin;
 
       document.getElementById('lang-en').className = currentLang === 'en'

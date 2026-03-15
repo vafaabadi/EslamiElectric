@@ -1,4 +1,4 @@
-# Lighting Products App
+# Eslami Electric App
 
 A local web app showcasing electrical lighting products with bilingual support (English/Farsi).
 

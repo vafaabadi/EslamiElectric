@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Basket - Lighting Products</title>
+  <title>Basket - Eslami Electric</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col">
@@ -11,7 +11,7 @@
     <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
       <div>
         <a href="index.html" class="hover:opacity-80">
-          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Lighting Products</h1>
+          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Eslami Electric</h1>
           <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
         </a>
       </div>
@@ -39,6 +39,40 @@
 
     <div id="basket-content" class="hidden space-y-4">
       <ul id="basket-list" class="space-y-3"></ul>
+
+      <div id="guest-checkout-section" class="hidden bg-white rounded-xl shadow-md p-6 space-y-4 border border-slate-200">
+        <h3 id="guest-section-title" class="font-semibold text-slate-800">Shipping & contact details (guest checkout)</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="guest-name" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-name">Full name</span> *</label>
+            <input type="text" id="guest-name" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. John Smith">
+          </div>
+          <div>
+            <label for="guest-email" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-email">Email</span> *</label>
+            <input type="email" id="guest-email" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="you@example.com" autocomplete="email">
+            <p id="guest-email-hint" class="text-xs text-slate-500 mt-1">We'll send your order confirmation and tracking link to this address.</p>
+          </div>
+          <div>
+            <label for="guest-phone" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-phone">Phone</span></label>
+            <input type="tel" id="guest-phone" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. +1 234 567 8900">
+          </div>
+        </div>
+        <div>
+          <label for="guest-address" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-address">Address</span> *</label>
+          <input type="text" id="guest-address" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="Street, building, floor">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="guest-city" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-city">City</span></label>
+            <input type="text" id="guest-city" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          </div>
+          <div>
+            <label for="guest-postal" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-postal">Postal code</span></label>
+            <input type="text" id="guest-postal" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          </div>
+        </div>
+      </div>
+
       <div class="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-end justify-end gap-4">
         <div class="text-right">
           <p id="total-label" class="text-slate-600 text-sm">Total</p>
@@ -57,7 +91,7 @@
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-      <p>&copy; 2026 Lighting Products. All rights reserved.</p>
+      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
     </div>
   </footer>
 
@@ -66,7 +100,7 @@
 
     const translations = {
       en: {
-        siteTitle: 'Lighting Products',
+        siteTitle: 'Eslami Electric',
         siteSubtitle: 'Quality electrical supplies',
         pageTitle: 'Your Basket',
         emptyMessage: 'Your basket is empty.',
@@ -82,10 +116,18 @@
         createAccount: 'Sign Up',
         navLogout: 'Logout',
         proceedToCheckout: 'Proceed to checkout',
-        checkoutError: 'Could not start checkout. Please try again.'
+        checkoutError: 'Could not start checkout. Please try again.',
+        guestSectionTitle: 'Shipping & contact details (guest checkout)',
+        guestName: 'Full name',
+        guestEmail: 'Email',
+        guestPhone: 'Phone',
+        guestAddress: 'Address',
+        guestCity: 'City',
+        guestPostal: 'Postal code',
+        guestDetailsRequired: 'Please fill in name, email and address for guest checkout.'
       },
       fa: {
-        siteTitle: 'محصولات روشنایی',
+        siteTitle: 'الکتریکی اسلامی',
         siteSubtitle: 'تجهیزات برقی با کیفیت',
         pageTitle: 'سبد خرید شما',
         emptyMessage: 'سبد خرید شما خالی است.',
@@ -101,7 +143,15 @@
         createAccount: 'ایجاد حساب کاربری',
         navLogout: 'خروج',
         proceedToCheckout: 'ادامه به پرداخت',
-        checkoutError: 'شروع پرداخت ممکن نشد. دوباره تلاش کنید.'
+        checkoutError: 'شروع پرداخت ممکن نشد. دوباره تلاش کنید.',
+        guestSectionTitle: 'اطلاعات تماس و آدرس (خرید مهمان)',
+        guestName: 'نام کامل',
+        guestEmail: 'ایمیل',
+        guestPhone: 'تلفن',
+        guestAddress: 'آدرس',
+        guestCity: 'شهر',
+        guestPostal: 'کد پستی',
+        guestDetailsRequired: 'برای خرید مهمان نام، ایمیل و آدرس را وارد کنید.'
       }
     };
 
@@ -110,7 +160,9 @@
     function getBasket() {
       try {
         const raw = localStorage.getItem(BASKET_KEY);
-        return raw ? JSON.parse(raw) : [];
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
       } catch {
         return [];
       }
@@ -128,6 +180,7 @@
 
     function applyPageLanguage() {
       const t = translations[currentLang];
+      const tokenForNav = localStorage.getItem('token');
       document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
       document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
 
@@ -146,6 +199,24 @@
       const navOrdersEl = document.getElementById('nav-orders');
       if (navOrdersEl && t.navOrders) navOrdersEl.textContent = t.navOrders;
       document.getElementById('btn-checkout-text').textContent = t.proceedToCheckout;
+      const guestSection = document.getElementById('guest-checkout-section');
+      if (guestSection) {
+        guestSection.classList.toggle('hidden', !!tokenForNav);
+        const guestTitle = guestSection.querySelector('#guest-section-title');
+        if (guestTitle) guestTitle.textContent = t.guestSectionTitle || 'Shipping & contact details (guest checkout)';
+        const lblName = document.getElementById('label-guest-name');
+        const lblEmail = document.getElementById('label-guest-email');
+        const lblPhone = document.getElementById('label-guest-phone');
+        const lblAddress = document.getElementById('label-guest-address');
+        const lblCity = document.getElementById('label-guest-city');
+        const lblPostal = document.getElementById('label-guest-postal');
+        if (lblName) lblName.textContent = t.guestName || 'Full name';
+        if (lblEmail) lblEmail.textContent = t.guestEmail || 'Email';
+        if (lblPhone) lblPhone.textContent = t.guestPhone || 'Phone';
+        if (lblAddress) lblAddress.textContent = t.guestAddress || 'Address';
+        if (lblCity) lblCity.textContent = t.guestCity || 'City';
+        if (lblPostal) lblPostal.textContent = t.guestPostal || 'Postal code';
+      }
 
       document.getElementById('lang-en').className = currentLang === 'en'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
@@ -154,12 +225,11 @@
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
 
-      const token = localStorage.getItem('token');
-      document.getElementById('nav-login').classList.toggle('hidden', !!token);
-      document.getElementById('nav-logout').classList.toggle('hidden', !token);
-      document.getElementById('go-account').classList.toggle('hidden', !!token);
+      document.getElementById('nav-login').classList.toggle('hidden', !!tokenForNav);
+      document.getElementById('nav-logout').classList.toggle('hidden', !tokenForNav);
+      document.getElementById('go-account').classList.toggle('hidden', !!tokenForNav);
       const navOrders = document.getElementById('nav-orders');
-      if (navOrders) navOrders.classList.toggle('hidden', !token);
+      if (navOrders) navOrders.classList.toggle('hidden', !tokenForNav);
 
       renderBasket();
     }
@@ -298,10 +368,35 @@
         const token = localStorage.getItem('token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
+        const body = { lineItems };
+        if (!token) {
+          const guestName = document.getElementById('guest-name') && document.getElementById('guest-name').value.trim();
+          const guestEmail = document.getElementById('guest-email') && document.getElementById('guest-email').value.trim();
+          const guestPhone = document.getElementById('guest-phone') && document.getElementById('guest-phone').value.trim();
+          const guestAddress = document.getElementById('guest-address') && document.getElementById('guest-address').value.trim();
+          const guestCity = document.getElementById('guest-city') && document.getElementById('guest-city').value.trim();
+          const guestPostal = document.getElementById('guest-postal') && document.getElementById('guest-postal').value.trim();
+          if (!guestName || !guestEmail || !guestAddress) {
+            errEl.textContent = t.guestDetailsRequired || 'Please fill in name, email and address for guest checkout.';
+            errEl.classList.remove('hidden');
+            btnCheckout.disabled = false;
+            btnText.classList.remove('hidden');
+            btnLoading.classList.add('hidden');
+            return;
+          }
+          body.guestEmail = guestEmail;
+          body.guestName = guestName;
+          body.guestPhone = guestPhone || undefined;
+          body.shippingAddress = {
+            line1: guestAddress,
+            city: guestCity || undefined,
+            postal_code: guestPostal || undefined
+          };
+        }
         const res = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ lineItems })
+          body: JSON.stringify(body)
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -327,6 +422,7 @@
       btnLoading.classList.add('hidden');
     });
 
+    renderBasket();
     applyPageLanguage();
   </script>
 </body>

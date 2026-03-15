@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Order - Eslami Electric</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col">
+  <header class="bg-slate-800 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div>
+        <a href="index.html" class="hover:opacity-80">
+          <h1 class="text-2xl font-bold tracking-tight">Eslami Electric</h1>
+          <p class="text-slate-400 text-sm">Quality electrical supplies</p>
+        </a>
+      </div>
+      <nav class="flex items-center gap-2">
+        <a href="index.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
+        <a href="products.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
+        <a href="basket.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket</a>
+        <a href="orders.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
+        <a href="order.html" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">Track order</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-2xl w-full mx-auto px-4 py-8">
+    <h2 class="text-2xl font-bold text-slate-800 mb-6">Track your order</h2>
+
+    <div id="finder-section" class="bg-white rounded-xl shadow-md p-6 mb-6">
+      <p class="text-slate-600 mb-4">Enter the email address and order ID from your confirmation to view status.</p>
+      <form id="finder-form" class="space-y-4">
+        <div>
+          <label for="finder-email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+          <input type="email" id="finder-email" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="you@example.com">
+        </div>
+        <div>
+          <label for="finder-order-id" class="block text-sm font-medium text-slate-700 mb-1">Order number</label>
+          <input type="text" id="finder-order-id" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm" placeholder="e.g. ORD-A3X9K2">
+        </div>
+        <p id="finder-error" class="hidden text-sm text-red-600"></p>
+        <button type="submit" class="px-4 py-2 rounded bg-emerald-600 text-white font-medium hover:bg-emerald-500">View order</button>
+      </form>
+    </div>
+
+    <div id="order-loading" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
+      <p>Loading order…</p>
+    </div>
+
+    <div id="order-not-found" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-600">
+      <p>Order not found. Check your email and order ID.</p>
+    </div>
+
+    <div id="order-detail" class="hidden bg-white rounded-xl shadow-md p-6 space-y-4">
+      <div class="flex justify-between items-start">
+        <h3 class="font-semibold text-slate-800">Order <span id="detail-order-id" class="font-mono text-sm"></span></h3>
+        <span id="detail-status" class="px-2 py-1 rounded text-sm font-medium bg-emerald-100 text-emerald-800">Paid</span>
+      </div>
+      <p id="detail-date" class="text-slate-600 text-sm"></p>
+      <div id="detail-items" class="border-t border-slate-200 pt-4 space-y-2"></div>
+      <p id="detail-total" class="font-semibold text-slate-900 text-lg"></p>
+      <div id="detail-tracking" class="hidden pt-2 border-t border-slate-200">
+        <p class="text-sm text-slate-600">Tracking: <span id="detail-tracking-number" class="font-medium"></span></p>
+      </div>
+      <p class="text-slate-500 text-sm">Questions? Contact us with your order ID.</p>
+    </div>
+  </main>
+
+  <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+
+      function showSection(id) {
+        ['finder-section', 'order-loading', 'order-not-found', 'order-detail'].forEach(function(s) {
+          var el = document.getElementById(s);
+          if (el) el.classList.add('hidden');
+        });
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('hidden');
+      }
+
+      function formatDate(iso) {
+        if (!iso) return '';
+        try {
+          var d = new Date(iso);
+          return isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+        } catch (e) { return iso; }
+      }
+
+      function formatAmount(cents, currency) {
+        if (cents == null) return '';
+        var n = Number(cents) / 100;
+        return (currency === 'usd' ? '$' : '') + n.toFixed(2);
+      }
+
+      function renderOrder(order) {
+        document.getElementById('detail-order-id').textContent = order.order_number || order.id;
+        document.getElementById('detail-status').textContent = order.status || 'paid';
+        document.getElementById('detail-date').textContent = 'Placed ' + formatDate(order.created_at);
+        var itemsEl = document.getElementById('detail-items');
+        itemsEl.innerHTML = '';
+        var items = order.line_items || [];
+        items.forEach(function(item) {
+          var qty = item.quantity || 1;
+          var name = item.name || 'Item';
+          var total = item.amount_total != null ? (Number(item.amount_total) / 100).toFixed(2) : (Number(item.unit_amount || 0) / 100 * qty).toFixed(2);
+          var li = document.createElement('p');
+          li.className = 'text-slate-700';
+          li.textContent = name + ' × ' + qty + ' — $' + total;
+          itemsEl.appendChild(li);
+        });
+        document.getElementById('detail-total').textContent = 'Total: ' + formatAmount(order.amount_total, order.currency);
+        if (order.tracking_number && order.tracking_number.trim()) {
+          document.getElementById('detail-tracking').classList.remove('hidden');
+          document.getElementById('detail-tracking-number').textContent = order.tracking_number;
+        } else {
+          document.getElementById('detail-tracking').classList.add('hidden');
+        }
+        showSection('order-detail');
+      }
+
+      function loadByToken(t) {
+        showSection('order-loading');
+        fetch('/api/orders/guest/' + encodeURIComponent(t))
+          .then(function(r) {
+            if (!r.ok) throw new Error('Not found');
+            return r.json();
+          })
+          .then(renderOrder)
+          .catch(function() {
+            showSection('order-not-found');
+          });
+      }
+
+      if (token && token.length >= 10) {
+        document.getElementById('finder-section').classList.add('hidden');
+        loadByToken(token);
+        return;
+      }
+
+      document.getElementById('finder-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var email = document.getElementById('finder-email').value.trim();
+        var orderId = document.getElementById('finder-order-id').value.trim();
+        var errEl = document.getElementById('finder-error');
+        if (!email || !orderId) {
+          errEl.textContent = 'Please enter both email and order ID.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        errEl.classList.add('hidden');
+        showSection('order-loading');
+        fetch('/api/orders/guest-lookup?email=' + encodeURIComponent(email) + '&order_id=' + encodeURIComponent(orderId))
+          .then(function(r) {
+            if (!r.ok) throw new Error('Not found');
+            return r.json();
+          })
+          .then(renderOrder)
+          .catch(function() {
+            showSection('order-not-found');
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

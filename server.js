@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { Resend } = require('resend');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,10 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
+const resendApiKey = process.env.RESEND_API_KEY;
+const resendFrom = process.env.RESEND_FROM || 'Eslami Electric <onboarding@resend.dev>';
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+
 const validationPatterns = {
   name: /^[\u0600-\u06FFa-zA-Z\s]{2,50}$/,
   dob: /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/,
@@ -38,6 +43,60 @@ const validationPatterns = {
   email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
   address: /^[\u0600-\u06FFa-zA-Z0-9\s.,()/-]{10,200}$/
 };
+
+// Generate a short, readable order number (e.g. ORD-A3X9K2). Avoids 0/O, 1/I.
+function generateOrderNumber() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = 'ORD-';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// Send order confirmation email to guest (Resend). Fire-and-forget; logs errors.
+function sendOrderConfirmationEmail(order) {
+  if (!resend) {
+    console.log('Order confirmation email skipped: RESEND_API_KEY not set');
+    return;
+  }
+  if (!order || !order.customer_email || !order.guest_access_token) {
+    console.log('Order confirmation email skipped: order missing customer_email or guest_access_token', order ? { hasEmail: !!order.customer_email, hasToken: !!order.guest_access_token } : 'no order');
+    return;
+  }
+  const trackUrl = baseUrl.replace(/\/$/, '') + '/order.html?token=' + encodeURIComponent(order.guest_access_token);
+  const name = order.customer_name || 'Customer';
+  const totalCents = order.amount_total != null ? Number(order.amount_total) : 0;
+  const totalFormatted = '$' + (totalCents / 100).toFixed(2);
+  const items = order.line_items || [];
+  const itemsList = items.map((item) => {
+    const qty = item.quantity || 1;
+    const label = item.name || 'Item';
+    const amt = item.amount_total != null ? (Number(item.amount_total) / 100).toFixed(2) : '0.00';
+    return `<tr><td>${escapeHtml(label)}</td><td>${qty}</td><td>$${amt}</td></tr>`;
+  }).join('');
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  const orderDisplay = order.order_number || order.id;
+  const html = `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>Thanks for your order. Your order number is: <strong>${escapeHtml(orderDisplay)}</strong>.</p>
+    <table style="border-collapse:collapse; margin:1em 0;" cellpadding="6" border="1">
+      <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+      <tbody>${itemsList}</tbody>
+    </table>
+    <p><strong>Total: ${totalFormatted}</strong></p>
+    <p>Track your order anytime: <a href="${trackUrl}">${trackUrl}</a></p>
+    <p style="margin-top:1em; color:#64748b; font-size:0.875rem;">If you don't see this in your inbox, check your spam folder.</p>
+    <p>— Eslami Electric</p>
+  `;
+  resend.emails.send({
+    from: resendFrom,
+    to: [order.customer_email],
+    subject: 'Order confirmation – ' + (order.order_number || order.id),
+    html
+  }).then(() => console.log('Order confirmation email sent to', order.customer_email)).catch((err) => console.error('Resend order email error:', err));
+}
 
 // Stripe webhook needs raw body for signature verification (must be before express.json())
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -113,6 +172,15 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
         console.error('Orders insert error:', error);
         return res.status(500).send('Error recording order');
       }
+    }
+    // Send order confirmation email to guest (if Resend configured and order has guest token)
+    const { data: orderForEmail } = await supabase
+      .from('orders')
+      .select('id, order_number, customer_email, guest_access_token, customer_name, line_items, amount_total, currency')
+      .eq('stripe_session_id', stripeSessionId)
+      .single();
+    if (orderForEmail && orderForEmail.guest_access_token && orderForEmail.customer_email) {
+      sendOrderConfirmationEmail(orderForEmail);
     }
   } catch (e) {
     console.error('Webhook order create error:', e);
@@ -531,7 +599,33 @@ app.post('/api/create-checkout-session', async (req, res) => {
         userId = payload.userId;
       } catch (_) { /* optional auth */ }
     }
-    const { priceId, amount, lineItems: bodyLineItems } = req.body || {};
+    const {
+      priceId,
+      amount,
+      lineItems: bodyLineItems,
+      guestEmail,
+      guestName,
+      guestPhone,
+      shippingAddress
+    } = req.body || {};
+
+    const isGuest = !userId;
+    if (isGuest && Array.isArray(bodyLineItems) && bodyLineItems.length > 0) {
+      const email = (guestEmail || '').trim().toLowerCase();
+      const name = (guestName || '').trim();
+      if (!email || !validationPatterns.email.test(email)) {
+        return res.status(400).json({ error: 'Valid email is required for guest checkout' });
+      }
+      if (!name || name.length < 2) {
+        return res.status(400).json({ error: 'Full name is required for guest checkout' });
+      }
+      const addr = shippingAddress && typeof shippingAddress === 'object' ? shippingAddress : null;
+      const addressLine1 = (addr && (addr.line1 || addr.address || addr.street)) ? String(addr.line1 || addr.address || addr.street).trim() : '';
+      if (!addressLine1 || addressLine1.length < 5) {
+        return res.status(400).json({ error: 'Shipping address is required for guest checkout' });
+      }
+    }
+
     const successUrl = baseUrl.replace(/\/$/, '') + '/checkout-success.html?session_id={CHECKOUT_SESSION_ID}';
     const cancelUrl = baseUrl.replace(/\/$/, '') + '/basket.html';
 
@@ -561,13 +655,19 @@ app.post('/api/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Provide priceId, amount (in cents), or lineItems' });
     }
 
+    const orderId = crypto.randomUUID();
+    let orderNumber = generateOrderNumber();
     const sessionParams = {
       mode: 'payment',
       line_items: lineItems,
       success_url: successUrl,
-      cancel_url: cancelUrl
+      cancel_url: cancelUrl,
+      metadata: { order_id: orderId }
     };
     if (userId) sessionParams.client_reference_id = String(userId);
+    if (isGuest && guestEmail) {
+      sessionParams.customer_email = (guestEmail || '').trim().toLowerCase();
+    }
     const session = await stripe.checkout.sessions.create(sessionParams);
 
     const amountTotal = session.amount_total || 0;
@@ -579,14 +679,35 @@ app.post('/api/create-checkout-session', async (req, res) => {
           amount_total: Math.round(Number(item.price) * 100) * (item.quantity || 1)
         }))
       : [];
-    await supabase.from('orders').insert({
+
+    const orderRow = {
+      id: orderId,
+      order_number: orderNumber,
       user_id: userId || null,
       stripe_session_id: session.id,
       amount_total: amountTotal,
       currency: 'usd',
       status: 'pending',
       line_items: lineItemsForDb
-    });
+    };
+    if (isGuest) {
+      orderRow.guest_access_token = crypto.randomBytes(24).toString('hex');
+      orderRow.customer_email = (guestEmail || '').trim().toLowerCase();
+      orderRow.customer_name = (guestName || '').trim() || null;
+      orderRow.customer_phone = (guestPhone || '').trim() || null;
+      const addr = shippingAddress && typeof shippingAddress === 'object' ? shippingAddress : null;
+      if (addr) {
+        orderRow.shipping_address = {
+          line1: (addr.line1 || addr.address || addr.street || '').trim() || null,
+          line2: (addr.line2 || '').trim() || null,
+          city: (addr.city || '').trim() || null,
+          state: (addr.state || addr.province || '').trim() || null,
+          postal_code: (addr.postal_code || addr.postalCode || '').trim() || null,
+          country: (addr.country || '').trim() || null
+        };
+      }
+    }
+    await supabase.from('orders').insert(orderRow);
 
     res.json({ url: session.url, sessionId: session.id });
   } catch (err) {
@@ -600,7 +721,7 @@ app.get('/api/orders', authMiddleware, async (req, res) => {
   try {
     const { data: orders, error } = await supabase
       .from('orders')
-      .select('id, stripe_session_id, amount_total, currency, status, line_items, created_at')
+      .select('id, order_number, stripe_session_id, amount_total, currency, status, line_items, tracking_number, created_at')
       .eq('user_id', req.userId)
       .order('created_at', { ascending: false });
 
@@ -624,7 +745,7 @@ app.get('/api/orders/by-session/:sessionId', async (req, res) => {
     }
     const { data: order, error } = await supabase
       .from('orders')
-      .select('id, stripe_session_id, amount_total, currency, status, line_items, customer_email, created_at')
+      .select('id, order_number, stripe_session_id, amount_total, currency, status, line_items, customer_email, customer_name, guest_access_token, created_at')
       .eq('stripe_session_id', sessionId)
       .single();
 
@@ -633,6 +754,55 @@ app.get('/api/orders/by-session/:sessionId', async (req, res) => {
   } catch (err) {
     console.error('Get order by session error:', err);
     res.status(500).json({ error: 'Failed to load order' });
+  }
+});
+
+// Get order by guest token (for guest order link; no auth)
+app.get('/api/orders/guest/:token', async (req, res) => {
+  try {
+    const token = req.params.token;
+    if (!token || token.length < 10) {
+      return res.status(400).json({ error: 'Invalid link' });
+    }
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('id, order_number, amount_total, currency, status, line_items, customer_email, customer_name, shipping_address, tracking_number, created_at')
+      .eq('guest_access_token', token)
+      .single();
+
+    if (error || !order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
+  } catch (err) {
+    console.error('Get order by guest token error:', err);
+    res.status(500).json({ error: 'Failed to load order' });
+  }
+});
+
+// Guest order lookup by email + order id or order number (for "Order Finder" page; no auth)
+app.get('/api/orders/guest-lookup', async (req, res) => {
+  try {
+    const email = (req.query.email || '').trim().toLowerCase();
+    const orderIdOrNumber = (req.query.order_id || '').trim();
+    if (!email || !orderIdOrNumber) {
+      return res.status(400).json({ error: 'Email and order ID or order number are required' });
+    }
+    if (!validationPatterns.email.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdOrNumber);
+    let query = supabase
+      .from('orders')
+      .select('id, order_number, amount_total, currency, status, line_items, customer_email, customer_name, shipping_address, tracking_number, created_at')
+      .eq('customer_email', email);
+    if (isUuid) query = query.eq('id', orderIdOrNumber);
+    else query = query.eq('order_number', orderIdOrNumber);
+    const { data: order, error } = await query.single();
+
+    if (error || !order) return res.status(404).json({ error: 'Order not found. Check your email and order ID.' });
+    res.json(order);
+  } catch (err) {
+    console.error('Guest lookup error:', err);
+    res.status(500).json({ error: 'Failed to look up order' });
   }
 });
 
@@ -689,6 +859,15 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
       console.error('Confirm order update error:', updateError);
       return res.status(500).json({ error: 'Failed to update order' });
     }
+    // Send order confirmation email to guest (if Resend configured)
+    const { data: orderForEmail } = await supabase
+      .from('orders')
+      .select('id, order_number, customer_email, guest_access_token, customer_name, line_items, amount_total, currency')
+      .eq('stripe_session_id', sessionId)
+      .single();
+    if (orderForEmail && orderForEmail.guest_access_token && orderForEmail.customer_email) {
+      sendOrderConfirmationEmail(orderForEmail);
+    }
     res.json({ updated: true, status: 'paid' });
   } catch (err) {
     console.error('Confirm by session error:', err);
@@ -697,5 +876,5 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Lighting products server running at http://localhost:${PORT}`);
+  console.log(`Eslami Electric server running at http://localhost:${PORT}`);
 });

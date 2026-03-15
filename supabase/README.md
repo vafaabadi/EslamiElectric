@@ -29,7 +29,11 @@
    - `SUPABASE_JWT_SECRET` = **JWT signing key** (Project settings → JWT keys → JWT signing keys → current key; used to verify Supabase auth tokens)
    - `JWT_SECRET` = a long random string for app sessions (e.g. `openssl rand -hex 32`)
 
-## 4. (Optional) Migrate existing users from `users.json`
+## 4. Orders table and guest checkout
+
+If you use Stripe checkout, ensure the `orders` table exists (see project root `supabase-orders-table.sql`). For **guest checkout** (shipping address, order tracking link), run **migration `008_orders_guest_shipping.sql`** in the SQL Editor to add columns: `guest_access_token`, `customer_name`, `customer_phone`, `shipping_address`, `tracking_number`.
+
+## 5. (Optional) Migrate existing users from `users.json`
 
 From the project root:
 
