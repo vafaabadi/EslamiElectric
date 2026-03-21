@@ -8,6 +8,7 @@
 4. Run `migrations/002_add_password_and_unique_email.sql` to add login (password hash + unique email).
 5. Run `migrations/003_add_password_reset.sql` to add forgot-password (reset_token, reset_token_expires).
 6. **For Supabase Auth (sign-up/sign-in):** Run `migrations/004_supabase_auth_sync_trigger.sql` so new auth users get a row in `public.users`. Ensure `public.users.id` is UUID and matches `auth.users.id`. If `password_hash` is NOT NULL, alter it to allow NULL: `ALTER TABLE public.users ALTER COLUMN password_hash DROP NOT NULL;`
+7. **Login lockout (failed password attempts):** Run `users-login-lockout.sql` in the SQL Editor. This adds `login_failed_count` and `locked_until` on `public.users`. The server uses `SUPABASE_ANON_KEY` for `POST /api/login` (password sign-in with lockout). Optional env: `LOGIN_LOCKOUT_MAX_ATTEMPTS` (default `5`), `LOGIN_LOCKOUT_MINUTES` (default `30`).
 
 ## 2. Enable Supabase Auth (Email)
 

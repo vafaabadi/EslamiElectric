@@ -59,3 +59,13 @@ Supabase does not have a separate "Confirm email redirect URL" setting. The app 
 **In the app:** On sign-up the frontend sends `emailRedirectTo: baseUrl + '/auth-callback.html'`, so the confirmation email link sends users to **auth-callback.html**, which calls **`/api/auth/token`** and syncs them to **public.users**.
 
 If a user already confirmed and has no row in **public.users**, have them **log in once** with the same email/password; that will create the row.
+
+---
+
+## Login lockout (optional)
+
+1. Run **`supabase/users-login-lockout.sql`** in the SQL Editor (adds `login_failed_count` and `locked_until` on `public.users`).
+2. **`SUPABASE_ANON_KEY`** must be set in **server** `.env` (same anon key as the frontend). The server uses it for `POST /api/login` (Supabase password sign-in + lockout).
+3. Optional tuning (defaults): **`LOGIN_LOCKOUT_MAX_ATTEMPTS`** (default `5`), **`LOGIN_LOCKOUT_MINUTES`** (default `30`).
+
+**Unlock:** wait until the lock time passes (auto-clear), use **Forgot password** (clears lockout on reset), or in SQL: `UPDATE public.users SET login_failed_count = 0, locked_until = NULL WHERE email = 'user@example.com';`

@@ -4,33 +4,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Basket - Eslami Electric</title>
+  <link rel="stylesheet" href="css/mobile.css">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100 min-h-screen flex flex-col">
+<body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div>
-        <a href="index.html" class="hover:opacity-80">
-          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Eslami Electric</h1>
-          <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-2">
+      <div class="min-w-0 flex-1">
+        <a href="index.html" class="hover:opacity-80 block truncate">
+          <h1 id="site-title" class="text-xl sm:text-2xl font-bold tracking-tight truncate">Eslami Electric</h1>
+          <p id="site-subtitle" class="text-slate-400 text-xs sm:text-sm truncate">Quality electrical supplies</p>
         </a>
       </div>
-      <nav class="flex items-center gap-2" aria-label="Navigation">
+      <button type="button" id="nav-toggle" class="sm:hidden p-2 rounded-lg text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Menu" aria-expanded="false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <nav id="header-nav" class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-2 w-full sm:w-auto" aria-label="Navigation">
         <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
         <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
         <a href="basket.html" id="nav-basket" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">Basket</a>
         <a href="orders.html" id="nav-orders" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
+        <a href="profile.html" id="nav-profile" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Profile</a>
         <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
         <a href="account.html" id="go-account" rel="noopener" class="px-3 py-1.5 rounded text-sm font-medium bg-emerald-500 text-slate-900 hover:bg-emerald-400 transition-colors">Sign Up</a>
-        <button id="nav-logout" type="button" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Logout</button>
-        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
-        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
+        <button id="nav-logout" type="button" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors text-left sm:text-center">Logout</button>
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center">فارسی</button>
       </nav>
     </div>
   </header>
+  <script src="js/mobile-nav.js"></script>
 
   <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
-    <h2 id="page-title" class="text-3xl font-bold text-slate-800 mb-6">Your Basket</h2>
+    <h2 id="page-title" class="text-2xl sm:text-3xl font-bold text-slate-800 mb-4 sm:mb-6">Your Basket</h2>
 
     <div id="basket-empty" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
       <p id="empty-message" class="mb-4">Your basket is empty.</p>
@@ -140,6 +146,7 @@
         navBasket: 'سبد خرید',
         navLogin: 'ورود',
         navOrders: 'سفارشات من',
+        navProfile: 'پروفایل من',
         createAccount: 'ایجاد حساب کاربری',
         navLogout: 'خروج',
         proceedToCheckout: 'ادامه به پرداخت',
@@ -198,6 +205,8 @@
       document.getElementById('nav-logout').textContent = t.navLogout;
       const navOrdersEl = document.getElementById('nav-orders');
       if (navOrdersEl && t.navOrders) navOrdersEl.textContent = t.navOrders;
+      const navProfileEl = document.getElementById('nav-profile');
+      if (navProfileEl && t.navProfile) navProfileEl.textContent = t.navProfile;
       document.getElementById('btn-checkout-text').textContent = t.proceedToCheckout;
       const guestSection = document.getElementById('guest-checkout-section');
       if (guestSection) {
@@ -230,6 +239,7 @@
       document.getElementById('go-account').classList.toggle('hidden', !!tokenForNav);
       const navOrders = document.getElementById('nav-orders');
       if (navOrders) navOrders.classList.toggle('hidden', !tokenForNav);
+      if (navProfileEl) navProfileEl.classList.toggle('hidden', !tokenForNav);
 
       renderBasket();
     }
@@ -262,23 +272,25 @@
         total += lineTotal;
 
         const li = document.createElement('li');
-        li.className = 'bg-white rounded-xl shadow p-4 flex flex-wrap items-center gap-4';
+        li.className = 'bg-white rounded-xl shadow p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4';
         li.innerHTML = `
-          <div class="w-20 h-20 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
-            <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover">
-          </div>
-          <div class="flex-grow min-w-0">
-            <h3 class="font-semibold text-slate-800">${escapeHtml(name)}</h3>
-            <p class="text-slate-500 text-sm">$${price.toFixed(2)} each</p>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="flex items-center border border-slate-300 rounded overflow-hidden">
-              <button type="button" class="btn-basket-minus w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium" data-index="${index}" aria-label="Decrease quantity">−</button>
-              <span class="basket-qty-display w-10 text-center text-sm font-medium border-x border-slate-300">${qty}</span>
-              <button type="button" class="btn-basket-plus w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium" data-index="${index}" aria-label="Increase quantity">+</button>
+          <div class="flex items-start gap-3 min-w-0 flex-1">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
+              <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover">
             </div>
-            <span class="font-semibold text-slate-900 w-20 text-right basket-line-total">$${lineTotal.toFixed(2)}</span>
-            <button type="button" class="btn-remove px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded" data-index="${index}">${t.remove}</button>
+            <div class="flex-grow min-w-0">
+              <h3 class="font-semibold text-slate-800 text-sm sm:text-base break-words">${escapeHtml(name)}</h3>
+              <p class="text-slate-500 text-xs sm:text-sm">$${price.toFixed(2)} each</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
+            <div class="flex items-center border border-slate-300 rounded overflow-hidden">
+              <button type="button" class="btn-basket-minus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="Decrease quantity">−</button>
+              <input type="number" class="basket-qty-input w-14 sm:w-16 text-center text-sm font-medium border-x border-slate-300 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="1" max="9999" value="${qty}" data-index="${index}" aria-label="Quantity">
+              <button type="button" class="btn-basket-plus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="Increase quantity">+</button>
+            </div>
+            <span class="font-semibold text-slate-900 basket-line-total">$${lineTotal.toFixed(2)}</span>
+            <button type="button" class="btn-remove min-h-[44px] px-3 py-2 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 rounded touch-manipulation" data-index="${index}">${t.remove}</button>
           </div>
         `;
         listEl.appendChild(li);
@@ -320,6 +332,24 @@
             basket[idx].quantity = current - 1;
             setBasket(basket);
           }
+        });
+      });
+
+      function clampQty(val) {
+        const n = parseInt(val, 10);
+        if (!Number.isFinite(n) || n < 1) return 1;
+        return Math.min(n, 9999);
+      }
+
+      listEl.querySelectorAll('.basket-qty-input').forEach(input => {
+        input.addEventListener('change', () => {
+          const idx = parseInt(input.getAttribute('data-index'), 10);
+          const basket = getBasket();
+          if (!basket[idx]) return;
+          const qty = clampQty(input.value);
+          input.value = qty;
+          basket[idx].quantity = qty;
+          setBasket(basket);
         });
       });
     }
@@ -393,6 +423,7 @@
             postal_code: guestPostal || undefined
           };
         }
+        body.locale = currentLang === 'fa' ? 'fa' : 'en';
         const res = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers,

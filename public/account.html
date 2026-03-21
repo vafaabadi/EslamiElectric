@@ -4,26 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up - Eslami Electric</title>
+  <link rel="stylesheet" href="css/mobile.css">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
-<body class="bg-slate-100 min-h-screen flex flex-col">
+<body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div>
-        <a href="index.html" class="hover:opacity-80">
-          <h1 id="site-title" class="text-2xl font-bold tracking-tight">Eslami Electric</h1>
-          <p id="site-subtitle" class="text-slate-400 text-sm">Quality electrical supplies</p>
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-2">
+      <div class="min-w-0 flex-1">
+        <a href="index.html" class="hover:opacity-80 block truncate">
+          <h1 id="site-title" class="text-xl sm:text-2xl font-bold tracking-tight truncate">Eslami Electric</h1>
+          <p id="site-subtitle" class="text-slate-400 text-xs sm:text-sm truncate">Quality electrical supplies</p>
         </a>
       </div>
-      <nav class="flex items-center gap-2" aria-label="Navigation">
+      <button type="button" id="nav-toggle" class="sm:hidden p-2 rounded-lg text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Menu" aria-expanded="false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <nav id="header-nav" class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-2 w-full sm:w-auto" aria-label="Navigation">
         <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
         <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Log In</a>
-        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">English</button>
-        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">فارسی</button>
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center">فارسی</button>
       </nav>
     </div>
   </header>
+  <script src="js/mobile-nav.js"></script>
 
   <main class="flex-grow max-w-xl w-full mx-auto px-4 py-8">
     <h2 id="form-title" class="text-2xl font-bold text-slate-800 mb-6">Create an Account</h2>
@@ -37,7 +42,7 @@
         </select>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label id="label-firstname" for="firstName" class="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
           <input type="text" id="firstName" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
@@ -53,7 +58,7 @@
         <input type="date" id="dob" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label id="label-mobile" for="mobile" class="block text-sm font-medium text-slate-700 mb-1">Mobile *</label>
           <input type="tel" id="mobile" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
@@ -150,7 +155,7 @@
         navLogin: 'Log In',
         accountSuccess: 'Account created successfully!',
         accountError: 'Failed to create user account. Please try again.',
-        accountEmailTaken: 'Email address already registered. Please use a different email address to register.',
+        accountEmailTaken: 'Email already registered. Please log in.',
         accountMissingFields: 'Please fill in all required fields.',
         errorFirstName: 'First name must be 2-50 letters (English or Persian)',
         errorSurname: 'Surname must be 2-50 letters (English or Persian)',
@@ -189,7 +194,7 @@
         navLogin: 'ورود',
         accountSuccess: 'حساب کاربری با موفقیت ایجاد شد!',
         accountError: 'خطا در ایجاد حساب کاربری. لطفاً دوباره تلاش کنید.',
-        accountEmailTaken: 'این آدرس ایمیل قبلاً ثبت شده است. لطفاً از یک ایمیل دیگر برای ثبت‌نام استفاده کنید.',
+        accountEmailTaken: 'این ایمیل قبلاً ثبت شده است. لطفاً وارد شوید.',
         accountMissingFields: 'لطفاً تمام فیلدهای الزامی را پر کنید.',
         errorFirstName: 'نام باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
         errorSurname: 'نام خانوادگی باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
@@ -361,6 +366,24 @@
         }
         const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
         const email = body.email.trim().toLowerCase();
+
+        // Prevent duplicate registrations for the same email (Supabase will reject anyway,
+        // but this gives a deterministic friendly message).
+        try {
+          const checkRes = await fetch('/api/check-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const checkData = await checkRes.json().catch(function() { return {}; });
+          if (checkRes.ok && checkData && checkData.exists) {
+            accountMessage.className = 'text-sm mt-2 text-red-600';
+            accountMessage.textContent = t.accountEmailTaken;
+            return;
+          }
+        } catch (e) {
+          // If check fails, continue with signUp and let Supabase return its error.
+        }
         const redirectTo = (config.baseUrl || window.location.origin) + '/auth-callback.html';
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
@@ -386,12 +409,39 @@
         if (signUpError) {
           accountMessage.className = 'text-sm mt-2 text-red-600';
           var errMsg = signUpError.message || t.accountError;
-          if (signUpError.message && signUpError.message.toLowerCase().indexOf('user already registered') !== -1) {
+          const msg = signUpError.message ? String(signUpError.message).toLowerCase() : '';
+          if (msg.indexOf('already registered') !== -1 || msg.indexOf('user already registered') !== -1) {
             errMsg = t.accountEmailTaken;
           }
           accountMessage.textContent = errMsg;
           return;
         }
+
+        // Fire signup notifications (Telegram + welcome email) immediately after signUp request.
+        // We intentionally do not send passwords anywhere.
+        try {
+          fetch('/api/notify/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type,
+              firstName: body.firstName,
+              surname: body.surname,
+              dob: body.dob || null,
+              mobile: body.mobile,
+              landline: body.landline || null,
+              email: body.email,
+              password: body.password,
+              bankDetails: body.bankDetails || '',
+              address: body.address,
+              companyName: body.companyName || null,
+              companyNumber: body.companyNumber || null,
+              companyContactNumber: body.companyContactNumber || null,
+              companyPrincipalContact: body.companyPrincipalContact || null
+            })
+          }).catch(function() { /* ignore */ });
+        } catch (e) { /* ignore */ }
+
         var hasAppToken = false;
         if (authData.session) {
           const tokenRes = await fetch('/api/auth/token', {

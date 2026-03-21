@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile - Eslami Electric</title>
+  <link rel="stylesheet" href="css/mobile.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
+  <header class="bg-slate-800 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-2">
+      <div class="min-w-0 flex-1">
+        <a href="index.html" class="hover:opacity-80 block truncate">
+          <h1 id="site-title" class="text-xl sm:text-2xl font-bold tracking-tight truncate">Eslami Electric</h1>
+          <p id="site-subtitle" class="text-slate-400 text-xs sm:text-sm truncate">Quality electrical supplies</p>
+        </a>
+      </div>
+      <button type="button" id="nav-toggle" class="sm:hidden p-2 rounded-lg text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Menu" aria-expanded="false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <nav id="header-nav" class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-2 w-full sm:w-auto" aria-label="Navigation">
+        <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
+        <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
+        <a href="basket.html" id="nav-basket" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket</a>
+        <a href="orders.html" id="nav-orders" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
+        <a href="profile.html" id="nav-profile" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">My Profile</a>
+        <a href="login.html" id="nav-login" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
+        <a href="account.html" id="go-account" class="hidden px-3 py-1.5 rounded text-sm font-medium bg-emerald-500 text-slate-900 hover:bg-emerald-400 transition-colors">Sign Up</a>
+        <button id="nav-logout" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors text-left sm:text-center">Logout</button>
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center">فارسی</button>
+      </nav>
+    </div>
+  </header>
+  <script src="js/mobile-nav.js"></script>
+
+  <main class="flex-grow max-w-xl w-full mx-auto px-4 py-8">
+    <h2 id="page-title" class="text-2xl font-bold text-slate-800 mb-6">My Profile</h2>
+
+    <div id="profile-redirect" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-600">
+      <p id="redirect-message" class="mb-4">Please log in to view your profile.</p>
+      <a href="login.html" id="redirect-link" class="inline-block px-4 py-2 rounded bg-amber-500 text-slate-900 font-medium hover:bg-amber-400 transition-colors">Log In</a>
+    </div>
+
+    <div id="profile-loading" class="bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
+      <p id="loading-text">Loading profile…</p>
+    </div>
+
+    <form id="profile-form" class="hidden bg-white rounded-xl shadow-md p-6 space-y-4">
+      <div>
+        <label id="label-type" class="block text-sm font-medium text-slate-700 mb-1">Account type</label>
+        <p id="account-type-display" class="text-slate-800 font-medium"></p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label id="label-firstname" for="firstName" class="block text-sm font-medium text-slate-700 mb-1">First name *</label>
+          <input type="text" id="firstName" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-surname" for="surname" class="block text-sm font-medium text-slate-700 mb-1">Surname *</label>
+          <input type="text" id="surname" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+
+      <div>
+        <label id="label-dob" for="dob" class="block text-sm font-medium text-slate-700 mb-1">Date of birth</label>
+        <input type="date" id="dob" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <div>
+        <label id="label-email" for="email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+        <input type="email" id="email" readonly class="w-full border border-slate-200 bg-slate-50 rounded px-3 py-2 text-slate-600 cursor-not-allowed">
+        <p id="email-hint" class="text-xs text-slate-500 mt-1">Email cannot be changed here.</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label id="label-mobile" for="mobile" class="block text-sm font-medium text-slate-700 mb-1">Mobile *</label>
+          <input type="tel" id="mobile" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-landline" for="landline" class="block text-sm font-medium text-slate-700 mb-1">Landline</label>
+          <input type="tel" id="landline" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+
+      <div>
+        <label id="label-bank" for="bankDetails" class="block text-sm font-medium text-slate-700 mb-1">Bank account details</label>
+        <input type="text" id="bankDetails" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <div>
+        <label id="label-address" for="address" class="block text-sm font-medium text-slate-700 mb-1">Address *</label>
+        <textarea id="address" rows="3" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400"></textarea>
+      </div>
+
+      <div id="company-fields" class="hidden space-y-4 border-t pt-4">
+        <h3 id="company-section-title" class="font-semibold text-slate-700">Company details</h3>
+        <div>
+          <label id="label-company-name" for="companyName" class="block text-sm font-medium text-slate-700 mb-1">Company name *</label>
+          <input type="text" id="companyName" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-company-number" for="companyNumber" class="block text-sm font-medium text-slate-700 mb-1">Company number *</label>
+          <input type="text" id="companyNumber" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-company-contact" for="companyContactNumber" class="block text-sm font-medium text-slate-700 mb-1">Company contact number</label>
+          <input type="tel" id="companyContactNumber" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label id="label-company-principal" for="companyPrincipalContact" class="block text-sm font-medium text-slate-700 mb-1">Principal contact</label>
+          <input type="text" id="companyPrincipalContact" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+
+      <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-colors">Save changes</button>
+      <p id="profile-message" class="text-sm mt-2"></p>
+    </form>
+  </main>
+
+  <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    const translations = {
+      en: {
+        siteTitle: 'Eslami Electric',
+        siteSubtitle: 'Quality electrical supplies',
+        pageTitle: 'My Profile',
+        navHome: 'Home',
+        navProducts: 'Products',
+        navBasket: 'Basket',
+        navOrders: 'My Orders',
+        navProfile: 'My Profile',
+        navLogin: 'Login',
+        createAccount: 'Sign Up',
+        navLogout: 'Logout',
+        redirectMessage: 'Please log in to view your profile.',
+        logIn: 'Log In',
+        loadingProfile: 'Loading profile…',
+        accountType: 'Account type',
+        person: 'Person',
+        company: 'Company',
+        labelFirstname: 'First name *',
+        labelSurname: 'Surname *',
+        labelDob: 'Date of birth',
+        labelEmail: 'Email',
+        emailHint: 'Email cannot be changed here.',
+        labelMobile: 'Mobile *',
+        labelLandline: 'Landline',
+        labelBank: 'Bank account details',
+        labelAddress: 'Address *',
+        companySectionTitle: 'Company details',
+        labelCompanyName: 'Company name *',
+        labelCompanyNumber: 'Company number *',
+        labelCompanyContact: 'Company contact number',
+        labelCompanyPrincipal: 'Principal contact',
+        saveChanges: 'Save changes',
+        saved: 'Profile updated.',
+        loadError: 'Could not load profile. Please try again.',
+        saveError: 'Could not save changes.'
+      },
+      fa: {
+        siteTitle: 'الکتریکی اسلامی',
+        siteSubtitle: 'تجهیزات برقی با کیفیت',
+        pageTitle: 'پروفایل من',
+        navHome: 'خانه',
+        navProducts: 'محصولات',
+        navBasket: 'سبد خرید',
+        navOrders: 'سفارشات من',
+        navProfile: 'پروفایل من',
+        navLogin: 'ورود',
+        createAccount: 'ایجاد حساب کاربری',
+        navLogout: 'خروج',
+        redirectMessage: 'برای مشاهده پروفایل وارد شوید.',
+        logIn: 'ورود',
+        loadingProfile: 'در حال بارگذاری…',
+        accountType: 'نوع حساب',
+        person: 'شخصی',
+        company: 'شرکت',
+        labelFirstname: 'نام *',
+        labelSurname: 'نام خانوادگی *',
+        labelDob: 'تاریخ تولد',
+        labelEmail: 'ایمیل',
+        emailHint: 'ایمیل از اینجا قابل تغییر نیست.',
+        labelMobile: 'موبایل *',
+        labelLandline: 'تلفن ثابت',
+        labelBank: 'جزئیات حساب بانکی',
+        labelAddress: 'آدرس *',
+        companySectionTitle: 'جزئیات شرکت',
+        labelCompanyName: 'نام شرکت *',
+        labelCompanyNumber: 'شماره ثبت شرکت *',
+        labelCompanyContact: 'تلفن تماس شرکت',
+        labelCompanyPrincipal: 'شخص تماس اصلی',
+        saveChanges: 'ذخیره تغییرات',
+        saved: 'پروفایل به‌روز شد.',
+        loadError: 'بارگذاری پروفایل ناموفق بود.',
+        saveError: 'ذخیره تغییرات ناموفق بود.'
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'en';
+    let cachedMe = null;
+
+    function applyPageLanguage() {
+      const t = translations[currentLang];
+      const token = localStorage.getItem('token');
+      document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+      document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+
+      document.getElementById('site-title').textContent = t.siteTitle;
+      document.getElementById('site-subtitle').textContent = t.siteSubtitle;
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.getElementById('nav-home').textContent = t.navHome;
+      document.getElementById('nav-products').textContent = t.navProducts;
+      document.getElementById('nav-basket').textContent = t.navBasket;
+      document.getElementById('nav-orders').textContent = t.navOrders;
+      document.getElementById('nav-profile').textContent = t.navProfile;
+      document.getElementById('nav-login').textContent = t.navLogin;
+      document.getElementById('go-account').textContent = t.createAccount;
+      document.getElementById('nav-logout').textContent = t.navLogout;
+      document.getElementById('redirect-message').textContent = t.redirectMessage;
+      document.getElementById('redirect-link').textContent = t.logIn;
+      document.getElementById('loading-text').textContent = t.loadingProfile;
+      document.getElementById('label-type').textContent = t.accountType;
+      document.getElementById('label-firstname').textContent = t.labelFirstname;
+      document.getElementById('label-surname').textContent = t.labelSurname;
+      document.getElementById('label-dob').textContent = t.labelDob;
+      document.getElementById('label-email').textContent = t.labelEmail;
+      document.getElementById('email-hint').textContent = t.emailHint;
+      document.getElementById('label-mobile').textContent = t.labelMobile;
+      document.getElementById('label-landline').textContent = t.labelLandline;
+      document.getElementById('label-bank').textContent = t.labelBank;
+      document.getElementById('label-address').textContent = t.labelAddress;
+      document.getElementById('company-section-title').textContent = t.companySectionTitle;
+      document.getElementById('label-company-name').textContent = t.labelCompanyName;
+      document.getElementById('label-company-number').textContent = t.labelCompanyNumber;
+      document.getElementById('label-company-contact').textContent = t.labelCompanyContact;
+      document.getElementById('label-company-principal').textContent = t.labelCompanyPrincipal;
+      document.getElementById('submit-btn').textContent = t.saveChanges;
+
+      if (cachedMe) {
+        const typeDisplay = document.getElementById('account-type-display');
+        if (typeDisplay) typeDisplay.textContent = cachedMe.type === 'company' ? t.company : t.person;
+      }
+
+      document.getElementById('nav-login').classList.toggle('hidden', !!token);
+      document.getElementById('go-account').classList.toggle('hidden', !!token);
+      document.getElementById('nav-logout').classList.toggle('hidden', !token);
+
+      document.getElementById('lang-en').className = currentLang === 'en'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center';
+      document.getElementById('lang-fa').className = currentLang === 'fa'
+        ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center'
+        : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center';
+    }
+
+    function fillForm(me) {
+      cachedMe = me;
+      const typeDisplay = document.getElementById('account-type-display');
+      const t = translations[currentLang];
+      typeDisplay.textContent = me.type === 'company' ? t.company : t.person;
+      document.getElementById('firstName').value = me.firstName || '';
+      document.getElementById('surname').value = me.surname || '';
+      document.getElementById('dob').value = me.dob ? String(me.dob).slice(0, 10) : '';
+      document.getElementById('email').value = me.email || '';
+      document.getElementById('mobile').value = me.mobile || '';
+      document.getElementById('landline').value = me.landline || '';
+      document.getElementById('bankDetails').value = me.bankDetails || '';
+      document.getElementById('address').value = me.address || '';
+
+      const companyEl = document.getElementById('company-fields');
+      if (me.type === 'company') {
+        companyEl.classList.remove('hidden');
+        document.getElementById('companyName').value = me.companyName || '';
+        document.getElementById('companyNumber').value = me.companyNumber || '';
+        document.getElementById('companyContactNumber').value = me.companyContactNumber || '';
+        document.getElementById('companyPrincipalContact').value = me.companyPrincipalContact || '';
+        document.getElementById('companyName').required = true;
+        document.getElementById('companyNumber').required = true;
+      } else {
+        companyEl.classList.add('hidden');
+        document.getElementById('companyName').required = false;
+        document.getElementById('companyNumber').required = false;
+      }
+    }
+
+    function buildPayload() {
+      const meType = document.getElementById('company-fields').classList.contains('hidden') ? 'person' : 'company';
+      const payload = {
+        firstName: document.getElementById('firstName').value.trim(),
+        surname: document.getElementById('surname').value.trim(),
+        dob: document.getElementById('dob').value || null,
+        mobile: document.getElementById('mobile').value.trim(),
+        landline: document.getElementById('landline').value.trim() || null,
+        bankDetails: document.getElementById('bankDetails').value.trim() || null,
+        address: document.getElementById('address').value.trim()
+      };
+      if (meType === 'company') {
+        payload.companyName = document.getElementById('companyName').value.trim();
+        payload.companyNumber = document.getElementById('companyNumber').value.trim();
+        const cc = document.getElementById('companyContactNumber').value.trim();
+        payload.companyContactNumber = cc || null;
+        const pc = document.getElementById('companyPrincipalContact').value.trim();
+        payload.companyPrincipalContact = pc || null;
+      }
+      return payload;
+    }
+
+    async function loadProfile() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        document.getElementById('profile-loading').classList.add('hidden');
+        document.getElementById('profile-redirect').classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } });
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          document.getElementById('profile-loading').classList.add('hidden');
+          document.getElementById('profile-redirect').classList.remove('hidden');
+          return;
+        }
+        if (!res.ok) throw new Error('load');
+        const me = await res.json();
+        document.getElementById('profile-loading').classList.add('hidden');
+        document.getElementById('profile-form').classList.remove('hidden');
+        fillForm(me);
+      } catch (e) {
+        document.getElementById('profile-loading').classList.add('hidden');
+        document.getElementById('profile-redirect').classList.remove('hidden');
+        document.getElementById('redirect-message').textContent = translations[currentLang].loadError;
+      }
+    }
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('profile-message');
+      const t = translations[currentLang];
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      msg.textContent = '';
+      msg.className = 'text-sm mt-2 text-slate-500';
+      const payload = buildPayload();
+      try {
+        const res = await fetch('/api/me', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          window.location.reload();
+          return;
+        }
+        if (!res.ok) {
+          const errText = (data && data.error) ? String(data.error) : t.saveError;
+          msg.textContent = errText;
+          msg.className = 'text-sm mt-2 text-red-600';
+          return;
+        }
+        msg.textContent = t.saved;
+        msg.className = 'text-sm mt-2 text-emerald-600';
+        fillForm(data);
+      } catch (err) {
+        msg.textContent = t.saveError;
+        msg.className = 'text-sm mt-2 text-red-600';
+      }
+    });
+
+    document.getElementById('nav-logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    document.getElementById('lang-en').addEventListener('click', () => {
+      currentLang = 'en';
+      localStorage.setItem('lang', 'en');
+      applyPageLanguage();
+    });
+    document.getElementById('lang-fa').addEventListener('click', () => {
+      currentLang = 'fa';
+      localStorage.setItem('lang', 'fa');
+      applyPageLanguage();
+    });
+
+    applyPageLanguage();
+    loadProfile();
+  </script>
+</body>
+</html>
