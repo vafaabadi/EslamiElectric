@@ -66,6 +66,6 @@ If a user already confirmed and has no row in **public.users**, have them **log 
 
 1. Run **`supabase/users-login-lockout.sql`** in the SQL Editor (adds `login_failed_count` and `locked_until` on `public.users`).
 2. **`SUPABASE_ANON_KEY`** must be set in **server** `.env` (same anon key as the frontend). The server uses it for `POST /api/login` (Supabase password sign-in + lockout).
-3. Optional tuning (defaults): **`LOGIN_LOCKOUT_MAX_ATTEMPTS`** (default `5`), **`LOGIN_LOCKOUT_MINUTES`** (default `30`).
+3. Optional tuning (defaults): **`LOGIN_LOCKOUT_MAX_ATTEMPTS`** (default `5`), **`LOGIN_LOCKOUT_MINUTES`** (default `60`).
 
 **Unlock:** wait until the lock time passes (auto-clear), use **Forgot password** (clears lockout on reset), or in SQL: `UPDATE public.users SET login_failed_count = 0, locked_until = NULL WHERE email = 'user@example.com';`

@@ -32,8 +32,8 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 const supabaseAnon = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 /** Failed password attempts before lock; default 5 */
 const LOGIN_LOCKOUT_MAX_ATTEMPTS = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MAX_ATTEMPTS || '5', 10) || 5);
-/** Lock duration after too many failures (minutes); default 30 */
-const LOGIN_LOCKOUT_MINUTES = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MINUTES || '30', 10) || 30);
+/** Lock duration after too many failures (minutes); default 60 */
+const LOGIN_LOCKOUT_MINUTES = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MINUTES || '60', 10) || 60);
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
@@ -1031,18 +1031,17 @@ app.post('/api/login', async (req, res) => {
       .eq('email', emailNormalized)
       .maybeSingle();
 
+    // Clear expired lock only (do not block login here — correct password must work after Forgot password reset).
     if (profileRow && profileRow.locked_until) {
       const until = new Date(profileRow.locked_until);
-      if (until > new Date()) {
-        return res.status(423).json({
-          error: `Too many failed login attempts. Try again after ${until.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC or use Forgot password.`,
-          lockedUntil: profileRow.locked_until
-        });
+      if (until <= new Date()) {
+        await supabase
+          .from('users')
+          .update({ locked_until: null, login_failed_count: 0 })
+          .eq('id', profileRow.id);
+        profileRow.locked_until = null;
+        profileRow.login_failed_count = 0;
       }
-      await supabase
-        .from('users')
-        .update({ locked_until: null, login_failed_count: 0 })
-        .eq('id', profileRow.id);
     }
 
     let accessToken = null;
@@ -1083,6 +1082,19 @@ app.post('/api/login', async (req, res) => {
       }
       await clearLoginLockout(result.user.id);
       return res.json({ ok: true, token: result.token, user: result.user });
+    }
+
+    // Auth failed: if still locked, do not count another failure (fresh read — e.g. after reset in another tab).
+    const { data: lockRow } = await supabase
+      .from('users')
+      .select('locked_until')
+      .eq('email', emailNormalized)
+      .maybeSingle();
+    if (lockRow && lockRow.locked_until && new Date(lockRow.locked_until) > new Date()) {
+      return res.status(423).json({
+        error: `Too many failed login attempts. Try again after ${new Date(lockRow.locked_until).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC or use Forgot password.`,
+        lockedUntil: lockRow.locked_until
+      });
     }
 
     const { locked, lockedUntilIso } = await recordFailedPasswordAttempt(emailNormalized);
@@ -1373,6 +1385,13 @@ app.post('/api/reset-password', async (req, res) => {
     if (updateError) {
       console.error('Reset password update error:', updateError);
       return res.status(500).json({ error: 'Failed to reset password' });
+    }
+
+    const { error: authPwdErr } = await supabase.auth.admin.updateUserById(user.id, {
+      password: newPassword
+    });
+    if (authPwdErr) {
+      console.error('Reset password: Supabase Auth password sync failed (login may still work via app DB):', authPwdErr);
     }
 
     res.json({ ok: true, message: 'Password has been reset. You can now log in.' });
