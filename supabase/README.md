@@ -34,6 +34,8 @@
 
 If you use Stripe checkout, ensure the `orders` table exists (see project root `supabase-orders-table.sql`). For **guest checkout** (shipping address, order tracking link), run **migration `008_orders_guest_shipping.sql`** in the SQL Editor to add columns: `guest_access_token`, `customer_name`, `customer_phone`, `shipping_address`, `tracking_number`.
 
+For **delivery vs collection** at checkout, run **`supabase-orders-fulfillment-type.sql`** in the SQL Editor to add `fulfillment_type` (`delivery` | `collection`). New installs using `supabase-orders-table.sql` already include this column.
+
 ## 5. (Optional) Migrate existing users from `users.json`
 
 From the project root:

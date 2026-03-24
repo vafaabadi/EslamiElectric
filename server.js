@@ -228,6 +228,14 @@ function generateOrderNumber() {
   return s;
 }
 
+/** Optional delivery notes from checkout (max 2000 chars stored). */
+function trimDeliveryAdditionalInfo(addr) {
+  if (!addr || typeof addr !== 'object') return '';
+  const raw = String(addr.additional_info || addr.additionalInfo || '').trim();
+  if (!raw) return '';
+  return raw.length > 2000 ? raw.slice(0, 2000) : raw;
+}
+
 // Send receipt/order confirmation email (Resend). For guests who are not yet registered, creates a claim token and adds "Claim your account" link.
 // Returns a Promise; callers should .catch() to log errors.
 async function sendOrderReceiptEmail(order) {
@@ -271,6 +279,16 @@ async function sendOrderReceiptEmail(order) {
     return `<tr><td>${escapeHtml(label)}</td><td>${qty}</td><td>$${amt}</td></tr>`;
   }).join('');
   const orderDisplay = order.order_number || order.id;
+  const fulfillLine = order.fulfillment_type === 'collection'
+    ? '<p><strong>Fulfillment:</strong> Collection (pickup)</p>'
+    : '<p><strong>Fulfillment:</strong> Delivery</p>';
+  const shipAddr = order.shipping_address;
+  const extraInfo = (shipAddr && typeof shipAddr === 'object' && shipAddr.additional_info)
+    ? String(shipAddr.additional_info).trim()
+    : '';
+  const additionalInfoLine = extraInfo
+    ? `<p><strong>Additional info:</strong> ${escapeHtml(extraInfo)}</p>`
+    : '';
   const trackBlock = order.guest_access_token
     ? `<p>Track your order anytime: <a href="${siteUrl}/order.html?token=${encodeURIComponent(order.guest_access_token)}">${siteUrl}/order.html?token=...</a></p>`
     : `<p>View this order and all your orders: <a href="${siteUrl}/orders.html">${siteUrl}/orders.html</a></p>`;
@@ -306,6 +324,8 @@ async function sendOrderReceiptEmail(order) {
     <p>Hi ${escapeHtml(name)},</p>
     <p>Thank you for your order. Please find your receipt below.</p>
     <p><strong>Order number: ${escapeHtml(orderDisplay)}</strong></p>
+    ${fulfillLine}
+    ${additionalInfoLine}
     <table style="border-collapse:collapse; margin:1em 0;" cellpadding="6" border="1">
       <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
       <tbody>${itemsList}</tbody>
@@ -395,6 +415,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
         return res.status(500).send('Error updating order');
       }
     } else {
+      const fulfillmentFromMeta = (session.metadata && session.metadata.fulfillment) === 'collection' ? 'collection' : 'delivery';
       const { error } = await supabase.from('orders').insert({
         user_id: userId || null,
         stripe_session_id: stripeSessionId,
@@ -403,7 +424,8 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
         status: 'paid',
         line_items: lineItems,
         customer_email: customerEmail,
-        customer_name: customerName || null
+        customer_name: customerName || null,
+        fulfillment_type: fulfillmentFromMeta
       });
       if (error) {
         if (error.code === '23505') return res.status(200).send('OK');
@@ -415,7 +437,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
     // Send receipt email to customer (guest or logged-in) when we have their email
     const { data: orderForEmail } = await supabase
       .from('orders')
-      .select('id, order_number, customer_email, guest_access_token, customer_name, user_id, line_items, amount_total, currency')
+      .select('id, order_number, customer_email, guest_access_token, customer_name, user_id, line_items, amount_total, currency, fulfillment_type, shipping_address')
       .eq('stripe_session_id', stripeSessionId)
       .single();
     if (orderForEmail && orderForEmail.customer_email) {
@@ -448,6 +470,11 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
       if (customerName) msgLines.push(`Customer name: ${customerName}`);
       msgLines.push(`Customer: ${customer}`);
       msgLines.push(`Type: ${isGuest ? 'guest' : 'registered'}`);
+      msgLines.push(`Fulfillment: ${orderForEmail.fulfillment_type === 'collection' ? 'collection' : 'delivery'}`);
+      const extraShip = orderForEmail.shipping_address && typeof orderForEmail.shipping_address === 'object'
+        ? String(orderForEmail.shipping_address.additional_info || '').trim()
+        : '';
+      if (extraShip) msgLines.push(`Additional info: ${extraShip.slice(0, 500)}${extraShip.length > 500 ? '…' : ''}`);
       msgLines.push(`Amount: $${amountUsd.toFixed(2)} ${String(orderForEmail.currency || currency).toUpperCase()}`);
       msgLines.push(`Stripe session: ${stripeSessionId}`);
       msgLines.push('Items:');
@@ -1633,8 +1660,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
       guestName,
       guestPhone,
       shippingAddress,
-      locale
+      locale,
+      fulfillmentType: rawFulfillment
     } = req.body || {};
+
+    const fulfillmentType = rawFulfillment === 'collection' ? 'collection' : 'delivery';
 
     const isGuest = !userId;
     const localeSeg = (locale === 'fa' || locale === 'en') ? locale : 'en';
@@ -1648,10 +1678,19 @@ app.post('/api/create-checkout-session', async (req, res) => {
       if (!name || name.length < 2) {
         return res.status(400).json({ error: 'Full name is required for guest checkout' });
       }
+      if (fulfillmentType === 'delivery') {
+        const addr = shippingAddress && typeof shippingAddress === 'object' ? shippingAddress : null;
+        const addressLine1 = (addr && (addr.line1 || addr.address || addr.street)) ? String(addr.line1 || addr.address || addr.street).trim() : '';
+        if (!addressLine1 || addressLine1.length < 5) {
+          return res.status(400).json({ error: 'Shipping address is required for delivery' });
+        }
+      }
+    }
+    if (!isGuest && userId && fulfillmentType === 'delivery' && Array.isArray(bodyLineItems) && bodyLineItems.length > 0) {
       const addr = shippingAddress && typeof shippingAddress === 'object' ? shippingAddress : null;
       const addressLine1 = (addr && (addr.line1 || addr.address || addr.street)) ? String(addr.line1 || addr.address || addr.street).trim() : '';
       if (!addressLine1 || addressLine1.length < 5) {
-        return res.status(400).json({ error: 'Shipping address is required for guest checkout' });
+        return res.status(400).json({ error: 'Delivery address is required for delivery orders' });
       }
     }
 
@@ -1691,7 +1730,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
       line_items: lineItems,
       success_url: successUrl,
       cancel_url: cancelUrl,
-      metadata: { order_id: orderId }
+      metadata: { order_id: orderId, fulfillment: fulfillmentType }
     };
     if (userId) sessionParams.client_reference_id = String(userId);
     if (isGuest && guestEmail) {
@@ -1717,13 +1756,28 @@ app.post('/api/create-checkout-session', async (req, res) => {
       amount_total: amountTotal,
       currency: 'usd',
       status: 'pending',
-      line_items: lineItemsForDb
+      line_items: lineItemsForDb,
+      fulfillment_type: fulfillmentType
     };
     if (isGuest) {
       orderRow.guest_access_token = crypto.randomBytes(24).toString('hex');
       orderRow.customer_email = (guestEmail || '').trim().toLowerCase();
       orderRow.customer_name = (guestName || '').trim() || null;
       orderRow.customer_phone = (guestPhone || '').trim() || null;
+      const addr = shippingAddress && typeof shippingAddress === 'object' ? shippingAddress : null;
+      if (addr && fulfillmentType === 'delivery') {
+        orderRow.shipping_address = {
+          line1: (addr.line1 || addr.address || addr.street || '').trim() || null,
+          line2: (addr.line2 || '').trim() || null,
+          city: (addr.city || '').trim() || null,
+          state: (addr.state || addr.province || '').trim() || null,
+          postal_code: (addr.postal_code || addr.postalCode || '').trim() || null,
+          country: (addr.country || '').trim() || null
+        };
+        const extra = trimDeliveryAdditionalInfo(addr);
+        if (extra) orderRow.shipping_address.additional_info = extra;
+      }
+    } else if (userId && fulfillmentType === 'delivery') {
       const addr = shippingAddress && typeof shippingAddress === 'object' ? shippingAddress : null;
       if (addr) {
         orderRow.shipping_address = {
@@ -1734,6 +1788,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
           postal_code: (addr.postal_code || addr.postalCode || '').trim() || null,
           country: (addr.country || '').trim() || null
         };
+        const extra = trimDeliveryAdditionalInfo(addr);
+        if (extra) orderRow.shipping_address.additional_info = extra;
       }
     }
     await supabase.from('orders').insert(orderRow);
@@ -1765,7 +1821,7 @@ app.get('/api/orders', authMiddleware, async (req, res) => {
 
     const { data: orders, error } = await supabase
       .from('orders')
-      .select('id, order_number, stripe_session_id, amount_total, currency, status, line_items, tracking_number, created_at')
+      .select('id, order_number, stripe_session_id, amount_total, currency, status, line_items, tracking_number, created_at, fulfillment_type, shipping_address')
       .eq('user_id', req.userId)
       .order('created_at', { ascending: false });
 
@@ -1789,7 +1845,7 @@ app.get('/api/orders/by-session/:sessionId', async (req, res) => {
     }
     const { data: order, error } = await supabase
       .from('orders')
-      .select('id, order_number, stripe_session_id, amount_total, currency, status, line_items, customer_email, customer_name, guest_access_token, created_at')
+      .select('id, order_number, stripe_session_id, amount_total, currency, status, line_items, customer_email, customer_name, guest_access_token, created_at, fulfillment_type')
       .eq('stripe_session_id', sessionId)
       .single();
 
@@ -1810,7 +1866,7 @@ app.get('/api/orders/guest/:token', async (req, res) => {
     }
     const { data: order, error } = await supabase
       .from('orders')
-      .select('id, order_number, amount_total, currency, status, line_items, customer_email, customer_name, shipping_address, tracking_number, created_at')
+      .select('id, order_number, amount_total, currency, status, line_items, customer_email, customer_name, shipping_address, tracking_number, created_at, fulfillment_type')
       .eq('guest_access_token', token)
       .single();
 
@@ -1836,7 +1892,7 @@ app.get('/api/orders/guest-lookup', async (req, res) => {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdOrNumber);
     let query = supabase
       .from('orders')
-      .select('id, order_number, amount_total, currency, status, line_items, customer_email, customer_name, shipping_address, tracking_number, created_at')
+      .select('id, order_number, amount_total, currency, status, line_items, customer_email, customer_name, shipping_address, tracking_number, created_at, fulfillment_type')
       .eq('customer_email', email);
     if (isUuid) query = query.eq('id', orderIdOrNumber);
     else query = query.eq('order_number', orderIdOrNumber);
@@ -1880,7 +1936,7 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
     }
     const { data: order, error: findError } = await supabase
       .from('orders')
-      .select('id, status, order_number, guest_access_token, customer_name')
+      .select('id, status, order_number, guest_access_token, customer_name, fulfillment_type, shipping_address')
       .eq('stripe_session_id', sessionId)
       .single();
     if (findError || !order) {
@@ -1918,6 +1974,9 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
       return `- ${name} x${qty} = $${(cents / 100).toFixed(2)}`;
     }).join('\n') || '- (no line items)';
 
+    const extraFallback = order.shipping_address && typeof order.shipping_address === 'object'
+      ? String(order.shipping_address.additional_info || '').trim()
+      : '';
     sendTelegramMessage(
       [
         'Order paid (fallback)',
@@ -1925,6 +1984,8 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
         order.customer_name ? `Customer name: ${order.customer_name}` : null,
         `Customer email: ${customerEmail || 'guest'}`,
         `Type: ${isGuest ? 'guest' : 'registered'}`,
+        `Fulfillment: ${order.fulfillment_type === 'collection' ? 'collection' : 'delivery'}`,
+        extraFallback ? `Additional info: ${extraFallback.slice(0, 500)}${extraFallback.length > 500 ? '…' : ''}` : null,
         `Amount: $${(amountTotal / 100).toFixed(2)} ${String(currency).toUpperCase()}`,
         `Stripe session: ${sessionId}`,
         'Items:',

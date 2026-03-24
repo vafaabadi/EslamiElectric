@@ -63,6 +63,8 @@
         <span id="detail-status" class="px-2 py-1 rounded text-sm font-medium bg-emerald-100 text-emerald-800">Paid</span>
       </div>
       <p id="detail-date" class="text-slate-600 text-sm"></p>
+      <p id="detail-fulfillment" class="text-slate-700 text-sm font-medium"></p>
+      <p id="detail-additional-info" class="hidden text-slate-700 text-sm whitespace-pre-wrap border-t border-slate-200 pt-3 mt-2"></p>
       <div id="detail-items" class="border-t border-slate-200 pt-4 space-y-2"></div>
       <p id="detail-total" class="font-semibold text-slate-900 text-lg"></p>
       <div id="detail-tracking" class="hidden pt-2 border-t border-slate-200">
@@ -107,6 +109,28 @@
       }
 
       function renderOrder(order) {
+        var orderLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
+        var ft = orderLang === 'fa'
+          ? { fulfillment: 'نحوه دریافت', delivery: 'ارسال به آدرس', collection: 'تحویل حضوری' }
+          : { fulfillment: 'Fulfillment', delivery: 'Delivery', collection: 'Collection (pickup)' };
+        var ffText = order.fulfillment_type === 'collection' ? ft.collection : ft.delivery;
+        var ffEl = document.getElementById('detail-fulfillment');
+        if (ffEl) ffEl.textContent = ft.fulfillment + ': ' + ffText;
+
+        var addLabel = orderLang === 'fa' ? 'اطلاعات تکمیلی' : 'Additional info';
+        var ship = order.shipping_address;
+        var extraTxt = ship && typeof ship === 'object' && ship.additional_info ? String(ship.additional_info).trim() : '';
+        var addEl = document.getElementById('detail-additional-info');
+        if (addEl) {
+          if (extraTxt) {
+            addEl.textContent = addLabel + ': ' + extraTxt;
+            addEl.classList.remove('hidden');
+          } else {
+            addEl.textContent = '';
+            addEl.classList.add('hidden');
+          }
+        }
+
         document.getElementById('detail-order-id').textContent = order.order_number || order.id;
         document.getElementById('detail-status').textContent = order.status || 'paid';
         document.getElementById('detail-date').textContent = 'Placed ' + formatDate(order.created_at);

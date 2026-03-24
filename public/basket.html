@@ -47,6 +47,48 @@
     <div id="basket-content" class="hidden space-y-4">
       <ul id="basket-list" class="space-y-3"></ul>
 
+      <div id="fulfillment-section" class="bg-white rounded-xl shadow-md p-6 space-y-4 border border-slate-200">
+        <h3 id="fulfillment-title" class="font-semibold text-slate-800">Delivery or collection</h3>
+        <p id="fulfillment-hint" class="text-sm text-slate-600">Choose how you would like to receive your order.</p>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <label class="flex items-center gap-3 sm:flex-1 cursor-pointer border-2 rounded-xl p-4 border-amber-500 bg-amber-50/80">
+            <input type="radio" name="fulfillment" value="delivery" checked class="w-4 h-4 text-amber-600 border-slate-300 focus:ring-amber-400">
+            <span id="label-delivery-option" class="font-medium text-slate-800">Delivery</span>
+          </label>
+          <label class="flex items-center gap-3 sm:flex-1 cursor-pointer border-2 rounded-xl p-4 border-slate-200 hover:border-slate-300">
+            <input type="radio" name="fulfillment" value="collection" class="w-4 h-4 text-amber-600 border-slate-300 focus:ring-amber-400">
+            <span id="label-collection-option" class="font-medium text-slate-800">Collection (pickup)</span>
+          </label>
+        </div>
+        <p id="fulfillment-collection-note" class="hidden text-sm text-slate-600 bg-slate-50 rounded-lg p-3 border border-slate-100">We will contact you when your order is ready for pickup.</p>
+      </div>
+
+      <div id="registered-checkout-section" class="hidden bg-white rounded-xl shadow-md p-6 space-y-4 border border-slate-200">
+        <h3 id="reg-section-title" class="font-semibold text-slate-800">Delivery address</h3>
+        <p id="reg-section-hint" class="text-sm text-slate-600">Required when you choose delivery. You can edit your profile later under My Profile.</p>
+        <div id="registered-address-block">
+          <div>
+            <label for="reg-address" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-reg-address">Address</span> *</label>
+            <input type="text" id="reg-address" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="Street, building, floor" autocomplete="street-address">
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label for="reg-city" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-reg-city">City</span></label>
+              <input type="text" id="reg-city" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" autocomplete="address-level2">
+            </div>
+            <div>
+              <label for="reg-postal" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-reg-postal">Postal code</span></label>
+              <input type="text" id="reg-postal" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" autocomplete="postal-code">
+            </div>
+          </div>
+          <div class="mt-4">
+            <label for="reg-additional-info" class="block text-sm font-medium text-slate-700 mb-1" id="label-reg-additional-header">Additional info</label>
+            <textarea id="reg-additional-info" rows="3" maxlength="2000" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y min-h-[5rem]" placeholder=""></textarea>
+            <p id="reg-additional-hint" class="text-xs text-slate-500 mt-1"></p>
+          </div>
+        </div>
+      </div>
+
       <div id="guest-checkout-section" class="hidden bg-white rounded-xl shadow-md p-6 space-y-4 border border-slate-200">
         <h3 id="guest-section-title" class="font-semibold text-slate-800">Shipping & contact details (guest checkout)</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -64,18 +106,25 @@
             <input type="tel" id="guest-phone" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. +1 234 567 8900">
           </div>
         </div>
-        <div>
-          <label for="guest-address" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-address">Address</span> *</label>
-          <input type="text" id="guest-address" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="Street, building, floor">
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div id="guest-address-block">
           <div>
-            <label for="guest-city" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-city">City</span></label>
-            <input type="text" id="guest-city" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <label for="guest-address" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-address">Address</span> *</label>
+            <input type="text" id="guest-address" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="Street, building, floor">
           </div>
-          <div>
-            <label for="guest-postal" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-postal">Postal code</span></label>
-            <input type="text" id="guest-postal" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label for="guest-city" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-city">City</span></label>
+              <input type="text" id="guest-city" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+            </div>
+            <div>
+              <label for="guest-postal" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-postal">Postal code</span></label>
+              <input type="text" id="guest-postal" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+            </div>
+          </div>
+          <div class="mt-4">
+            <label for="guest-additional-info" class="block text-sm font-medium text-slate-700 mb-1" id="label-guest-additional-header">Additional info</label>
+            <textarea id="guest-additional-info" rows="3" maxlength="2000" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y min-h-[5rem]" placeholder=""></textarea>
+            <p id="guest-additional-hint" class="text-xs text-slate-500 mt-1"></p>
           </div>
         </div>
       </div>
@@ -131,7 +180,27 @@
         guestAddress: 'Address',
         guestCity: 'City',
         guestPostal: 'Postal code',
-        guestDetailsRequired: 'Please fill in name, email and address for guest checkout.'
+        guestDetailsRequired: 'Please fill in name, email and address for guest checkout.',
+        fulfillmentTitle: 'Delivery or collection',
+        fulfillmentHint: 'Choose how you would like to receive your order.',
+        deliveryOption: 'Delivery',
+        collectionOption: 'Collection (pickup)',
+        fulfillmentCollectionNote: 'We will contact you when your order is ready for pickup.',
+        guestSectionTitleDelivery: 'Shipping & contact (guest checkout)',
+        guestSectionTitleCollection: 'Contact details (guest checkout)',
+        guestEmailHintDelivery: "We'll send your order confirmation and tracking link to this address.",
+        guestEmailHintCollection: 'We will email your receipt and contact you when your order is ready for pickup.',
+        guestDetailsRequiredDelivery: 'Please enter name, email and a delivery address.',
+        guestDetailsRequiredCollection: 'Please enter name and email.',
+        regSectionTitle: 'Delivery address',
+        regSectionHint: 'Required when you choose delivery. You can update your saved address in My Profile.',
+        regDeliveryRequired: 'Please enter your delivery address for delivery orders.',
+        labelRegAddress: 'Address',
+        labelRegCity: 'City',
+        labelRegPostal: 'Postal code',
+        additionalInfoHeader: 'Additional info',
+        additionalInfoPlaceholder: 'e.g. gate code, delivery instructions, preferred time window',
+        additionalInfoHint: 'Optional. Helps us deliver your order.'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -159,7 +228,27 @@
         guestAddress: 'آدرس',
         guestCity: 'شهر',
         guestPostal: 'کد پستی',
-        guestDetailsRequired: 'برای خرید مهمان نام، ایمیل و آدرس را وارد کنید.'
+        guestDetailsRequired: 'برای خرید مهمان نام، ایمیل و آدرس را وارد کنید.',
+        fulfillmentTitle: 'ارسال یا تحویل حضوری',
+        fulfillmentHint: 'نحوه دریافت سفارش را انتخاب کنید.',
+        deliveryOption: 'ارسال به آدرس',
+        collectionOption: 'تحویل حضوری (مراجعه به فروشگاه)',
+        fulfillmentCollectionNote: 'پس از آماده شدن سفارش با شما تماس می‌گیریم.',
+        guestSectionTitleDelivery: 'اطلاعات تماس و آدرس (خرید مهمان)',
+        guestSectionTitleCollection: 'اطلاعات تماس (خرید مهمان)',
+        guestEmailHintDelivery: 'تأیید سفارش و لینک پیگیری به این ایمیل ارسال می‌شود.',
+        guestEmailHintCollection: 'رسید و اطلاع تحویل به این ایمیل ارسال می‌شود.',
+        guestDetailsRequiredDelivery: 'نام، ایمیل و آدرس ارسال را وارد کنید.',
+        guestDetailsRequiredCollection: 'نام و ایمیل را وارد کنید.',
+        regSectionTitle: 'آدرس ارسال',
+        regSectionHint: 'در صورت انتخاب ارسال الزامی است. می‌توانید آدرس ذخیره‌شده را در پروفایل ویرایش کنید.',
+        regDeliveryRequired: 'برای ارسال، آدرس تحویل را وارد کنید.',
+        labelRegAddress: 'آدرس',
+        labelRegCity: 'شهر',
+        labelRegPostal: 'کد پستی',
+        additionalInfoHeader: 'اطلاعات تکمیلی',
+        additionalInfoPlaceholder: 'مثلاً کد درب، توضیح تحویل، بازه زمانی ترجیحی',
+        additionalInfoHint: 'اختیاری. به ارسال سفارش کمک می‌کند.'
       }
     };
 
@@ -211,11 +300,42 @@
       const navProfileEl = document.getElementById('nav-profile');
       if (navProfileEl && t.navProfile) navProfileEl.textContent = t.navProfile;
       document.getElementById('btn-checkout-text').textContent = t.proceedToCheckout;
+      const ft = document.getElementById('fulfillment-title');
+      if (ft) ft.textContent = t.fulfillmentTitle;
+      const fh = document.getElementById('fulfillment-hint');
+      if (fh) fh.textContent = t.fulfillmentHint;
+      const ld = document.getElementById('label-delivery-option');
+      if (ld) ld.textContent = t.deliveryOption;
+      const lc = document.getElementById('label-collection-option');
+      if (lc) lc.textContent = t.collectionOption;
+      const fcn = document.getElementById('fulfillment-collection-note');
+      if (fcn) fcn.textContent = t.fulfillmentCollectionNote;
+      const rst = document.getElementById('reg-section-title');
+      if (rst) rst.textContent = t.regSectionTitle;
+      const rsh = document.getElementById('reg-section-hint');
+      if (rsh) rsh.textContent = t.regSectionHint;
+      const lra = document.getElementById('label-reg-address');
+      if (lra) lra.textContent = t.labelRegAddress;
+      const lrc = document.getElementById('label-reg-city');
+      if (lrc) lrc.textContent = t.labelRegCity;
+      const lrp = document.getElementById('label-reg-postal');
+      if (lrp) lrp.textContent = t.labelRegPostal;
+      const lgh = document.getElementById('label-guest-additional-header');
+      if (lgh) lgh.textContent = t.additionalInfoHeader;
+      const lrh = document.getElementById('label-reg-additional-header');
+      if (lrh) lrh.textContent = t.additionalInfoHeader;
+      const gai = document.getElementById('guest-additional-info');
+      if (gai) gai.placeholder = t.additionalInfoPlaceholder || '';
+      const rai = document.getElementById('reg-additional-info');
+      if (rai) rai.placeholder = t.additionalInfoPlaceholder || '';
+      const gaiHint = document.getElementById('guest-additional-hint');
+      if (gaiHint) gaiHint.textContent = t.additionalInfoHint || '';
+      const raiHint = document.getElementById('reg-additional-hint');
+      if (raiHint) raiHint.textContent = t.additionalInfoHint || '';
+
       const guestSection = document.getElementById('guest-checkout-section');
       if (guestSection) {
         guestSection.classList.toggle('hidden', !!tokenForNav);
-        const guestTitle = guestSection.querySelector('#guest-section-title');
-        if (guestTitle) guestTitle.textContent = t.guestSectionTitle || 'Shipping & contact details (guest checkout)';
         const lblName = document.getElementById('label-guest-name');
         const lblEmail = document.getElementById('label-guest-email');
         const lblPhone = document.getElementById('label-guest-phone');
@@ -245,6 +365,60 @@
       if (navProfileEl) navProfileEl.classList.toggle('hidden', !tokenForNav);
 
       renderBasket();
+    }
+
+    function getFulfillment() {
+      const r = document.querySelector('input[name="fulfillment"]:checked');
+      return r && r.value === 'collection' ? 'collection' : 'delivery';
+    }
+
+    function syncFulfillmentUI() {
+      const t = translations[currentLang];
+      const fulfillment = getFulfillment();
+      const token = localStorage.getItem('token');
+      const note = document.getElementById('fulfillment-collection-note');
+      if (note) {
+        note.textContent = t.fulfillmentCollectionNote;
+        note.classList.toggle('hidden', fulfillment !== 'collection');
+      }
+      const guestAddr = document.getElementById('guest-address-block');
+      if (guestAddr) guestAddr.classList.toggle('hidden', fulfillment !== 'delivery');
+
+      const regSection = document.getElementById('registered-checkout-section');
+      if (regSection) {
+        regSection.classList.toggle('hidden', !token || fulfillment !== 'delivery');
+      }
+
+      const guestTitle = document.getElementById('guest-section-title');
+      if (guestTitle && t.guestSectionTitleDelivery) {
+        guestTitle.textContent = fulfillment === 'collection' ? t.guestSectionTitleCollection : t.guestSectionTitleDelivery;
+      }
+      const emailHint = document.getElementById('guest-email-hint');
+      if (emailHint) {
+        emailHint.textContent = fulfillment === 'collection' ? t.guestEmailHintCollection : t.guestEmailHintDelivery;
+      }
+
+      document.querySelectorAll('input[name="fulfillment"]').forEach(function (inp) {
+        const lab = inp.closest('label');
+        if (!lab) return;
+        if (inp.checked) {
+          lab.className = 'flex items-center gap-3 sm:flex-1 cursor-pointer border-2 rounded-xl p-4 border-amber-500 bg-amber-50/80';
+        } else {
+          lab.className = 'flex items-center gap-3 sm:flex-1 cursor-pointer border-2 rounded-xl p-4 border-slate-200 hover:border-slate-300';
+        }
+      });
+    }
+
+    async function loadProfileForCheckout() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const res = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } });
+        if (!res.ok) return;
+        const p = await res.json();
+        const ra = document.getElementById('reg-address');
+        if (ra && p.address && String(p.address).trim() && !ra.value.trim()) ra.value = p.address;
+      } catch (e) { /* ignore */ }
     }
 
     function renderBasket() {
@@ -355,7 +529,14 @@
           setBasket(basket);
         });
       });
+
+      syncFulfillmentUI();
+      loadProfileForCheckout();
     }
+
+    document.querySelectorAll('input[name="fulfillment"]').forEach(function (el) {
+      el.addEventListener('change', syncFulfillmentUI);
+    });
 
     document.getElementById('lang-en').addEventListener('click', () => {
       currentLang = 'en';
@@ -401,7 +582,8 @@
         const token = localStorage.getItem('token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
-        const body = { lineItems };
+        const fulfillment = getFulfillment();
+        const body = { lineItems, fulfillmentType: fulfillment };
         if (!token) {
           const guestName = document.getElementById('guest-name') && document.getElementById('guest-name').value.trim();
           const guestEmail = document.getElementById('guest-email') && document.getElementById('guest-email').value.trim();
@@ -409,8 +591,18 @@
           const guestAddress = document.getElementById('guest-address') && document.getElementById('guest-address').value.trim();
           const guestCity = document.getElementById('guest-city') && document.getElementById('guest-city').value.trim();
           const guestPostal = document.getElementById('guest-postal') && document.getElementById('guest-postal').value.trim();
-          if (!guestName || !guestEmail || !guestAddress) {
-            errEl.textContent = t.guestDetailsRequired || 'Please fill in name, email and address for guest checkout.';
+          if (!guestName || !guestEmail) {
+            errEl.textContent = fulfillment === 'collection'
+              ? (t.guestDetailsRequiredCollection || t.guestDetailsRequired)
+              : (t.guestDetailsRequiredDelivery || t.guestDetailsRequired);
+            errEl.classList.remove('hidden');
+            btnCheckout.disabled = false;
+            btnText.classList.remove('hidden');
+            btnLoading.classList.add('hidden');
+            return;
+          }
+          if (fulfillment === 'delivery' && (!guestAddress || guestAddress.length < 5)) {
+            errEl.textContent = t.guestDetailsRequiredDelivery || t.guestDetailsRequired;
             errEl.classList.remove('hidden');
             btnCheckout.disabled = false;
             btnText.classList.remove('hidden');
@@ -420,11 +612,34 @@
           body.guestEmail = guestEmail;
           body.guestName = guestName;
           body.guestPhone = guestPhone || undefined;
+          if (fulfillment === 'delivery') {
+            const guestExtra = document.getElementById('guest-additional-info') && document.getElementById('guest-additional-info').value.trim();
+            body.shippingAddress = {
+              line1: guestAddress,
+              city: guestCity || undefined,
+              postal_code: guestPostal || undefined
+            };
+            if (guestExtra) body.shippingAddress.additional_info = guestExtra;
+          }
+        } else if (fulfillment === 'delivery') {
+          const regAddress = document.getElementById('reg-address') && document.getElementById('reg-address').value.trim();
+          const regCity = document.getElementById('reg-city') && document.getElementById('reg-city').value.trim();
+          const regPostal = document.getElementById('reg-postal') && document.getElementById('reg-postal').value.trim();
+          const regExtra = document.getElementById('reg-additional-info') && document.getElementById('reg-additional-info').value.trim();
+          if (!regAddress || regAddress.length < 5) {
+            errEl.textContent = t.regDeliveryRequired || t.checkoutError;
+            errEl.classList.remove('hidden');
+            btnCheckout.disabled = false;
+            btnText.classList.remove('hidden');
+            btnLoading.classList.add('hidden');
+            return;
+          }
           body.shippingAddress = {
-            line1: guestAddress,
-            city: guestCity || undefined,
-            postal_code: guestPostal || undefined
+            line1: regAddress,
+            city: regCity || undefined,
+            postal_code: regPostal || undefined
           };
+          if (regExtra) body.shippingAddress.additional_info = regExtra;
         }
         body.locale = currentLang === 'fa' ? 'fa' : 'en';
         const res = await fetch('/api/create-checkout-session', {

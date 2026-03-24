@@ -9,6 +9,7 @@ create table if not exists public.orders (
   status text not null default 'paid',
   line_items jsonb not null default '[]',
   customer_email text,
+  fulfillment_type text,
   created_at timestamptz not null default now()
 );
 

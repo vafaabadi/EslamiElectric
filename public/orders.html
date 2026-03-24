@@ -85,7 +85,11 @@
         orderStatus: 'Status',
         statusPaid: 'Paid',
         viewDetails: 'Details',
-        items: 'Items'
+        items: 'Items',
+        fulfillment: 'Fulfillment',
+        fulfillmentDelivery: 'Delivery',
+        fulfillmentCollection: 'Collection (pickup)',
+        additionalInfo: 'Additional info'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -109,7 +113,10 @@
         orderStatus: 'وضعیت',
         statusPaid: 'پرداخت شده',
         viewDetails: 'جزئیات',
-        items: 'اقلام'
+        items: 'اقلام',
+        fulfillment: 'نحوه دریافت',
+        fulfillmentDelivery: 'ارسال به آدرس',
+        fulfillmentCollection: 'تحویل حضوری'
       }
     };
 
@@ -190,6 +197,11 @@
           ? lineItems.map(i => escapeHtml(i.name) + (i.quantity > 1 ? ' × ' + i.quantity : '')).join(', ')
           : '—';
         const orderNum = order.order_number || order.id;
+        const ship = order.shipping_address;
+        const extraInfo = ship && typeof ship === 'object' && ship.additional_info
+          ? String(ship.additional_info).trim()
+          : '';
+        const extraInfoShort = extraInfo.length > 220 ? extraInfo.slice(0, 220) + '…' : extraInfo;
         li.innerHTML = `
           <div class="p-4 flex flex-wrap items-center justify-between gap-4 cursor-pointer order-header" data-order-id="${escapeHtml(order.id)}">
             <div class="flex-1 min-w-0">
@@ -204,6 +216,8 @@
             </div>
           </div>
           <div class="order-details hidden border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+            <p class="text-sm text-slate-700 mb-2"><span class="font-medium text-slate-600">${escapeHtml(t.fulfillment)}:</span> ${order.fulfillment_type === 'collection' ? escapeHtml(t.fulfillmentCollection) : escapeHtml(t.fulfillmentDelivery)}</p>
+            ${extraInfoShort ? `<p class="text-sm text-slate-700 mb-2 whitespace-pre-wrap"><span class="font-medium text-slate-600">${escapeHtml(t.additionalInfo)}:</span> ${escapeHtml(extraInfoShort)}</p>` : ''}
             <p class="text-sm font-medium text-slate-600 mb-2">${t.items}</p>
             <ul class="space-y-1 text-sm text-slate-700"></ul>
           </div>
