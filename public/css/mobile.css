@@ -32,4 +32,11 @@ html, body {
   #header-nav .hidden {
     display: none !important;
   }
+
+  /* Basket in header bar (outside hamburger) — touch-friendly */
+  #nav-basket-mobile {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
 }

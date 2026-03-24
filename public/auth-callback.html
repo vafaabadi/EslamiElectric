@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!--SERVER_PUBLIC_CONFIG-->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Confirming… - Eslami Electric</title>
@@ -23,9 +24,13 @@
         return;
       }
       try {
-        const configRes = await fetch('/api/config');
-        const config = await configRes.json();
-        if (!config.supabaseUrl || !config.supabaseAnonKey) {
+        function readServerPublicConfig() {
+          const el = document.getElementById('server-public-config');
+          if (!el || !el.textContent) return null;
+          try { return JSON.parse(el.textContent); } catch (e) { return null; }
+        }
+        const config = readServerPublicConfig();
+        if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
           throw new Error('Config missing');
         }
         if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
@@ -56,7 +61,7 @@
         }
       } catch (e) {
         document.getElementById('status').textContent = 'Something went wrong. Try logging in.';
-        document.getElementById('error').textContent = e.message || '';
+        document.getElementById('error').textContent = '';
         document.getElementById('error').classList.remove('hidden');
         setTimeout(function() { window.location.href = 'login.html'; }, 4000);
       }

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!--SERVER_PUBLIC_CONFIG-->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eslami Electric</title>
@@ -14,10 +15,14 @@
     var hash = window.location.hash;
     if (!hash || hash.indexOf('access_token') === -1) return;
     (async function() {
+      function readServerPublicConfig() {
+        var el = document.getElementById('server-public-config');
+        if (!el || !el.textContent) return null;
+        try { return JSON.parse(el.textContent); } catch (e) { return null; }
+      }
       try {
-        var configRes = await fetch('/api/config');
-        var config = await configRes.json();
-        if (!config.supabaseUrl || !config.supabaseAnonKey) return;
+        var config = readServerPublicConfig();
+        if (!config || !config.supabaseUrl || !config.supabaseAnonKey) return;
         var supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
         if (typeof supabase.auth.initialize === 'function') await supabase.auth.initialize();
         var session = (await supabase.auth.getSession()).data.session;
@@ -40,6 +45,7 @@
           <h1 id="site-title" class="text-xl sm:text-2xl font-bold tracking-tight truncate">Eslami Electric</h1>
           <p id="site-subtitle" class="text-slate-400 text-xs sm:text-sm truncate">Quality Building electrical appliances and lighting</p>
         </div>
+        <a href="basket.html" id="nav-basket-mobile" class="sm:hidden relative inline-flex items-center justify-center px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors shrink-0" aria-label="Basket">Basket<span id="basket-count-mobile" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span></a>
         <button type="button" id="nav-toggle" class="sm:hidden p-2 rounded-lg text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Menu" aria-expanded="false">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
@@ -59,7 +65,7 @@
       </div>
       <nav id="header-nav" class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-2" aria-label="Language and actions">
         <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
-        <a href="basket.html" id="nav-basket" class="relative inline-flex items-center px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket<span id="basket-count" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span></a>
+        <a href="basket.html" id="nav-basket" class="hidden sm:relative sm:inline-flex items-center px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket<span id="basket-count" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span></a>
         <a href="orders.html" id="nav-orders" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
         <a href="profile.html" id="nav-profile" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Profile</a>
         <a href="login.html" id="nav-login" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
@@ -196,12 +202,14 @@
     function updateBasketCount() {
       const basket = getBasket();
       const total = basket.reduce((sum, item) => sum + item.quantity, 0);
-      const el = document.getElementById('basket-count');
-      if (!el) return;
-      if (total > 0) {
-        el.textContent = total > 99 ? '99+' : total;
-        el.classList.remove('hidden');
-      } else el.classList.add('hidden');
+      ['basket-count', 'basket-count-mobile'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (total > 0) {
+          el.textContent = total > 99 ? '99+' : total;
+          el.classList.remove('hidden');
+        } else el.classList.add('hidden');
+      });
     }
 
     function escapeHtml(str) {
@@ -224,7 +232,12 @@
       document.getElementById('landline-label').textContent = t.landlineLabel;
       document.getElementById('social-label').textContent = t.socialLabel;
       document.getElementById('nav-products').textContent = t.navProducts;
-      document.getElementById('nav-basket').innerHTML = t.navBasket + '<span id="basket-count" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span>';
+      const basketSpan = '<span id="basket-count" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span>';
+      document.getElementById('nav-basket').innerHTML = t.navBasket + basketSpan;
+      const navBasketMobile = document.getElementById('nav-basket-mobile');
+      if (navBasketMobile) {
+        navBasketMobile.innerHTML = t.navBasket + '<span id="basket-count-mobile" class="hidden ml-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500 text-slate-900 text-xs font-bold inline-flex items-center justify-center"></span>';
+      }
       updateBasketCount();
       document.getElementById('nav-orders').textContent = t.navOrders;
       const navProfileEl = document.getElementById('nav-profile');

@@ -60,6 +60,49 @@ const PATH_TO_HTML = {
 };
 const publicDir = path.join(__dirname, 'public');
 
+/** Supabase URL + anon key + baseUrl: embedded only in HTML pages that need them (not via a separate JSON API). */
+function getPublicConfigForClient(req) {
+  const url = process.env.SUPABASE_URL || '';
+  const anon = process.env.SUPABASE_ANON_KEY || '';
+  const base = (process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'))).replace(/\/$/, '');
+  return { supabaseUrl: url, supabaseAnonKey: anon, baseUrl: base };
+}
+
+function jsonForInlineScript(obj) {
+  return JSON.stringify(obj).replace(/</g, '\\u003c');
+}
+
+function injectPublicConfig(html, req) {
+  const config = getPublicConfigForClient(req);
+  const script = '<script id="server-public-config" type="application/json">' + jsonForInlineScript(config) + '</script>';
+  if (html.includes('<!--SERVER_PUBLIC_CONFIG-->')) {
+    return html.replace('<!--SERVER_PUBLIC_CONFIG-->', script);
+  }
+  return html.replace(/<head(\s[^>]*)?>/, '<head$1>' + script + '\n');
+}
+
+const HTML_WITH_PUBLIC_CONFIG = new Set([
+  'index.html',
+  'auth-callback.html',
+  'account.html',
+  'forgot-password.html',
+  'update-password.html'
+]);
+
+function serveHtmlWithPublicConfig(req, res, relativePath) {
+  const filePath = path.join(publicDir, relativePath);
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') return res.status(404).send('Not found');
+      return res.status(500).send('Error loading page');
+    }
+    const injected = injectPublicConfig(data, req);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(injected);
+  });
+}
+
 const resendApiKey = process.env.RESEND_API_KEY;
 const resendFrom = process.env.RESEND_FROM || 'Eslami Electric <onboarding@resend.dev>';
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -429,7 +472,7 @@ app.get('/', (req, res) => {
 });
 
 // Serve locale-prefixed routes: /en/, /en/products, /fa/, /fa/basket, etc.
-function serveLocalePage(locale, subPath, res) {
+function serveLocalePage(locale, subPath, req, res) {
   const base = '/' + locale + '/';
   const baseTag = '<base href="' + base + '">';
   const langScript = '<script>(function(){var p=location.pathname;var l=p.indexOf("/fa")===0?"fa":"en";localStorage.setItem("lang",l);document.addEventListener("DOMContentLoaded",function(){var rest=p.replace(/^\\/en\\/?|^\\/fa\\/?/i,"")||"index";var enEl=document.getElementById("lang-en");var faEl=document.getElementById("lang-fa");if(enEl){enEl.addEventListener("click",function(){if(l==="fa")location.href="/en/"+(rest==="index"?"":rest);});}if(faEl){faEl.addEventListener("click",function(){if(l==="en")location.href="/fa/"+(rest==="index"?"":rest);});}});})();</script>';
@@ -443,8 +486,10 @@ function serveLocalePage(locale, subPath, res) {
         if (err.code === 'ENOENT') return res.status(404).send('Not found');
         return res.status(500).send('Error loading page');
       }
-      const injected = data.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
+      let body = HTML_WITH_PUBLIC_CONFIG.has(htmlFile) ? injectPublicConfig(data, req) : data;
+      const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'private, no-store');
       res.send(injected);
     });
     return;
@@ -464,8 +509,10 @@ function serveLocalePage(locale, subPath, res) {
   const indexPath = path.join(publicDir, 'index.html');
   fs.readFile(indexPath, 'utf8', (err, data) => {
     if (err) return res.status(404).send('Not found');
-    const injected = data.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
+    let body = injectPublicConfig(data, req);
+    const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'private, no-store');
     res.send(injected);
   });
 }
@@ -473,18 +520,17 @@ function serveLocalePage(locale, subPath, res) {
 LOCALE_PREFIXES.forEach((locale) => {
   app.get(new RegExp('^/' + locale + '(?:/.*)?$'), (req, res) => {
     const subPath = req.path.slice(('/' + locale).length) || '/';
-    serveLocalePage(locale, subPath, res);
+    serveLocalePage(locale, subPath, req, res);
   });
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+for (const name of HTML_WITH_PUBLIC_CONFIG) {
+  app.get('/' + name, (req, res) => {
+    serveHtmlWithPublicConfig(req, res, name);
+  });
+}
 
-app.get('/api/config', (req, res) => {
-  const supabaseUrl = process.env.SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
-  res.json({ supabaseUrl, supabaseAnonKey, baseUrl: baseUrl.replace(/\/$/, '') });
-});
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Check whether a user email already exists in Supabase auth.
 // This lets the frontend show a friendly error before attempting signUp.
@@ -724,7 +770,6 @@ app.post('/api/notify/signup', async (req, res) => {
     const body = req.body || {};
     const type = body.type || 'person';
     const skipEmail = !!body.skipEmail;
-    const password = body.password || null;
     const firstName = (body.firstName || '').trim();
     const surname = (body.surname || '').trim();
     const email = (body.email || '').trim().toLowerCase();

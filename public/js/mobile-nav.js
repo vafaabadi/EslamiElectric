@@ -12,4 +12,11 @@
   nav.querySelectorAll('a').forEach(function (a) {
     a.addEventListener('click', function () { nav.classList.remove('mobile-open'); });
   });
+  var basketMobile = document.getElementById('nav-basket-mobile');
+  if (basketMobile) {
+    basketMobile.addEventListener('click', function () {
+      nav.classList.remove('mobile-open');
+      toggle.setAttribute('aria-expanded', 'false');
+    });
+  }
 })();
