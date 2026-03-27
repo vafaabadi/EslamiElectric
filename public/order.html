@@ -9,6 +9,7 @@
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
+  <script src="js/currency-toggle.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -89,6 +90,7 @@
     (function() {
       const params = new URLSearchParams(window.location.search);
       const token = params.get('token');
+      var cachedOrder = null;
 
       function showSection(id) {
         ['finder-section', 'order-loading', 'order-not-found', 'order-detail'].forEach(function(s) {
@@ -118,6 +120,7 @@
       }
 
       function renderOrder(order) {
+        cachedOrder = order;
         var orderLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
         var ft = orderLang === 'fa'
           ? { fulfillment: 'نحوه دریافت', delivery: 'ارسال به آدرس', collection: 'تحویل حضوری' }
@@ -213,6 +216,10 @@
           .catch(function() {
             showSection('order-not-found');
           });
+      });
+
+      window.addEventListener('appcurrencychange', function() {
+        if (cachedOrder) renderOrder(cachedOrder);
       });
     })();
     });
