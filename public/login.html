@@ -226,12 +226,19 @@
 
     function telegramWidgetHostnameMatchesPage(cfg) {
       var h = (location.hostname || '').toLowerCase();
-      var expected = (cfg && cfg.telegramLoginWidgetHostname) ? String(cfg.telegramLoginWidgetHostname).toLowerCase() : '';
-      if (!expected) return true;
       function stripWww(x) {
         return x.indexOf('www.') === 0 ? x.slice(4) : x;
       }
-      return stripWww(h) === stripWww(expected);
+      var hs = stripWww(h);
+      var hosts = cfg && cfg.telegramLoginWidgetHostnames;
+      if (Array.isArray(hosts) && hosts.length > 0) {
+        return hosts.some(function (exp) {
+          return stripWww(String(exp).toLowerCase()) === hs;
+        });
+      }
+      var expected = cfg && cfg.telegramLoginWidgetHostname ? String(cfg.telegramLoginWidgetHostname).toLowerCase() : '';
+      if (!expected) return true;
+      return hs === stripWww(expected);
     }
 
     function mountTelegramWidget() {
@@ -262,7 +269,11 @@
       if (!telegramWidgetHostnameMatchesPage(config)) {
         tWrap.classList.remove('hidden');
         if (hintEl) {
-          var reg = (config.telegramLoginWidgetHostname || 'your-domain.com').replace(/</g, '');
+          var list = Array.isArray(config.telegramLoginWidgetHostnames) ? config.telegramLoginWidgetHostnames : [];
+          var reg = (list.length ? list.join(', ') : (config.telegramLoginWidgetHostname || 'your-domain.com')).replace(
+            /</g,
+            ''
+          );
           hintEl.textContent = t.telegramWrongDomain.replace('HOST', reg);
           hintEl.classList.remove('hidden');
         }

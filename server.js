@@ -70,36 +70,61 @@ function getPublicConfigForClient(req) {
   const telegramLoginBotToken = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
   const telegramAuthDomain = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
   const telegramLoginEnabled = !!(telegramBotUsername && telegramLoginBotToken && telegramAuthDomain);
-  /** Hostname Telegram Login Widget expects (BotFather /setdomain). Optional; derived from BASE_URL if unset. */
-  let telegramLoginWidgetHostname = (process.env.TELEGRAM_LOGIN_WIDGET_DOMAIN || '').trim();
-  if (telegramLoginWidgetHostname) {
-    try {
-      const u = new URL(
-        telegramLoginWidgetHostname.includes('://') ? telegramLoginWidgetHostname : 'https://' + telegramLoginWidgetHostname
-      );
-      telegramLoginWidgetHostname = u.hostname;
-    } catch (e) {
-      telegramLoginWidgetHostname = '';
-    }
-  }
-  if (!telegramLoginWidgetHostname) {
-    const baseForHost = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '';
-    if (baseForHost) {
-      try {
-        const u = new URL(baseForHost.includes('://') ? baseForHost : 'https://' + baseForHost);
-        const h = u.hostname;
-        if (h && h !== 'localhost' && h !== '127.0.0.1') telegramLoginWidgetHostname = h;
-      } catch (e) {}
-    }
-  }
+  /** Every hostname where Telegram Login Widget may run (must each be set in BotFather /setdomain). */
+  const telegramLoginWidgetHostnames = telegramLoginEnabled
+    ? collectTelegramLoginWidgetHostnames(req)
+    : [];
+  const telegramLoginWidgetHostname =
+    telegramLoginWidgetHostnames.length > 0 ? telegramLoginWidgetHostnames[0] : '';
   return {
     supabaseUrl: url,
     supabaseAnonKey: anon,
     baseUrl: base,
     telegramBotUsername: telegramLoginEnabled ? telegramBotUsername : '',
     telegramLoginEnabled,
-    telegramLoginWidgetHostname: telegramLoginEnabled ? telegramLoginWidgetHostname : ''
+    telegramLoginWidgetHostname,
+    telegramLoginWidgetHostnames
   };
+}
+
+/**
+ * Hostnames allowed to show our Telegram widget UI (Telegram still validates via BotFather /setdomain).
+ * Includes: env list, BASE_URL, VERCEL_URL, and the current request Host (so *.vercel.app matches live URL).
+ */
+function collectTelegramLoginWidgetHostnames(req) {
+  const out = [];
+  const add = (h) => {
+    if (!h || typeof h !== 'string') return;
+    const x = h.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+    if (!x || x === 'localhost' || x === '127.0.0.1') return;
+    if (!out.includes(x)) out.push(x);
+  };
+  const raw = (process.env.TELEGRAM_LOGIN_WIDGET_DOMAIN || '').trim();
+  if (raw) {
+    for (const part of raw.split(',')) {
+      const p = part.trim();
+      if (!p) continue;
+      try {
+        const u = new URL(p.includes('://') ? p : 'https://' + p);
+        add(u.hostname);
+      } catch (e) {
+        add(p);
+      }
+    }
+  }
+  const baseForHost = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '';
+  if (baseForHost) {
+    try {
+      const u = new URL(baseForHost.includes('://') ? baseForHost : 'https://' + baseForHost);
+      add(u.hostname);
+    } catch (e) {}
+  }
+  add(process.env.VERCEL_URL || '');
+  if (req && typeof req.get === 'function') {
+    const host = (req.get('host') || '').split(':')[0];
+    add(host);
+  }
+  return out;
 }
 
 /** Log whether Telegram Login Widget can run (see TELEGRAM_* env vars). */
@@ -108,26 +133,15 @@ function logTelegramLoginStatus() {
   const tok = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
   const dom = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
   if (u && tok && dom) {
-    const wh =
-      (process.env.TELEGRAM_LOGIN_WIDGET_DOMAIN || '').trim() ||
-      (function () {
-        const b = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '';
-        if (!b) return '';
-        try {
-          const h = new URL(b.includes('://') ? b : 'https://' + b).hostname;
-          return h === 'localhost' || h === '127.0.0.1' ? '' : h;
-        } catch (e) {
-          return '';
-        }
-      })();
+    const hosts = collectTelegramLoginWidgetHostnames(null);
     console.log(
       'Telegram login: enabled (bot ' +
         u +
         '; synthetic email @' +
         dom +
-        '). Widget hostname: ' +
-        (wh || '(set TELEGRAM_LOGIN_WIDGET_DOMAIN or BASE_URL to your public host)') +
-        ' — must match BotFather /setdomain.'
+        '). Widget allowed hostnames: ' +
+        (hosts.length ? hosts.join(', ') : '(set TELEGRAM_LOGIN_WIDGET_DOMAIN or BASE_URL)') +
+        ' — each must match BotFather /setdomain.'
     );
   } else {
     const need = [];
