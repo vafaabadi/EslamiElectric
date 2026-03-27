@@ -2,7 +2,8 @@ node_modules/
 .env
 .env.local
 .env.*.local
-supabase
+# Supabase CLI local link state (optional); migrations stay in repo
+.supabase/
 .cursor/
 .cursor
 .vercel

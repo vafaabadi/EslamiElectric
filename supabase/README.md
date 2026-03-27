@@ -4,7 +4,7 @@
 
 1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project.
 2. Go to **SQL Editor** → **New query**.
-3. Copy the contents of `migrations/001_create_users_table.sql` and run it.
+3. Copy the contents of `migrations/001_create_users_table.sql` and run it (creates `public.users`).
 4. Run `migrations/002_add_password_and_unique_email.sql` to add login (password hash + unique email).
 5. Run `migrations/003_add_password_reset.sql` to add forgot-password (reset_token, reset_token_expires).
 6. **For Supabase Auth (sign-up/sign-in):** Run `migrations/004_supabase_auth_sync_trigger.sql` so new auth users get a row in `public.users`. Ensure `public.users.id` is UUID and matches `auth.users.id`. If `password_hash` is NOT NULL, alter it to allow NULL: `ALTER TABLE public.users ALTER COLUMN password_hash DROP NOT NULL;`

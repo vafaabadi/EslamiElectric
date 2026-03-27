@@ -51,10 +51,19 @@ function stripeKeyMode() {
   return k.indexOf('sk_live_') === 0 ? 'live' : 'test';
 }
 
+/** True if STRIPE_ALLOW_TEST_IN_PRODUCTION is set (use sk_test_ on Vercel Production on purpose). */
+function stripeTestAllowedInProduction() {
+  const v = String(process.env.STRIPE_ALLOW_TEST_IN_PRODUCTION || '')
+    .trim()
+    .toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
 function logStartupSummary() {
   const dep = getDeploymentEnvironment();
   const base = resolvePublicBaseUrl();
   const stripe = stripeKeyMode();
+  const allowTestProd = stripeTestAllowedInProduction();
   console.log(
     '[env] deployment=' +
       dep +
@@ -64,13 +73,14 @@ function logStartupSummary() {
       base +
       ' stripe=' +
       stripe +
+      (isProductionDeployment() && stripe === 'test' && allowTestProd ? ' (test ok: STRIPE_ALLOW_TEST_IN_PRODUCTION)' : '') +
       ' resend=' +
       (process.env.RESEND_API_KEY ? 'on' : 'off')
   );
 
-  if (isProductionDeployment() && stripe === 'test') {
+  if (isProductionDeployment() && stripe === 'test' && !allowTestProd) {
     console.warn(
-      '[env] Production deployment is using Stripe TEST keys (sk_test_). Switch to live keys for real charges.'
+      '[env] Production uses Stripe TEST keys (sk_test_). For real charges, use live keys; or set STRIPE_ALLOW_TEST_IN_PRODUCTION=1 if test mode is intentional.'
     );
   }
   if (!isProductionDeployment() && stripe === 'live') {
@@ -84,5 +94,6 @@ module.exports = {
   getDeploymentEnvironment,
   isProductionDeployment,
   resolvePublicBaseUrl,
+  stripeTestAllowedInProduction,
   logStartupSummary
 };
