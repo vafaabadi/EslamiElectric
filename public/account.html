@@ -12,6 +12,8 @@
   <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
+  <link rel="stylesheet" href="css/intl-phone.css">
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -131,6 +133,8 @@
     </div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/intlTelInput.min.js"></script>
+  <script src="js/intl-phone.js"></script>
   <script>
     runWhenLocaleReady(function () {
     const translations = {
@@ -219,8 +223,8 @@
     const validationPatterns = {
       name: /^[\u0600-\u06FFa-zA-Z\s]{2,50}$/,
       dob: /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/,
-      mobile: /^(\+98|0|0098)?9\d{9}$|^(\+|00)[1-9]\d{6,14}$/,
-      landline: /^0[1-9]{2}\d{8}$|^(\+|00)[1-9]\d{6,14}$/,
+      mobile: /^(\+98|0|0098)?9\d{9}$|^\+[1-9]\d{7,14}$|^00[1-9]\d{7,14}$/,
+      landline: /^0[1-9]{2}\d{8}$|^\+[1-9]\d{7,14}$|^00[1-9]\d{7,14}$/,
       email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
       address: /^[\u0600-\u06FFa-zA-Z0-9\s.,()/-]{10,200}$/
     };
@@ -290,8 +294,12 @@
         firstName: document.getElementById('firstName').value.trim(),
         surname: document.getElementById('surname').value.trim(),
         dob: document.getElementById('dob').value,
-        mobile: document.getElementById('mobile').value.trim(),
-        landline: document.getElementById('landline').value.trim(),
+        mobile: getIntlPhoneE164(document.getElementById('mobile')),
+        landline: (function () {
+          var el = document.getElementById('landline');
+          var v = getIntlPhoneE164(el);
+          return v || '';
+        })(),
         email: document.getElementById('email').value.trim(),
         password: document.getElementById('password').value,
         confirmPassword: document.getElementById('confirmPassword').value,
@@ -299,7 +307,10 @@
         address: document.getElementById('address').value.trim(),
         companyName: document.getElementById('companyName').value.trim(),
         companyNumber: document.getElementById('companyNumber').value.trim(),
-        companyContactNumber: document.getElementById('companyContactNumber').value.trim(),
+        companyContactNumber: (function () {
+          var el = document.getElementById('companyContactNumber');
+          return el && el.value && el.value.trim() ? getIntlPhoneE164(el) : '';
+        })(),
         companyPrincipalContact: document.getElementById('companyPrincipalContact').value.trim()
       };
 
@@ -324,15 +335,20 @@
         accountMessage.textContent = t.errorDob;
         return;
       }
-      if (!validationPatterns.mobile.test(body.mobile)) {
+      if (!isIntlPhoneValidLenient(document.getElementById('mobile'))) {
         accountMessage.className = 'text-sm mt-2 text-red-600';
         accountMessage.textContent = t.errorMobile;
         return;
       }
-      if (body.landline && !validationPatterns.landline.test(body.landline)) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorLandline;
-        return;
+      if (body.landline) {
+        var landEl = document.getElementById('landline');
+        var landOk =
+          isIntlPhoneValidLenient(landEl) || validationPatterns.landline.test(body.landline.replace(/\s/g, ''));
+        if (!landOk) {
+          accountMessage.className = 'text-sm mt-2 text-red-600';
+          accountMessage.textContent = t.errorLandline;
+          return;
+        }
       }
       if (!validationPatterns.email.test(body.email)) {
         accountMessage.className = 'text-sm mt-2 text-red-600';
@@ -500,6 +516,13 @@
 
     applyPageLanguage();
     updateAccountTypeVisibility();
+    (async function () {
+      try {
+        await initIntlPhoneInputs('#mobile, #landline, #companyContactNumber');
+      } catch (err) {
+        console.error(err);
+      }
+    })();
     });
   </script>
 </body>

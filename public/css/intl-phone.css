@@ -1,0 +1,8 @@
+/* intl-tel-input: full width inside Tailwind forms */
+.iti {
+  width: 100%;
+  display: block;
+}
+.iti__country-list {
+  z-index: 50;
+}

@@ -264,8 +264,9 @@ app.use((req, res, next) => {
 const validationPatterns = {
   name: /^[\u0600-\u06FFa-zA-Z\s]{2,50}$/,
   dob: /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/,
-  mobile: /^(\+98|0|0098)?9\d{9}$|^(\+|00)[1-9]\d{6,14}$/,
-  landline: /^0[1-9]{2}\d{8}$|^(\+|00)[1-9]\d{6,14}$/,
+  // E.164 (+… 8–15 digits) plus Iran local mobile; intl-tel-input submits +country…
+  mobile: /^(\+98|0|0098)?9\d{9}$|^\+[1-9]\d{7,14}$|^00[1-9]\d{7,14}$/,
+  landline: /^0[1-9]{2}\d{8}$|^\+[1-9]\d{7,14}$|^00[1-9]\d{7,14}$/,
   email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
   address: /^[\u0600-\u06FFa-zA-Z0-9\s.,()/-]{10,200}$/,
   companyName: /^[\u0600-\u06FFa-zA-Z0-9\s&.,'/-]{2,100}$/,

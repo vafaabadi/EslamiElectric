@@ -10,6 +10,8 @@
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
+  <link rel="stylesheet" href="css/intl-phone.css">
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -155,6 +157,8 @@
     </div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/intlTelInput.min.js"></script>
+  <script src="js/intl-phone.js"></script>
   <script>
     runWhenLocaleReady(function () {
     const BASKET_KEY = 'basket';
@@ -682,6 +686,13 @@
 
     renderBasket();
     applyPageLanguage();
+    (async function () {
+      try {
+        await initIntlPhoneInputs('#guest-phone');
+      } catch (e) {
+        console.error(e);
+      }
+    })();
     });
   </script>
 </body>

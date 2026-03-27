@@ -10,6 +10,8 @@
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
+  <link rel="stylesheet" href="css/intl-phone.css">
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -132,6 +134,8 @@
     </div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/intlTelInput.min.js"></script>
+  <script src="js/intl-phone.js"></script>
   <script>
     runWhenLocaleReady(function () {
     const translations = {
@@ -170,7 +174,9 @@
         saveChanges: 'Save changes',
         saved: 'Profile updated.',
         loadError: 'Could not load profile. Please try again.',
-        saveError: 'Could not save changes.'
+        saveError: 'Could not save changes.',
+        errorMobile: 'Invalid mobile number.',
+        errorLandline: 'Invalid landline number.'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -279,8 +285,8 @@
       document.getElementById('surname').value = me.surname || '';
       document.getElementById('dob').value = me.dob ? String(me.dob).slice(0, 10) : '';
       document.getElementById('email').value = me.email || '';
-      document.getElementById('mobile').value = me.mobile || '';
-      document.getElementById('landline').value = me.landline || '';
+      setIntlPhoneNumber(document.getElementById('mobile'), me.mobile || '');
+      setIntlPhoneNumber(document.getElementById('landline'), me.landline || '');
       document.getElementById('bankDetails').value = me.bankDetails || '';
       document.getElementById('address').value = me.address || '';
 
@@ -306,15 +312,19 @@
         firstName: document.getElementById('firstName').value.trim(),
         surname: document.getElementById('surname').value.trim(),
         dob: document.getElementById('dob').value || null,
-        mobile: document.getElementById('mobile').value.trim(),
-        landline: document.getElementById('landline').value.trim() || null,
+        mobile: getIntlPhoneE164(document.getElementById('mobile')),
+        landline: (function () {
+          var v = getIntlPhoneE164(document.getElementById('landline'));
+          return v || null;
+        })(),
         bankDetails: document.getElementById('bankDetails').value.trim() || null,
         address: document.getElementById('address').value.trim()
       };
       if (meType === 'company') {
         payload.companyName = document.getElementById('companyName').value.trim();
         payload.companyNumber = document.getElementById('companyNumber').value.trim();
-        const cc = document.getElementById('companyContactNumber').value.trim();
+        var ccEl = document.getElementById('companyContactNumber');
+        var cc = ccEl && ccEl.value && ccEl.value.trim() ? getIntlPhoneE164(ccEl) : '';
         payload.companyContactNumber = cc || null;
         const pc = document.getElementById('companyPrincipalContact').value.trim();
         payload.companyPrincipalContact = pc || null;
@@ -358,6 +368,22 @@
       if (!token) return;
       msg.textContent = '';
       msg.className = 'text-sm mt-2 text-slate-500';
+      if (!isIntlPhoneValidLenient(document.getElementById('mobile'))) {
+        msg.textContent = t.errorMobile;
+        msg.className = 'text-sm mt-2 text-red-600';
+        return;
+      }
+      var landEl = document.getElementById('landline');
+      var landVal = getIntlPhoneE164(landEl);
+      if (
+        landVal &&
+        !isIntlPhoneValidLenient(landEl) &&
+        !profilePhonePatterns.landline.test(landVal.replace(/\s/g, ''))
+      ) {
+        msg.textContent = t.errorLandline;
+        msg.className = 'text-sm mt-2 text-red-600';
+        return;
+      }
       const payload = buildPayload();
       try {
         const res = await fetch('/api/me', {
