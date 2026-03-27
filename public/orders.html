@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Orders - Eslami Electric</title>
   <link rel="stylesheet" href="css/mobile.css">
+  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="js/locale-bootstrap.js"></script>
+  <script src="js/price-format.js"></script>
+  <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -63,6 +67,7 @@
   </footer>
 
   <script>
+    runWhenLocaleReady(function () {
     const translations = {
       en: {
         siteTitle: 'Eslami Electric',
@@ -121,6 +126,7 @@
     };
 
     let currentLang = localStorage.getItem('lang') || 'en';
+    let lastOrdersSnapshot = null;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -134,8 +140,12 @@
     }
 
     function formatAmount(cents, currency) {
+      const cur = (currency || '').toLowerCase();
+      if (cur === 'usd' && typeof formatStripeUsdCents === 'function') {
+        return formatStripeUsdCents(cents);
+      }
       const n = (cents / 100).toFixed(2);
-      return currency === 'usd' ? '$' + n : n + ' ' + (currency || '').toUpperCase();
+      return cur === 'usd' ? '$' + n : n + ' ' + (currency || '').toUpperCase();
     }
 
     function applyPageLanguage() {
@@ -169,6 +179,10 @@
       document.getElementById('nav-logout').classList.toggle('hidden', !token);
       document.getElementById('go-account').classList.toggle('hidden', !!token);
       document.getElementById('nav-profile').classList.toggle('hidden', !token);
+
+      if (lastOrdersSnapshot && document.getElementById('orders-list') && !document.getElementById('orders-list').classList.contains('hidden')) {
+        renderOrders(lastOrdersSnapshot);
+      }
     }
 
     function showSection(id) {
@@ -268,6 +282,7 @@
         let orders = await res.json();
         applyPageLanguage();
         if (!orders || orders.length === 0) {
+          lastOrdersSnapshot = [];
           showSection('orders-empty');
           return;
         }
@@ -286,6 +301,7 @@
           }
         }
         showSection('orders-list');
+        lastOrdersSnapshot = orders;
         renderOrders(orders);
       } catch (e) {
         showSection('orders-login-required');
@@ -297,11 +313,15 @@
     document.getElementById('lang-en').addEventListener('click', () => {
       currentLang = 'en';
       localStorage.setItem('lang', 'en');
+      localStorage.setItem('currency', 'usd');
+      localStorage.setItem('localePref', 'user');
       applyPageLanguage();
     });
     document.getElementById('lang-fa').addEventListener('click', () => {
       currentLang = 'fa';
       localStorage.setItem('lang', 'fa');
+      localStorage.setItem('currency', 'toman');
+      localStorage.setItem('localePref', 'user');
       applyPageLanguage();
     });
     document.getElementById('nav-logout').addEventListener('click', () => {
@@ -311,6 +331,7 @@
 
     applyPageLanguage();
     loadOrders();
+    });
   </script>
 </body>
 </html>

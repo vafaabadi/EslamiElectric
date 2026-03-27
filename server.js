@@ -11,6 +11,7 @@ const { Resend } = require('resend');
 const https = require('https');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
@@ -65,7 +66,76 @@ function getPublicConfigForClient(req) {
   const url = process.env.SUPABASE_URL || '';
   const anon = process.env.SUPABASE_ANON_KEY || '';
   const base = (process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'))).replace(/\/$/, '');
-  return { supabaseUrl: url, supabaseAnonKey: anon, baseUrl: base };
+  const telegramBotUsername = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
+  const telegramLoginBotToken = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  const telegramAuthDomain = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
+  const telegramLoginEnabled = !!(telegramBotUsername && telegramLoginBotToken && telegramAuthDomain);
+  /** Hostname Telegram Login Widget expects (BotFather /setdomain). Optional; derived from BASE_URL if unset. */
+  let telegramLoginWidgetHostname = (process.env.TELEGRAM_LOGIN_WIDGET_DOMAIN || '').trim();
+  if (telegramLoginWidgetHostname) {
+    try {
+      const u = new URL(
+        telegramLoginWidgetHostname.includes('://') ? telegramLoginWidgetHostname : 'https://' + telegramLoginWidgetHostname
+      );
+      telegramLoginWidgetHostname = u.hostname;
+    } catch (e) {
+      telegramLoginWidgetHostname = '';
+    }
+  }
+  if (!telegramLoginWidgetHostname) {
+    const baseForHost = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '';
+    if (baseForHost) {
+      try {
+        const u = new URL(baseForHost.includes('://') ? baseForHost : 'https://' + baseForHost);
+        const h = u.hostname;
+        if (h && h !== 'localhost' && h !== '127.0.0.1') telegramLoginWidgetHostname = h;
+      } catch (e) {}
+    }
+  }
+  return {
+    supabaseUrl: url,
+    supabaseAnonKey: anon,
+    baseUrl: base,
+    telegramBotUsername: telegramLoginEnabled ? telegramBotUsername : '',
+    telegramLoginEnabled,
+    telegramLoginWidgetHostname: telegramLoginEnabled ? telegramLoginWidgetHostname : ''
+  };
+}
+
+/** Log whether Telegram Login Widget can run (see TELEGRAM_* env vars). */
+function logTelegramLoginStatus() {
+  const u = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
+  const tok = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  const dom = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
+  if (u && tok && dom) {
+    const wh =
+      (process.env.TELEGRAM_LOGIN_WIDGET_DOMAIN || '').trim() ||
+      (function () {
+        const b = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '';
+        if (!b) return '';
+        try {
+          const h = new URL(b.includes('://') ? b : 'https://' + b).hostname;
+          return h === 'localhost' || h === '127.0.0.1' ? '' : h;
+        } catch (e) {
+          return '';
+        }
+      })();
+    console.log(
+      'Telegram login: enabled (bot ' +
+        u +
+        '; synthetic email @' +
+        dom +
+        '). Widget hostname: ' +
+        (wh || '(set TELEGRAM_LOGIN_WIDGET_DOMAIN or BASE_URL to your public host)') +
+        ' — must match BotFather /setdomain.'
+    );
+  } else {
+    const need = [];
+    if (!u) need.push('TELEGRAM_LOGIN_BOT_USERNAME');
+    if (!tok) need.push('TELEGRAM_LOGIN_BOT_TOKEN (or TELEGRAM_BOT_TOKEN)');
+    if (!dom) need.push('TELEGRAM_AUTH_EMAIL_DOMAIN');
+    console.log('Telegram login: disabled — set ' + need.join(', '));
+  }
 }
 
 function jsonForInlineScript(obj) {
@@ -86,7 +156,8 @@ const HTML_WITH_PUBLIC_CONFIG = new Set([
   'auth-callback.html',
   'account.html',
   'forgot-password.html',
-  'update-password.html'
+  'update-password.html',
+  'login.html'
 ]);
 
 function serveHtmlWithPublicConfig(req, res, relativePath) {
@@ -502,9 +573,12 @@ app.get('/', (req, res) => {
 function serveLocalePage(locale, subPath, req, res) {
   const base = '/' + locale + '/';
   const baseTag = '<base href="' + base + '">';
-  const langScript = '<script>(function(){var p=location.pathname;var l=p.indexOf("/fa")===0?"fa":"en";localStorage.setItem("lang",l);document.addEventListener("DOMContentLoaded",function(){var rest=p.replace(/^\\/en\\/?|^\\/fa\\/?/i,"")||"index";var enEl=document.getElementById("lang-en");var faEl=document.getElementById("lang-fa");if(enEl){enEl.addEventListener("click",function(){if(l==="fa")location.href="/en/"+(rest==="index"?"":rest);});}if(faEl){faEl.addEventListener("click",function(){if(l==="en")location.href="/fa/"+(rest==="index"?"":rest);});}});})();</script>';
+  const langScript = '<script>(function(){var p=location.pathname;var l=p.indexOf("/fa")===0?"fa":"en";localStorage.setItem("lang",l);document.addEventListener("DOMContentLoaded",function(){var rest=p.replace(/^\\/en\\/?|^\\/fa\\/?/i,"")||"index";var enEl=document.getElementById("lang-en");var faEl=document.getElementById("lang-fa");if(enEl){enEl.addEventListener("click",function(){if(l==="fa"){localStorage.setItem("lang","en");localStorage.setItem("currency","usd");localStorage.setItem("localePref","user");location.href="/en/"+(rest==="index"?"":rest);}});}if(faEl){faEl.addEventListener("click",function(){if(l==="en"){localStorage.setItem("lang","fa");localStorage.setItem("currency","toman");localStorage.setItem("localePref","user");location.href="/fa/"+(rest==="index"?"":rest);}});}});})();</script>';
   const inject = baseTag + '\n  ' + langScript + '\n  ';
-  const seg = (subPath || '').replace(/^\/+|\/+$/g, '').split('/')[0] || '';
+  let seg = (subPath || '').replace(/^\/+|\/+$/g, '').split('/')[0] || '';
+  if (seg.endsWith('.html')) {
+    seg = seg.slice(0, -'.html'.length);
+  }
   const htmlFile = PATH_TO_HTML[seg];
   if (htmlFile) {
     const filePath = path.join(publicDir, htmlFile);
@@ -639,11 +713,36 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
     }
     const meta = authUser.user_metadata || {};
     const email = (authUser.email || '').trim() || '';
-    const firstName = (meta.first_name || '').trim() || '';
-    const surname = (meta.surname || '').trim() || '';
+    /** Google OAuth uses full_name / name / given_name; our signup form uses first_name / surname. */
+    function sanitizePersonName(s, fallback) {
+      let t = String(s || '')
+        .replace(/[^\u0600-\u06FFa-zA-Z\s]/g, '')
+        .trim();
+      if (t.length < 2) t = fallback;
+      if (t.length > 50) t = t.slice(0, 50);
+      return t;
+    }
+    let firstName = (meta.first_name || meta.given_name || '').trim();
+    let surname = (meta.surname || meta.family_name || '').trim();
+    const rawFull = (meta.full_name || meta.name || '').trim();
+    if ((!firstName || !surname) && rawFull) {
+      const parts = rawFull.split(/\s+/).filter(Boolean);
+      if (!firstName) firstName = parts[0] || '';
+      if (!surname) surname = parts.length > 1 ? parts.slice(1).join(' ') : '';
+    }
+    if (!firstName && email) {
+      const local = email.split('@')[0].replace(/[^a-zA-Z\u0600-\u06FF]+/g, ' ').trim();
+      const bit = local.split(/\s+/).filter(Boolean)[0] || '';
+      firstName = bit;
+    }
+    firstName = sanitizePersonName(firstName, 'User');
+    surname = sanitizePersonName(surname, 'Account');
     const type = (meta.type || '').trim() || 'person';
     const mobile = (meta.mobile || '').trim() || '';
-    const address = (meta.address || '').trim() || '';
+    let address = (meta.address || '').trim() || '';
+    if (!address || !validationPatterns.address.test(address)) {
+      address = 'Please update your profile address in My Profile.';
+    }
     const landline = (meta.landline || '').trim() || null;
     const bankDetails = (meta.bank_details || '').trim() || null;
     const companyName = (meta.company_name || '').trim() || null;
@@ -656,6 +755,8 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
       if (!isNaN(d.getTime())) dob = d.toISOString().slice(0, 10);
     }
 
+    const emailNorm = (email || '').trim().toLowerCase();
+
     // Detect whether this is the first time we sync this user into `public.users`.
     const { data: existingBefore } = await supabase
       .from('users')
@@ -664,28 +765,78 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
       .maybeSingle();
     const isNewUser = !existingBefore;
 
-    const { error: upsertErr } = await supabase.from('users').upsert(
-      {
-        id: userId,
-        email,
-        first_name: firstName,
-        surname,
-        type,
-        dob: dob || null,
-        mobile,
-        landline,
-        address,
-        bank_details: bankDetails,
-        company_name: companyName,
-        company_number: companyNumber,
-        company_contact_number: companyContactNumber,
-        company_principal_contact: companyPrincipalContact
-      },
-      { onConflict: 'id' }
-    );
+    // Legacy guest-claim or /api/users may have created public.users with the same email but a
+    // different id than Supabase Auth. Upsert uses onConflict:id so Postgres tries INSERT and
+    // hits users_email_key. Free the email, then remove the stale row after we upsert the Auth id.
+    let staleUserId = null;
+    let mergedPasswordHash = null;
+    let mergedLoginFailedCount = null;
+    let mergedLockedUntil = null;
+    if (emailNorm) {
+      const { data: emailConflict } = await supabase
+        .from('users')
+        .select('id, password_hash, login_failed_count, locked_until')
+        .ilike('email', emailNorm)
+        .maybeSingle();
+      if (emailConflict && emailConflict.id !== userId) {
+        staleUserId = emailConflict.id;
+        mergedPasswordHash = emailConflict.password_hash;
+        mergedLoginFailedCount = emailConflict.login_failed_count;
+        mergedLockedUntil = emailConflict.locked_until;
+        const legacyEmail = `legacy+${emailConflict.id}@migrated.invalid`;
+        const { error: renameErr } = await supabase
+          .from('users')
+          .update({ email: legacyEmail })
+          .eq('id', emailConflict.id);
+        if (renameErr) {
+          console.error('Users email conflict rename error:', renameErr);
+          return { ok: false, status: 500, error: 'Failed to sync profile' };
+        }
+      }
+    }
+
+    const upsertRow = {
+      id: userId,
+      email: emailNorm || email,
+      first_name: firstName,
+      surname,
+      type,
+      dob: dob || null,
+      mobile,
+      landline,
+      address,
+      bank_details: bankDetails,
+      company_name: companyName,
+      company_number: companyNumber,
+      company_contact_number: companyContactNumber,
+      company_principal_contact: companyPrincipalContact
+    };
+    if (mergedPasswordHash != null && mergedPasswordHash !== '') {
+      upsertRow.password_hash = mergedPasswordHash;
+    }
+    if (mergedLoginFailedCount != null) {
+      upsertRow.login_failed_count = mergedLoginFailedCount;
+    }
+    if (mergedLockedUntil != null) {
+      upsertRow.locked_until = mergedLockedUntil;
+    }
+
+    const { error: upsertErr } = await supabase.from('users').upsert(upsertRow, { onConflict: 'id' });
     if (upsertErr) {
       console.error('Users upsert error:', upsertErr);
       return { ok: false, status: 500, error: 'Failed to sync profile' };
+    }
+    if (staleUserId) {
+      const { error: ordErr } = await supabase
+        .from('orders')
+        .update({ user_id: userId })
+        .eq('user_id', staleUserId);
+      if (ordErr) console.error('Users merge: orders reassign error:', ordErr);
+      const { error: delErr } = await supabase.from('users').delete().eq('id', staleUserId);
+      if (delErr) {
+        console.error('Users merge: delete stale row error:', delErr);
+        return { ok: false, status: 500, error: 'Failed to sync profile' };
+      }
     }
     const { data: user, error } = await supabase
       .from('users')
@@ -698,7 +849,6 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
 
     // Guest checkouts store orders with customer_email but user_id = null.
     // When this user logs in, attach those orders so they appear under My Orders.
-    const emailNorm = (email || '').trim().toLowerCase();
     if (emailNorm) {
       const { data: attachedRows, error: attachErr } = await supabase
         .from('orders')
@@ -787,6 +937,144 @@ app.post('/api/auth/token', async (req, res) => {
   } catch (err) {
     console.error('Auth token route error:', err);
     return res.status(500).json({ error: 'Failed to issue token' });
+  }
+});
+
+function verifyTelegramLoginPayload(payload, botToken) {
+  if (!payload || typeof payload !== 'object' || !botToken) return false;
+  const hash = payload.hash;
+  if (!hash || typeof hash !== 'string') return false;
+  const authDate = Number(payload.auth_date);
+  if (!Number.isFinite(authDate)) return false;
+  if (Date.now() / 1000 - authDate > 86400) return false;
+  const check = { ...payload };
+  delete check.hash;
+  const keys = Object.keys(check).sort();
+  const dataCheckString = keys.map((k) => `${k}=${check[k]}`).join('\n');
+  const secretKey = crypto.createHash('sha256').update(botToken).digest();
+  const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+  return hmac === hash;
+}
+
+async function findAuthUserIdByEmail(emailNormalized) {
+  const target = emailNormalized.trim().toLowerCase();
+  let page = 1;
+  const perPage = 1000;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      console.error('findAuthUserIdByEmail listUsers:', error);
+      return null;
+    }
+    const users = data?.users || [];
+    const hit = users.find((u) => (u.email || '').trim().toLowerCase() === target);
+    if (hit) return hit.id;
+    const next = data?.nextPage;
+    if (!next) break;
+    page = next;
+  }
+  return null;
+}
+
+/** Telegram Login Widget: verify hash, create or rotate-password sign-in, return app JWT. */
+app.post('/api/auth/telegram', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const telegramBotUsername = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
+    const botToken = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
+    const emailDomain = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
+    if (!telegramBotUsername || !botToken || !emailDomain) {
+      return res.status(503).json({ error: 'Telegram login is not configured' });
+    }
+    if (!supabaseAnon) {
+      return res.status(503).json({ error: 'Server auth is not configured' });
+    }
+    if (!verifyTelegramLoginPayload(body, botToken)) {
+      return res.status(401).json({
+        error:
+          'Invalid Telegram login data. Use the same bot token as @' +
+          telegramBotUsername +
+          ' in TELEGRAM_LOGIN_BOT_TOKEN (hash verification failed).'
+      });
+    }
+    const tgId = body.id != null ? String(body.id) : '';
+    if (!tgId) return res.status(400).json({ error: 'Missing Telegram user id' });
+
+    const email = `tg_${tgId}@${emailDomain}`.toLowerCase();
+    const password = crypto.randomBytes(32).toString('hex');
+    const firstName = (body.first_name && String(body.first_name).trim()) || 'Telegram';
+    const lastName = (body.last_name && String(body.last_name).trim()) || '';
+    const username = body.username != null ? String(body.username) : '';
+
+    const meta = {
+      first_name: firstName,
+      surname: lastName,
+      telegram_id: tgId,
+      telegram_username: username,
+      auth_provider: 'telegram',
+      address: 'Please update your profile address after login.',
+      type: 'person'
+    };
+
+    let created = false;
+    const { data: createdData, error: createErr } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: meta
+    });
+    if (createErr) {
+      const msg = (createErr.message || '').toLowerCase();
+      const code = String(createErr.code || createErr.status || '');
+      if (
+        msg.includes('registered') ||
+        msg.includes('already') ||
+        msg.includes('exists') ||
+        code.includes('422') ||
+        code.includes('email_exists')
+      ) {
+        const userId = await findAuthUserIdByEmail(email);
+        if (!userId) {
+          console.error('Telegram login: user exists but not found in listUsers', email);
+          return res.status(500).json({ error: 'Could not complete Telegram login' });
+        }
+        const { error: updErr } = await supabase.auth.admin.updateUserById(userId, {
+          password,
+          user_metadata: meta
+        });
+        if (updErr) {
+          console.error('Telegram login updateUser:', updErr);
+          return res.status(500).json({ error: 'Could not complete Telegram login' });
+        }
+      } else {
+        console.error('Telegram login createUser:', createErr);
+        return res.status(500).json({ error: 'Could not create account' });
+      }
+    } else {
+      created = !!(createdData && createdData.user);
+    }
+
+    const { data: signData, error: signErr } = await supabaseAnon.auth.signInWithPassword({
+      email,
+      password
+    });
+    if (signErr || !signData?.session?.access_token) {
+      console.error('Telegram login signIn:', signErr);
+      return res.status(500).json({ error: 'Could not start session' });
+    }
+
+    const accessToken = signData.session.access_token;
+    const result = await exchangeSupabaseAccessTokenForAppJwt(accessToken);
+    await supabaseAnon.auth.signOut().catch(() => {});
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    await clearLoginLockout(result.user.id);
+    return res.json({ ok: true, token: result.token, user: result.user, created });
+  } catch (err) {
+    console.error('Telegram auth error:', err);
+    return res.status(500).json({ error: 'Telegram login failed' });
   }
 });
 
@@ -940,6 +1228,116 @@ app.get('/api/products', (req, res) => {
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: 'Failed to load products' });
+  }
+});
+
+function getClientIp(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.trim()) {
+    const first = xff.split(',')[0].trim();
+    if (first) return first;
+  }
+  if (req.socket && req.socket.remoteAddress) return String(req.socket.remoteAddress);
+  return '';
+}
+
+function normalizeIpForGeo(ip) {
+  if (!ip) return '';
+  let s = String(ip).trim();
+  if (s.startsWith('::ffff:')) s = s.slice(7);
+  const colon = s.lastIndexOf(':');
+  if (colon > 0 && s.includes('.') && /^[\d.:]+$/.test(s)) {
+    const after = s.slice(colon + 1);
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(after)) s = after;
+  }
+  return s;
+}
+
+function fetchJsonFromUrl(urlString) {
+  return new Promise((resolve) => {
+    let u;
+    try {
+      u = new URL(urlString);
+    } catch (e) {
+      return resolve(null);
+    }
+    const opts = {
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      method: 'GET',
+      headers: { 'User-Agent': 'eslami-electric/1' },
+      timeout: 6000
+    };
+    const req = https.request(opts, (res) => {
+      let body = '';
+      res.on('data', (c) => {
+        body += c;
+      });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.end();
+  });
+}
+
+async function lookupCountryCodeByIp(ip) {
+  const raw = normalizeIpForGeo(ip);
+  if (!raw) return '';
+  if (raw === '127.0.0.1' || raw === '::1') return '';
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(raw);
+  const pathSeg = ipv4 ? `${raw}/json/` : `${encodeURIComponent(raw)}/json/`;
+  const j = await fetchJsonFromUrl(`https://ipapi.co/${pathSeg}`);
+  if (j && j.country_code) return String(j.country_code).toUpperCase();
+  return '';
+}
+
+/** IP-based defaults for language and display currency (first visit; client may override). */
+app.get('/api/locale-hint', async (req, res) => {
+  try {
+    const override = (process.env.LOCAL_GEO_COUNTRY || '').trim().toUpperCase();
+    let country = '';
+    if (override && /^[A-Z]{2}$/.test(override)) {
+      country = override;
+    } else {
+      const raw = normalizeIpForGeo(getClientIp(req));
+      const isLocal = !raw || raw === '127.0.0.1' || raw === '::1';
+      if (isLocal) {
+        country = 'US';
+      } else {
+        country = await lookupCountryCodeByIp(raw);
+      }
+    }
+    if (!country) country = 'US';
+    const usdToToman = Math.max(1, parseInt(process.env.USD_TO_TOMAN || '42000', 10) || 42000);
+    const inIran = country === 'IR';
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({
+      country,
+      inIran,
+      defaultLang: inIran ? 'fa' : 'en',
+      defaultCurrency: inIran ? 'toman' : 'usd',
+      usdToToman
+    });
+  } catch (err) {
+    console.error('locale-hint error:', err);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({
+      country: 'US',
+      inIran: false,
+      defaultLang: 'en',
+      defaultCurrency: 'usd',
+      usdToToman: Math.max(1, parseInt(process.env.USD_TO_TOMAN || '42000', 10) || 42000)
+    });
   }
 });
 
@@ -2005,4 +2403,5 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Eslami Electric server running at http://localhost:${PORT}`);
   console.log(`On same WiFi, others can use: http://<this-PC-IP>:${PORT}  (run "ipconfig" to find IP)`);
+  logTelegramLoginStatus();
 });

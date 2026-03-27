@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Basket - Eslami Electric</title>
   <link rel="stylesheet" href="css/mobile.css">
+  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="js/locale-bootstrap.js"></script>
+  <script src="js/price-format.js"></script>
+  <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -152,6 +156,7 @@
   </footer>
 
   <script>
+    runWhenLocaleReady(function () {
     const BASKET_KEY = 'basket';
 
     const translations = {
@@ -457,7 +462,7 @@
             </div>
             <div class="flex-grow min-w-0">
               <h3 class="font-semibold text-slate-800 text-sm sm:text-base break-words">${escapeHtml(name)}</h3>
-              <p class="text-slate-500 text-xs sm:text-sm">$${price.toFixed(2)} each</p>
+              <p class="text-slate-500 text-xs sm:text-sm">${formatPriceUSD(price)} each</p>
             </div>
           </div>
           <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
@@ -466,14 +471,14 @@
               <input type="number" class="basket-qty-input w-14 sm:w-16 text-center text-sm font-medium border-x border-slate-300 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="1" max="9999" value="${qty}" data-index="${index}" aria-label="Quantity">
               <button type="button" class="btn-basket-plus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="Increase quantity">+</button>
             </div>
-            <span class="font-semibold text-slate-900 basket-line-total">$${lineTotal.toFixed(2)}</span>
+            <span class="font-semibold text-slate-900 basket-line-total">${formatPriceUSD(lineTotal)}</span>
             <button type="button" class="btn-remove min-h-[44px] px-3 py-2 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 rounded touch-manipulation" data-index="${index}">${t.remove}</button>
           </div>
         `;
         listEl.appendChild(li);
       });
 
-      totalEl.textContent = '$' + total.toFixed(2);
+      totalEl.textContent = formatPriceUSD(total);
 
       const btnCheckout = document.getElementById('btn-checkout');
       if (btnCheckout) btnCheckout.disabled = false;
@@ -541,11 +546,15 @@
     document.getElementById('lang-en').addEventListener('click', () => {
       currentLang = 'en';
       localStorage.setItem('lang', 'en');
+      localStorage.setItem('currency', 'usd');
+      localStorage.setItem('localePref', 'user');
       applyPageLanguage();
     });
     document.getElementById('lang-fa').addEventListener('click', () => {
       currentLang = 'fa';
       localStorage.setItem('lang', 'fa');
+      localStorage.setItem('currency', 'toman');
+      localStorage.setItem('localePref', 'user');
       applyPageLanguage();
     });
     document.getElementById('nav-logout').addEventListener('click', () => {
@@ -673,6 +682,7 @@
 
     renderBasket();
     applyPageLanguage();
+    });
   </script>
 </body>
 </html>

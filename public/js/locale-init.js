@@ -1,0 +1,64 @@
+(function () {
+  function finish() {
+    window.geoLocaleReady = true;
+    document.documentElement.classList.add('locale-ready');
+    try {
+      window.dispatchEvent(new Event('localehint'));
+    } catch (e) {}
+  }
+
+  function backfillMissing() {
+    if (!localStorage.getItem('usdToToman')) {
+      localStorage.setItem('usdToToman', '42000');
+    }
+    if (!localStorage.getItem('currency')) {
+      localStorage.setItem('currency', localStorage.getItem('lang') === 'fa' ? 'toman' : 'usd');
+    }
+  }
+
+  if ((window.location.pathname || '').indexOf('auth-callback') !== -1) {
+    backfillMissing();
+    finish();
+    return;
+  }
+
+  if (localStorage.getItem('localePref') === 'user') {
+    backfillMissing();
+    finish();
+    return;
+  }
+
+  if (localStorage.getItem('localeInitialized')) {
+    backfillMissing();
+    finish();
+    return;
+  }
+
+  fetch('/api/locale-hint')
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (d) {
+      var rate = d.usdToToman != null ? d.usdToToman : 42000;
+      localStorage.setItem('usdToToman', String(rate));
+      localStorage.setItem('currency', d.defaultCurrency || 'usd');
+      if (!localStorage.getItem('lang')) {
+        localStorage.setItem('lang', d.defaultLang || 'en');
+      }
+      localStorage.setItem('localeInitialized', '1');
+      finish();
+    })
+    .catch(function () {
+      if (!localStorage.getItem('usdToToman')) {
+        localStorage.setItem('usdToToman', '42000');
+      }
+      if (!localStorage.getItem('currency')) {
+        localStorage.setItem('currency', 'usd');
+      }
+      if (!localStorage.getItem('lang')) {
+        localStorage.setItem('lang', 'en');
+      }
+      localStorage.setItem('localeInitialized', '1');
+      finish();
+    });
+})();

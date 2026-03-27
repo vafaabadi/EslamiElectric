@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!--SERVER_PUBLIC_CONFIG-->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Log In - Eslami Electric</title>
   <link rel="stylesheet" href="css/mobile.css">
+  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="js/locale-bootstrap.js"></script>
+  <script src="js/price-format.js"></script>
+  <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -29,26 +35,51 @@
   <script src="js/mobile-nav.js"></script>
 
   <main class="flex-grow max-w-md w-full mx-auto px-4 py-8">
-    <h2 id="form-title" class="text-2xl font-bold text-slate-800 mb-6">Log In</h2>
+    <h2 id="form-title" class="text-2xl font-bold text-slate-800 mb-1">Log In</h2>
+    <p id="welcome-sub" class="text-slate-600 text-sm mb-3">Welcome to Eslami Electric</p>
+    <p id="auth-soft-hint" class="hidden text-sm text-slate-500 mb-4 text-center rounded-lg bg-slate-200/60 px-3 py-2"></p>
 
-    <form id="login-form" class="bg-white rounded-xl shadow-md p-6 space-y-4">
-      <div>
-        <label id="label-email" for="email" class="block text-sm font-medium text-slate-700 mb-1">Email *</label>
-        <input type="email" id="email" required autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
-      </div>
-      <div>
-        <div class="flex items-center justify-between mb-1">
-          <label id="label-password" for="password" class="block text-sm font-medium text-slate-700">Password *</label>
-          <a href="forgot-password.html" id="link-forgot" class="text-sm text-amber-600 hover:underline">Forgot password?</a>
+    <div class="bg-white rounded-xl shadow-md p-6 space-y-5">
+      <div id="social-stack" class="flex flex-col gap-3">
+        <div id="wrap-google" class="order-1">
+          <button type="button" id="btn-google" class="w-full flex items-center justify-center gap-2 min-h-[48px] px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 font-medium hover:bg-slate-50 transition-colors shadow-sm">
+            <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            <span id="btn-google-label">Continue with Google</span>
+          </button>
         </div>
-        <input type="password" id="password" required autocomplete="current-password" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <div id="wrap-telegram" class="order-2">
+          <p id="telegram-label" class="text-xs text-slate-500 mb-1 text-center">Telegram</p>
+          <p id="telegram-domain-hint" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center leading-snug"></p>
+          <div id="telegram-widget-host" class="flex justify-center min-h-[44px]"></div>
+        </div>
       </div>
 
-      <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-colors">
-        Log In
-      </button>
-      <p id="login-message" class="text-sm mt-2"></p>
-    </form>
+      <div class="relative flex items-center gap-3">
+        <div class="flex-1 h-px bg-slate-200"></div>
+        <span id="divider-or" class="text-xs text-slate-400 uppercase tracking-wide">or</span>
+        <div class="flex-1 h-px bg-slate-200"></div>
+      </div>
+
+      <p id="login-message" class="text-sm min-h-[1.25rem] text-center"></p>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label id="label-email" for="email" class="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+          <input type="email" id="email" required autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label id="label-password" for="password" class="block text-sm font-medium text-slate-700">Password *</label>
+            <a href="forgot-password.html" id="link-forgot" class="text-sm text-amber-600 hover:underline">Forgot password?</a>
+          </div>
+          <input type="password" id="password" required autocomplete="current-password" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-colors">
+          Log In
+        </button>
+      </form>
+    </div>
 
     <p class="mt-4 text-center text-slate-600 text-sm">
       <span id="no-account-label">Don't have an account?</span>
@@ -63,42 +94,290 @@
   </footer>
 
   <script>
+    runWhenLocaleReady(function () {
+    const LAST_AUTH_KEY = 'lastAuthProvider';
+
     const translations = {
       en: {
         siteTitle: 'Eslami Electric',
         siteSubtitle: 'Quality electrical supplies',
         formTitle: 'Log In',
+        welcomeSub: 'Welcome to Eslami Electric',
+        hintTelegram: 'Telegram is popular in your region — both options work everywhere.',
+        hintGoogle: 'Google sign-in is widely used in your region — both options work everywhere.',
+        continueGoogle: 'Continue with Google',
+        telegramLabel: 'Log in with Telegram',
+        orDivider: 'or',
         labelEmail: 'Email *',
         labelPassword: 'Password *',
         forgotPassword: 'Forgot password?',
-        submitBtn: 'Log In',
+        submitBtn: 'Log In with email',
         noAccountLabel: "Don't have an account?",
         loginSuccess: 'Login successful! Redirecting...',
         loginError: 'Invalid email or password.',
         loginInvalidCredsHint: 'If you just activated your account, your password might not match. Use `Forgot password?` to set a new one.',
-        loginFailed: 'Login failed. Please try again.'
+        loginFailed: 'Login failed. Please try again.',
+        oauthNotConfigured: 'Google sign-in is not configured on this site.',
+        oauthNoServerConfig:
+          'Open this page from your app server (e.g. http://localhost:3000/login.html), not as a saved file. The server injects Supabase settings.',
+        oauthMissingEnvKeys:
+          'Server is missing Supabase keys. Set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file, then restart node server.js.',
+        oauthFailed: 'Could not start Google sign-in. Enable Google in Supabase Auth providers.',
+        telegramFailed: 'Telegram sign-in failed. Check server configuration.',
+        telegramWrongDomain:
+          'Telegram login only works on the exact domain you set in BotFather with /setdomain (e.g. https://HOST/login.html). Google sign-in works on this page.',
+        telegramLocalhost:
+          'Telegram login cannot run on localhost — open your live site on the domain registered in BotFather, or use Google here.'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
         siteSubtitle: 'تجهیزات برقی با کیفیت',
         formTitle: 'ورود',
+        welcomeSub: 'به الکتریکی اسلامی خوش آمدید',
+        hintTelegram: 'در منطقه شما تلگرام رایج‌تر است — هر دو روش در همه جا در دسترس است.',
+        hintGoogle: 'ورود با گوگل برای بسیاری از کاربران راحت‌تر است — هر دو روش در همه جا در دسترس است.',
+        continueGoogle: 'ادامه با گوگل',
+        telegramLabel: 'ورود با تلگرام',
+        orDivider: 'یا',
         labelEmail: 'ایمیل *',
         labelPassword: 'رمز عبور *',
         forgotPassword: 'رمز عبور را فراموش کرده‌اید؟',
-        submitBtn: 'ورود',
+        submitBtn: 'ورود با ایمیل',
         noAccountLabel: 'حساب کاربری ندارید؟',
         loginSuccess: 'ورود موفق! در حال انتقال...',
         loginError: 'ایمیل یا رمز عبور اشتباه است.',
         loginInvalidCredsHint: 'اگر اخیراً حساب را فعال کرده‌اید، ممکن است رمز عبور شما متفاوت باشد. از `رمز عبور را فراموش کرده‌اید؟` برای تعیین رمز جدید استفاده کنید.',
-        loginFailed: 'ورود ناموفق. لطفاً دوباره تلاش کنید.'
+        loginFailed: 'ورود ناموفق. لطفاً دوباره تلاش کنید.',
+        oauthNotConfigured: 'ورود با گوگل برای این سایت پیکربندی نشده است.',
+        oauthNoServerConfig:
+          'این صفحه را از سرور برنامه باز کنید (مثلاً http://localhost:3000/login.html)، نه به‌صورت فایل ذخیره‌شده. سرور تنظیمات Supabase را تزریق می‌کند.',
+        oauthMissingEnvKeys:
+          'کلیدهای Supabase در سرور نیست. در فایل .env مقدار SUPABASE_URL و SUPABASE_ANON_KEY را بگذارید و سرور را دوباره اجرا کنید.',
+        oauthFailed: 'شروع ورود با گوگل ناموفق بود. گوگل را در تنظیمات احراز هویت Supabase فعال کنید.',
+        telegramFailed: 'ورود با تلگرام ناموفق بود. پیکربندی سرور را بررسی کنید.',
+        telegramWrongDomain:
+          'ورود با تلگرام فقط روی همان دامنه‌ای که در BotFather با /setdomain ثبت کرده‌اید کار می‌کند (مثلاً https://HOST/login.html). اینجا می‌توانید از گوگل استفاده کنید.',
+        telegramLocalhost:
+          'ورود با تلگرام روی localhost کار نمی‌کند — سایت را روی دامنهٔ ثبت‌شده در BotFather باز کنید یا اینجا از گوگل استفاده کنید.'
       }
     };
 
     let currentLang = localStorage.getItem('lang') || 'en';
+    window.__loginGeoIran = undefined;
 
     const loginForm = document.getElementById('login-form');
     const loginMessage = document.getElementById('login-message');
     const submitBtn = document.getElementById('submit-btn');
+
+    function readServerPublicConfig() {
+      const el = document.getElementById('server-public-config');
+      if (!el || !el.textContent) return null;
+      try {
+        return JSON.parse(el.textContent);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function applySocialButtonOrder() {
+      const last = localStorage.getItem(LAST_AUTH_KEY);
+      const gWrap = document.getElementById('wrap-google');
+      const tWrap = document.getElementById('wrap-telegram');
+      if (!gWrap || !tWrap) return;
+      let telegramFirst = false;
+      if (last === 'telegram') telegramFirst = true;
+      else if (last === 'google') telegramFirst = false;
+      else if (window.__loginGeoIran === true) telegramFirst = true;
+      else telegramFirst = false;
+      gWrap.classList.remove('order-1', 'order-2');
+      tWrap.classList.remove('order-1', 'order-2');
+      if (telegramFirst) {
+        tWrap.classList.add('order-1');
+        gWrap.classList.add('order-2');
+      } else {
+        gWrap.classList.add('order-1');
+        tWrap.classList.add('order-2');
+      }
+    }
+
+    function updateSoftHintText() {
+      const hintEl = document.getElementById('auth-soft-hint');
+      const t = translations[currentLang];
+      if (window.__loginGeoIran === true) {
+        hintEl.textContent = t.hintTelegram;
+        hintEl.classList.remove('hidden');
+      } else if (window.__loginGeoIran === false) {
+        hintEl.textContent = t.hintGoogle;
+        hintEl.classList.remove('hidden');
+      }
+    }
+
+    async function loadLoginGeoHint() {
+      try {
+        const r = await fetch('/api/locale-hint');
+        const d = await r.json();
+        window.__loginGeoIran = !!d.inIran;
+      } catch (e) {
+        window.__loginGeoIran = false;
+      }
+      updateSoftHintText();
+      applySocialButtonOrder();
+    }
+
+    function telegramWidgetHostnameMatchesPage(cfg) {
+      var h = (location.hostname || '').toLowerCase();
+      var expected = (cfg && cfg.telegramLoginWidgetHostname) ? String(cfg.telegramLoginWidgetHostname).toLowerCase() : '';
+      if (!expected) return true;
+      function stripWww(x) {
+        return x.indexOf('www.') === 0 ? x.slice(4) : x;
+      }
+      return stripWww(h) === stripWww(expected);
+    }
+
+    function mountTelegramWidget() {
+      const config = readServerPublicConfig();
+      const host = document.getElementById('telegram-widget-host');
+      const tWrap = document.getElementById('wrap-telegram');
+      const hintEl = document.getElementById('telegram-domain-hint');
+      if (!host || !tWrap) return;
+      host.innerHTML = '';
+      if (hintEl) {
+        hintEl.classList.add('hidden');
+        hintEl.textContent = '';
+      }
+      if (!config || !config.telegramLoginEnabled || !config.telegramBotUsername) {
+        tWrap.classList.add('hidden');
+        return;
+      }
+      var h = location.hostname || '';
+      var t = translations[currentLang];
+      if (h === 'localhost' || h === '127.0.0.1') {
+        tWrap.classList.remove('hidden');
+        if (hintEl) {
+          hintEl.textContent = t.telegramLocalhost;
+          hintEl.classList.remove('hidden');
+        }
+        return;
+      }
+      if (!telegramWidgetHostnameMatchesPage(config)) {
+        tWrap.classList.remove('hidden');
+        if (hintEl) {
+          var reg = (config.telegramLoginWidgetHostname || 'your-domain.com').replace(/</g, '');
+          hintEl.textContent = t.telegramWrongDomain.replace('HOST', reg);
+          hintEl.classList.remove('hidden');
+        }
+        return;
+      }
+      tWrap.classList.remove('hidden');
+      window.onTelegramAuth = async function (user) {
+        loginMessage.textContent = '';
+        loginMessage.className = 'text-sm min-h-[1.25rem] text-center';
+        const t = translations[currentLang];
+        try {
+          const res = await fetch('/api/auth/telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+          });
+          const data = await res.json().catch(function () {
+            return {};
+          });
+          if (!res.ok) {
+            loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+            loginMessage.textContent = data.error || t.telegramFailed;
+            return;
+          }
+          localStorage.setItem(LAST_AUTH_KEY, 'telegram');
+          applySocialButtonOrder();
+          if (data.token) localStorage.setItem('token', data.token);
+          loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-emerald-600';
+          loginMessage.textContent = t.loginSuccess;
+          setTimeout(function () {
+            window.location.href = 'index.html';
+          }, 600);
+        } catch (e) {
+          loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+          loginMessage.textContent = t.telegramFailed;
+        }
+      };
+      const s = document.createElement('script');
+      s.src = 'https://telegram.org/js/telegram-widget.js?22';
+      s.async = true;
+      s.setAttribute('data-telegram-login', config.telegramBotUsername);
+      s.setAttribute('data-size', 'large');
+      s.setAttribute('data-radius', '8');
+      s.setAttribute('data-request-access', 'write');
+      s.setAttribute('data-onauth', 'onTelegramAuth(user)');
+      host.appendChild(s);
+    }
+
+    function getOAuthConfigErrorMessage() {
+      const t = translations[currentLang];
+      const el = document.getElementById('server-public-config');
+      if (!el) {
+        return t.oauthNoServerConfig;
+      }
+      const raw = (el.textContent || '').trim();
+      if (!raw) {
+        return t.oauthNoServerConfig;
+      }
+      try {
+        const c = JSON.parse(raw);
+        if (!c.supabaseUrl || !c.supabaseAnonKey) {
+          return t.oauthMissingEnvKeys;
+        }
+      } catch (e) {
+        return t.oauthNoServerConfig;
+      }
+      return t.oauthNotConfigured;
+    }
+
+    async function startGoogleOAuth() {
+      const t = translations[currentLang];
+      const config = readServerPublicConfig();
+      loginMessage.textContent = '';
+      loginMessage.className = 'text-sm min-h-[1.25rem] text-center';
+      if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
+        loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+        loginMessage.textContent = getOAuthConfigErrorMessage();
+        return;
+      }
+      try {
+        localStorage.setItem(LAST_AUTH_KEY, 'google');
+        applySocialButtonOrder();
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+          loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+          loginMessage.textContent = t.oauthFailed;
+          return;
+        }
+        const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+          auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, storage: window.localStorage }
+        });
+        if (supabase.auth && typeof supabase.auth.initialize === 'function') {
+          try {
+            await supabase.auth.initialize();
+          } catch (initErr) {
+            console.warn('auth.initialize:', initErr);
+          }
+        }
+        const redirectTo = config.baseUrl.replace(/\/$/, '') + '/auth-callback.html';
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectTo,
+            queryParams: { prompt: 'select_account' }
+          }
+        });
+        if (error) {
+          loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+          loginMessage.textContent = error.message || t.oauthFailed;
+        }
+      } catch (e) {
+        console.error('startGoogleOAuth:', e);
+        loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+        loginMessage.textContent = t.oauthFailed;
+      }
+    }
 
     function applyPageLanguage() {
       const t = translations[currentLang];
@@ -108,6 +387,10 @@
       document.getElementById('site-title').textContent = t.siteTitle;
       document.getElementById('site-subtitle').textContent = t.siteSubtitle;
       document.getElementById('form-title').textContent = t.formTitle;
+      document.getElementById('welcome-sub').textContent = t.welcomeSub;
+      document.getElementById('btn-google-label').textContent = t.continueGoogle;
+      document.getElementById('telegram-label').textContent = t.telegramLabel;
+      document.getElementById('divider-or').textContent = t.orDivider;
       document.getElementById('label-email').textContent = t.labelEmail;
       document.getElementById('label-password').textContent = t.labelPassword;
       document.getElementById('link-forgot').textContent = t.forgotPassword;
@@ -117,7 +400,7 @@
       const token = localStorage.getItem('token');
       const navSignup = document.getElementById('nav-signup');
       if (navSignup) navSignup.classList.toggle('hidden', !!token);
-      const noAccountBlock = document.querySelector('.mt-4.text-center.text-slate-600');
+      const noAccountBlock = document.querySelector('main .mt-4.text-center.text-slate-600');
       if (noAccountBlock) noAccountBlock.classList.toggle('hidden', !!token);
 
       document.getElementById('lang-en').className = currentLang === 'en'
@@ -126,21 +409,32 @@
       document.getElementById('lang-fa').className = currentLang === 'fa'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+
+      updateSoftHintText();
+      mountTelegramWidget();
     }
+
+    document.getElementById('btn-google').addEventListener('click', function () {
+      startGoogleOAuth();
+    });
 
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       loginMessage.textContent = '';
+      loginMessage.className = 'text-sm min-h-[1.25rem] text-center';
       const t = translations[currentLang];
 
       const email = document.getElementById('email').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
 
       if (!email || !password) {
-        loginMessage.className = 'text-sm mt-2 text-red-600';
+        loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
         loginMessage.textContent = t.loginError;
         return;
       }
+
+      localStorage.setItem(LAST_AUTH_KEY, 'email');
+      applySocialButtonOrder();
 
       try {
         submitBtn.disabled = true;
@@ -151,7 +445,7 @@
         });
         const data = await loginRes.json().catch(() => ({}));
         if (!loginRes.ok) {
-          loginMessage.className = 'text-sm mt-2 text-red-600';
+          loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
           const msg = (data && data.error) ? String(data.error) : t.loginFailed;
           if (loginRes.status === 401 && msg.toLowerCase().includes('invalid')) {
             loginMessage.textContent = msg + ' ' + t.loginInvalidCredsHint;
@@ -161,11 +455,11 @@
           return;
         }
         if (data.token) localStorage.setItem('token', data.token);
-        loginMessage.className = 'text-sm mt-2 text-emerald-600';
+        loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-emerald-600';
         loginMessage.textContent = t.loginSuccess;
         setTimeout(() => { window.location.href = 'index.html'; }, 800);
       } catch (err) {
-        loginMessage.className = 'text-sm mt-2 text-red-600';
+        loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
         loginMessage.textContent = t.loginFailed;
       } finally {
         submitBtn.disabled = false;
@@ -175,15 +469,24 @@
     document.getElementById('lang-en').addEventListener('click', () => {
       currentLang = 'en';
       localStorage.setItem('lang', 'en');
+      localStorage.setItem('currency', 'usd');
+      localStorage.setItem('localePref', 'user');
       applyPageLanguage();
+      applySocialButtonOrder();
     });
     document.getElementById('lang-fa').addEventListener('click', () => {
       currentLang = 'fa';
       localStorage.setItem('lang', 'fa');
+      localStorage.setItem('currency', 'toman');
+      localStorage.setItem('localePref', 'user');
       applyPageLanguage();
+      applySocialButtonOrder();
     });
 
     applyPageLanguage();
+    mountTelegramWidget();
+    loadLoginGeoHint();
+    });
   </script>
 </body>
 </html>

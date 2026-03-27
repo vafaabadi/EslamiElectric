@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Confirming… - Eslami Electric</title>
   <link rel="stylesheet" href="css/mobile.css">
+  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="js/locale-bootstrap.js"></script>
+  <script src="js/price-format.js"></script>
+  <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -15,55 +19,136 @@
     <p id="error" class="hidden mt-2 text-sm text-red-600"></p>
   </div>
   <script>
-    (async function() {
-      const params = new URLSearchParams(window.location.hash.slice(1));
-      const accessToken = params.get('access_token');
-      if (!accessToken) {
-        document.getElementById('status').textContent = 'No confirmation data found. You can close this and log in.';
-        setTimeout(function() { window.location.href = 'login.html'; }, 3000);
-        return;
-      }
-      try {
-        function readServerPublicConfig() {
-          const el = document.getElementById('server-public-config');
-          if (!el || !el.textContent) return null;
-          try { return JSON.parse(el.textContent); } catch (e) { return null; }
+    (async function () {
+      const statusEl = document.getElementById('status');
+      const errorEl = document.getElementById('error');
+
+      function showFatal(msg, detail) {
+        statusEl.textContent = msg + ' Return to log in.';
+        if (detail) {
+          errorEl.textContent = detail;
+          errorEl.classList.remove('hidden');
         }
+        console.error('auth-callback:', msg, detail || '');
+      }
+
+      function readServerPublicConfig() {
+        const el = document.getElementById('server-public-config');
+        if (!el || !el.textContent) return null;
+        try {
+          return JSON.parse(el.textContent);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      try {
         const config = readServerPublicConfig();
         if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
-          throw new Error('Config missing');
+          showFatal('Configuration missing.', '');
+          setTimeout(function () {
+            window.location.href = 'login.html';
+          }, 3000);
+          return;
         }
-        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-          var supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-          if (supabase.auth && typeof supabase.auth.initialize === 'function') {
+
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+          showFatal('Supabase client failed to load.', 'Check your network or ad blocker.');
+          return;
+        }
+
+        const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+          auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, storage: window.localStorage }
+        });
+        if (supabase.auth && typeof supabase.auth.initialize === 'function') {
+          try {
             await supabase.auth.initialize();
+          } catch (initErr) {
+            console.warn('auth.initialize:', initErr);
           }
         }
+
+        let accessToken = null;
+        let exchangeErrText = '';
+        const q = new URLSearchParams(window.location.search);
+        if (q.get('code')) {
+          try {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+            if (error) {
+              exchangeErrText = error.message || String(error);
+            } else if (data && data.session && data.session.access_token) {
+              accessToken = data.session.access_token;
+            }
+          } catch (ex) {
+            exchangeErrText = ex && ex.message ? ex.message : String(ex);
+            console.error('exchangeCodeForSession:', ex);
+          }
+        }
+
+        if (!accessToken) {
+          const hashParams = new URLSearchParams(window.location.hash.slice(1));
+          accessToken = hashParams.get('access_token');
+        }
+
+        if (!accessToken) {
+          try {
+            const { data: sess } = await supabase.auth.getSession();
+            if (sess && sess.session && sess.session.access_token) {
+              accessToken = sess.session.access_token;
+            }
+          } catch (sessErr) {
+            console.error('getSession:', sessErr);
+          }
+        }
+
+        if (!accessToken) {
+          var hint =
+            exchangeErrText ||
+            'No session. Open Log in on this same site (same address) and try Google again — PKCE requires the same browser origin.';
+          statusEl.textContent = 'Could not complete sign-in.';
+          errorEl.textContent = hint;
+          errorEl.classList.remove('hidden');
+          setTimeout(function () {
+            window.location.href = 'login.html';
+          }, 8000);
+          return;
+        }
+
         const tokenRes = await fetch('/api/auth/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accessToken: accessToken })
         });
-        const data = await tokenRes.json().catch(function() { return {}; });
+        const data = await tokenRes.json().catch(function () {
+          return {};
+        });
         if (tokenRes.ok && data.token) {
           localStorage.setItem('token', data.token);
-          document.getElementById('status').textContent = 'Email confirmed. Taking you to the home page…';
+          statusEl.textContent = 'Signed in. Taking you to the home page…';
           window.location.replace('index.html');
         } else {
-          document.getElementById('status').textContent = 'Something went wrong.';
+          statusEl.textContent = 'Something went wrong.';
           var errMsg = data.error || '';
           if (errMsg.indexOf('Invalid or expired token') !== -1) {
-            errMsg += ' Check that SUPABASE_JWT_SECRET in your server .env matches Supabase Project Settings → API → JWT Secret. You can also try logging in with your password.';
+            errMsg +=
+              ' Check that SUPABASE_JWT_SECRET in your server .env matches Supabase Project Settings → API → JWT Secret. You can also try logging in with your password.';
           }
-          document.getElementById('error').textContent = errMsg;
-          document.getElementById('error').classList.remove('hidden');
-          setTimeout(function() { window.location.href = 'login.html'; }, 6000);
+          if (!tokenRes.ok && tokenRes.status === 404) {
+            errMsg =
+              (errMsg || 'API not found.') +
+              ' The server may not be running this route on your host (e.g. static-only deploy).';
+          }
+          errorEl.textContent = errMsg;
+          errorEl.classList.remove('hidden');
+          setTimeout(function () {
+            window.location.href = 'login.html';
+          }, 6000);
         }
       } catch (e) {
-        document.getElementById('status').textContent = 'Something went wrong. Try logging in.';
-        document.getElementById('error').textContent = '';
-        document.getElementById('error').classList.remove('hidden');
-        setTimeout(function() { window.location.href = 'login.html'; }, 4000);
+        showFatal('Something went wrong.', (e && e.message) || String(e));
+        setTimeout(function () {
+          window.location.href = 'login.html';
+        }, 6000);
       }
     })();
   </script>

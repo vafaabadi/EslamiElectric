@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Track Order - Eslami Electric</title>
   <link rel="stylesheet" href="css/mobile.css">
+  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="js/locale-bootstrap.js"></script>
+  <script src="js/price-format.js"></script>
+  <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -81,6 +85,7 @@
   </footer>
 
   <script>
+    runWhenLocaleReady(function () {
     (function() {
       const params = new URLSearchParams(window.location.search);
       const token = params.get('token');
@@ -104,8 +109,12 @@
 
       function formatAmount(cents, currency) {
         if (cents == null) return '';
+        var cur = (currency || '').toLowerCase();
+        if (cur === 'usd' && typeof formatStripeUsdCents === 'function') {
+          return formatStripeUsdCents(cents);
+        }
         var n = Number(cents) / 100;
-        return (currency === 'usd' ? '$' : '') + n.toFixed(2);
+        return (cur === 'usd' ? '$' : '') + n.toFixed(2);
       }
 
       function renderOrder(order) {
@@ -140,10 +149,18 @@
         items.forEach(function(item) {
           var qty = item.quantity || 1;
           var name = item.name || 'Item';
-          var total = item.amount_total != null ? (Number(item.amount_total) / 100).toFixed(2) : (Number(item.unit_amount || 0) / 100 * qty).toFixed(2);
+          var lineAmt = '';
+          if (item.amount_total != null) {
+            lineAmt = typeof formatStripeUsdCents === 'function'
+              ? formatStripeUsdCents(item.amount_total)
+              : ('$' + (Number(item.amount_total) / 100).toFixed(2));
+          } else {
+            var sub = (Number(item.unit_amount || 0) / 100) * qty;
+            lineAmt = typeof formatPriceUSD === 'function' ? formatPriceUSD(sub) : ('$' + sub.toFixed(2));
+          }
           var li = document.createElement('p');
           li.className = 'text-slate-700';
-          li.textContent = name + ' × ' + qty + ' — $' + total;
+          li.textContent = name + ' × ' + qty + ' — ' + lineAmt;
           itemsEl.appendChild(li);
         });
         document.getElementById('detail-total').textContent = 'Total: ' + formatAmount(order.amount_total, order.currency);
@@ -198,6 +215,7 @@
           });
       });
     })();
+    });
   </script>
 </body>
 </html>

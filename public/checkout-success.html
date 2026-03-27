@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Payment Successful - Eslami Electric</title>
   <link rel="stylesheet" href="css/mobile.css">
+  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="js/locale-bootstrap.js"></script>
+  <script src="js/price-format.js"></script>
+  <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4 overflow-x-hidden">
@@ -24,6 +28,7 @@
     </div>
   </div>
   <script>
+    runWhenLocaleReady(function () {
     (function () {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -55,6 +60,7 @@
         }
       } catch (e) {}
     })();
+    });
   </script>
 </body>
 </html>

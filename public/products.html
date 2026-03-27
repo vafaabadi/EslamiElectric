@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Products - Eslami Electric</title>
   <link rel="stylesheet" href="css/mobile.css">
+  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="js/locale-bootstrap.js"></script>
+  <script src="js/price-format.js"></script>
+  <script src="js/locale-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -63,6 +67,7 @@
   </footer>
 
   <script>
+    runWhenLocaleReady(function () {
     const translations = {
       en: {
         siteTitle: 'Eslami Electric',
@@ -261,7 +266,7 @@
             <div class="p-4">
               <h3 class="text-lg font-semibold text-slate-800 mt-1">${escapeHtml(name)}</h3>
               ${wattageHtml}
-              <p class="text-xl font-bold text-slate-900 mt-2">$${Number(p.price).toFixed(2)}</p>
+              <p class="text-xl font-bold text-slate-900 mt-2">${formatPriceUSD(Number(p.price))}</p>
               <div class="mt-3 flex items-center gap-2 flex-wrap">
                 <div class="flex items-center border border-slate-300 rounded overflow-hidden">
                   <button type="button" class="btn-qty-minus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" aria-label="Decrease quantity">−</button>
@@ -365,11 +370,12 @@
     loadCategories();
 
     var langEn = document.getElementById('lang-en');
-    if (langEn) langEn.addEventListener('click', function() { currentLang = 'en'; localStorage.setItem('lang', 'en'); applyPageLanguage(); });
+    if (langEn) langEn.addEventListener('click', function() { currentLang = 'en'; localStorage.setItem('lang', 'en'); localStorage.setItem('currency', 'usd'); localStorage.setItem('localePref', 'user'); applyPageLanguage(); });
     var langFa = document.getElementById('lang-fa');
-    if (langFa) langFa.addEventListener('click', function() { currentLang = 'fa'; localStorage.setItem('lang', 'fa'); applyPageLanguage(); });
+    if (langFa) langFa.addEventListener('click', function() { currentLang = 'fa'; localStorage.setItem('lang', 'fa'); localStorage.setItem('currency', 'toman'); localStorage.setItem('localePref', 'user'); applyPageLanguage(); });
     var navLogoutEl = document.getElementById('nav-logout');
     if (navLogoutEl) navLogoutEl.addEventListener('click', function() { localStorage.removeItem('token'); window.location.reload(); });
+    });
   </script>
 </body>
 </html>
