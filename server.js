@@ -1,5 +1,10 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
+const {
+  resolvePublicBaseUrl,
+  logStartupSummary,
+  getDeploymentEnvironment
+} = require('./config/environment');
 const crypto = require('crypto');
 const express = require('express');
 const fs = require('fs');
@@ -37,7 +42,8 @@ const LOGIN_LOCKOUT_MAX_ATTEMPTS = Math.max(1, parseInt(process.env.LOGIN_LOCKOU
 const LOGIN_LOCKOUT_MINUTES = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MINUTES || '60', 10) || 60);
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
+/** Public site URL for Stripe redirects, emails, receipts (see config/environment.js). */
+const baseUrl = resolvePublicBaseUrl();
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 // Locale path prefix: /en/ and /fa/. Map path segment to HTML file in public/
@@ -2416,7 +2422,13 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Eslami Electric server running at http://localhost:${PORT}`);
-  console.log(`On same WiFi, others can use: http://<this-PC-IP>:${PORT}  (run "ipconfig" to find IP)`);
+  logStartupSummary();
+  const dep = getDeploymentEnvironment();
+  if (process.env.VERCEL || dep === 'preview') {
+    console.log('Eslami Electric server (Vercel / cloud): public URL from env — see [env] publicBaseUrl above');
+  } else {
+    console.log(`Eslami Electric server running at http://localhost:${PORT}`);
+    console.log(`On same WiFi, others can use: http://<this-PC-IP>:${PORT}  (run "ipconfig" to find IP)`);
+  }
   logTelegramLoginStatus();
 });
