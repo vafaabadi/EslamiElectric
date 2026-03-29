@@ -6,4 +6,6 @@ node_modules/
 .supabase/
 .cursor/
 .cursor
-.vercel
+# Vercel CLI: track project link only (see https://vercel.com/docs/projects/overview#project-json)
+.vercel/*
+!.vercel/project.json
