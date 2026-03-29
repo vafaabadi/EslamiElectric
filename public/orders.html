@@ -89,6 +89,10 @@
         orderTotal: 'Total',
         orderStatus: 'Status',
         statusPaid: 'Paid',
+        statusPending: 'Pending payment',
+        paymentRequiredHint: 'This order is waiting for payment.',
+        resumePayment: 'Complete payment',
+        resumeError: 'Could not open checkout. Please try again.',
         viewDetails: 'Details',
         items: 'Items',
         fulfillment: 'Fulfillment',
@@ -117,11 +121,16 @@
         orderTotal: 'مجموع',
         orderStatus: 'وضعیت',
         statusPaid: 'پرداخت شده',
+        statusPending: 'در انتظار پرداخت',
+        paymentRequiredHint: 'این سفارش هنوز پرداخت نشده است.',
+        resumePayment: 'تکمیل پرداخت',
+        resumeError: 'باز کردن درگاه پرداخت ممکن نشد. دوباره تلاش کنید.',
         viewDetails: 'جزئیات',
         items: 'اقلام',
         fulfillment: 'نحوه دریافت',
         fulfillmentDelivery: 'ارسال به آدرس',
-        fulfillmentCollection: 'تحویل حضوری'
+        fulfillmentCollection: 'تحویل حضوری',
+        additionalInfo: 'اطلاعات تکمیلی'
       }
     };
 
@@ -131,6 +140,14 @@
     function escapeHtml(str) {
       if (!str) return '';
       return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    /** DB / API may vary casing; keep UI in sync with server resume logic. */
+    function normalizeOrderStatus(s) {
+      return String(s == null ? '' : s).toLowerCase().trim();
+    }
+    function isPendingOrder(order) {
+      return normalizeOrderStatus(order && order.status) === 'pending';
     }
 
     function formatDate(iso) {
@@ -201,7 +218,11 @@
       const listEl = document.getElementById('orders-list');
       listEl.innerHTML = '';
       const t = translations[currentLang];
-      const statusLabel = (s) => (s === 'paid' ? t.statusPaid : s);
+      const statusLabel = (s) => {
+        if (s === 'paid') return t.statusPaid;
+        if (s === 'pending') return t.statusPending;
+        return s || '—';
+      };
 
       orders.forEach((order) => {
         const li = document.createElement('li');
@@ -225,10 +246,17 @@
               <p class="text-slate-600 text-sm mt-1 truncate" title="${itemsSummary}">${itemsSummary}</p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="px-2 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-800">${statusLabel(order.status)}</span>
+              <span class="px-2 py-1 rounded text-xs font-medium ${isPendingOrder(order) ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'}">${statusLabel(order.status)}</span>
               <span class="order-toggle text-slate-400" aria-hidden="true">▼</span>
             </div>
           </div>
+          ${isPendingOrder(order) ? `
+          <div class="resume-row relative z-10 px-4 py-3 border-t-2 border-amber-400 bg-amber-50">
+            <p class="text-sm font-medium text-amber-950 mb-2">${escapeHtml(t.paymentRequiredHint)}</p>
+            <button type="button" class="resume-pay-btn w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg bg-amber-500 text-slate-900 font-semibold text-sm hover:bg-amber-400 shadow-sm" data-order-id="${escapeHtml(order.id)}">${escapeHtml(t.resumePayment)}</button>
+            <p class="resume-checkout-error hidden mt-2 text-sm text-red-600" role="alert"></p>
+          </div>
+          ` : ''}
           <div class="order-details hidden border-t border-slate-100 bg-slate-50/50 px-4 py-3">
             <p class="text-sm text-slate-700 mb-2"><span class="font-medium text-slate-600">${escapeHtml(t.fulfillment)}:</span> ${order.fulfillment_type === 'collection' ? escapeHtml(t.fulfillmentCollection) : escapeHtml(t.fulfillmentDelivery)}</p>
             ${extraInfoShort ? `<p class="text-sm text-slate-700 mb-2 whitespace-pre-wrap"><span class="font-medium text-slate-600">${escapeHtml(t.additionalInfo)}:</span> ${escapeHtml(extraInfoShort)}</p>` : ''}
@@ -258,6 +286,60 @@
       });
     }
 
+    (function bindResumeCheckoutOnce() {
+      const list = document.getElementById('orders-list');
+      if (!list || list.dataset.resumeBound) return;
+      list.dataset.resumeBound = '1';
+      list.addEventListener('click', function (ev) {
+        const btn = ev.target.closest('.resume-pay-btn');
+        if (!btn) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        const oid = btn.getAttribute('data-order-id');
+        const authToken = localStorage.getItem('token');
+        if (!oid || !authToken) return;
+        const tr = translations[currentLang];
+        const resumeRow = btn.closest('.resume-row');
+        const errEl = resumeRow && resumeRow.querySelector('.resume-checkout-error');
+        function setErr(msg) {
+          if (!errEl) return;
+          if (msg) {
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+          } else {
+            errEl.textContent = '';
+            errEl.classList.add('hidden');
+          }
+        }
+        setErr('');
+        btn.disabled = true;
+        fetch('/api/orders/' + encodeURIComponent(oid) + '/resume-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + authToken },
+          body: JSON.stringify({ locale: currentLang === 'fa' ? 'fa' : 'en' })
+        })
+          .then(function (r) {
+            return r.json().then(function (d) {
+              return { ok: r.ok, data: d };
+            });
+          })
+          .then(function ({ ok, data }) {
+            if (ok && data && data.url) {
+              window.location.href = data.url;
+              return;
+            }
+            var msg = (data && data.error) ? String(data.error) : tr.resumeError;
+            setErr(msg);
+          })
+          .catch(function () {
+            setErr(translations[currentLang].resumeError);
+          })
+          .finally(function () {
+            btn.disabled = false;
+          });
+      });
+    })();
+
     async function loadOrders() {
       const token = localStorage.getItem('token');
       showSection('orders-loading');
@@ -286,7 +368,7 @@
           showSection('orders-empty');
           return;
         }
-        var pending = orders.filter(function (o) { return o.status === 'pending'; });
+        var pending = orders.filter(isPendingOrder);
         if (pending.length > 0) {
           var updated = false;
           await Promise.all(pending.map(function (o) {

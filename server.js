@@ -2220,6 +2220,190 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
+function checkoutSuccessCancelUrls(localeSeg) {
+  const seg = localeSeg === 'fa' ? 'fa' : 'en';
+  const pathPrefix = '/' + seg + '/';
+  const base = baseUrl.replace(/\/$/, '');
+  return {
+    successUrl: base + pathPrefix + 'checkout-success?session_id={CHECKOUT_SESSION_ID}',
+    cancelUrl: base + pathPrefix + 'basket'
+  };
+}
+
+function stripeLineItemsFromOrderRow(lineItems) {
+  if (!Array.isArray(lineItems) || lineItems.length === 0) return [];
+  const out = [];
+  for (const item of lineItems) {
+    const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+    let unitAmount = item.unit_amount != null ? Math.round(Number(item.unit_amount)) : null;
+    if (unitAmount == null || unitAmount <= 0) {
+      if (item.amount_total != null) unitAmount = Math.round(Number(item.amount_total) / qty);
+    }
+    if (!unitAmount || unitAmount <= 0) continue;
+    out.push({
+      price_data: {
+        currency: 'usd',
+        unit_amount: unitAmount,
+        product_data: { name: String(item.name || 'Item').slice(0, 120) }
+      },
+      quantity: qty
+    });
+  }
+  return out;
+}
+
+/**
+ * Reuse open Stripe Checkout URL, or create a new session and point the order at it (pending only).
+ */
+async function resumePendingCheckoutForOrder(order, localeSeg) {
+  if (!stripe) {
+    const e = new Error('Stripe is not configured');
+    e.code = 'NO_STRIPE';
+    throw e;
+  }
+  if (!order || order.status !== 'pending') {
+    const e = new Error('Order is not pending payment');
+    e.code = 'NOT_PENDING';
+    throw e;
+  }
+  const sid = order.stripe_session_id;
+  if (!sid) {
+    const e = new Error('Missing checkout session on order');
+    e.code = 'NO_SESSION';
+    throw e;
+  }
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sid);
+    if (session.status === 'complete' && session.payment_status === 'paid') {
+      const e = new Error('Payment already recorded by Stripe. Refresh your orders.');
+      e.code = 'ALREADY_PAID';
+      throw e;
+    }
+    if (session.status === 'open' && session.url) {
+      return { url: session.url, recreated: false };
+    }
+  } catch (e) {
+    if (e.code === 'ALREADY_PAID') throw e;
+    console.error('Resume checkout: retrieve session, will recreate if possible:', e && e.message);
+  }
+
+  const lineItems = stripeLineItemsFromOrderRow(order.line_items);
+  if (lineItems.length === 0) {
+    const e = new Error('Cannot rebuild checkout: order has no line items.');
+    e.code = 'NO_LINE_ITEMS';
+    throw e;
+  }
+
+  const { successUrl, cancelUrl } = checkoutSuccessCancelUrls(localeSeg);
+  const fulfillmentType = order.fulfillment_type === 'collection' ? 'collection' : 'delivery';
+  const sessionParams = {
+    mode: 'payment',
+    line_items: lineItems,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: { order_id: order.id, fulfillment: fulfillmentType }
+  };
+  if (order.user_id) sessionParams.client_reference_id = String(order.user_id);
+  if (order.customer_email) {
+    sessionParams.customer_email = String(order.customer_email).trim().toLowerCase();
+  }
+
+  const newSession = await stripe.checkout.sessions.create(sessionParams);
+  const amountTotal = newSession.amount_total || 0;
+  const currency = (newSession.currency || 'usd').toLowerCase();
+  const { error: upErr } = await supabase
+    .from('orders')
+    .update({
+      stripe_session_id: newSession.id,
+      amount_total: amountTotal,
+      currency
+    })
+    .eq('id', order.id);
+  if (upErr) {
+    console.error('Resume checkout: update order failed', upErr);
+    const e = new Error('Failed to attach new checkout session');
+    e.code = 'UPDATE_FAILED';
+    throw e;
+  }
+  return { url: newSession.url, recreated: true };
+}
+
+const ORDER_RESUME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Logged-in user: resume pending order checkout
+app.post('/api/orders/:orderId/resume-checkout', authMiddleware, async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
+  const orderId = (req.params.orderId || '').trim();
+  if (!ORDER_RESUME_UUID.test(orderId)) {
+    return res.status(400).json({ error: 'Invalid order id' });
+  }
+  const localeSeg = req.body && (req.body.locale === 'fa' || req.body.locale === 'en') ? req.body.locale : 'en';
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(
+        'id, stripe_session_id, status, line_items, user_id, customer_email, fulfillment_type, guest_access_token'
+      )
+      .eq('id', orderId)
+      .eq('user_id', req.userId)
+      .single();
+    if (error || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const result = await resumePendingCheckoutForOrder(order, localeSeg);
+    res.json(result);
+  } catch (err) {
+    if (err.code === 'NOT_PENDING' || err.code === 'NO_LINE_ITEMS') {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.code === 'ALREADY_PAID') {
+      return res.status(409).json({ error: err.message });
+    }
+    console.error('Resume checkout (auth) error:', err);
+    res.status(500).json({ error: err.message || 'Failed to resume checkout' });
+  }
+});
+
+// Guest: resume by guest_access_token (same token as order tracking link)
+app.post('/api/orders/guest-resume-checkout', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
+  const token = (req.body && req.body.token) ? String(req.body.token).trim() : '';
+  if (!token || token.length < 10) {
+    return res.status(400).json({ error: 'Valid order token required' });
+  }
+  const localeSeg = req.body && (req.body.locale === 'fa' || req.body.locale === 'en') ? req.body.locale : 'en';
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(
+        'id, stripe_session_id, status, line_items, user_id, customer_email, fulfillment_type, guest_access_token'
+      )
+      .eq('guest_access_token', token)
+      .single();
+    if (error || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (!order.guest_access_token || order.guest_access_token !== token) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    const result = await resumePendingCheckoutForOrder(order, localeSeg);
+    res.json(result);
+  } catch (err) {
+    if (err.code === 'NOT_PENDING' || err.code === 'NO_LINE_ITEMS') {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.code === 'ALREADY_PAID') {
+      return res.status(409).json({ error: err.message });
+    }
+    console.error('Resume checkout (guest) error:', err);
+    res.status(500).json({ error: err.message || 'Failed to resume checkout' });
+  }
+});
+
 // Get current user's orders (requires auth)
 app.get('/api/orders', authMiddleware, async (req, res) => {
   try {

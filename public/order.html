@@ -71,6 +71,10 @@
       <p id="detail-additional-info" class="hidden text-slate-700 text-sm whitespace-pre-wrap border-t border-slate-200 pt-3 mt-2"></p>
       <div id="detail-items" class="border-t border-slate-200 pt-4 space-y-2"></div>
       <p id="detail-total" class="font-semibold text-slate-900 text-lg"></p>
+      <div id="detail-resume-wrap" class="hidden pt-3 border-t border-amber-200">
+        <button type="button" id="btn-resume-payment" class="w-full sm:w-auto px-4 py-2 rounded-lg bg-amber-500 text-slate-900 font-semibold text-sm hover:bg-amber-400">Complete payment</button>
+        <p id="detail-resume-error" class="hidden mt-2 text-sm text-red-600" role="alert"></p>
+      </div>
       <div id="detail-tracking" class="hidden pt-2 border-t border-slate-200">
         <p class="text-sm text-slate-600">Tracking: <span id="detail-tracking-number" class="font-medium"></span></p>
       </div>
@@ -118,6 +122,18 @@
         return (cur === 'usd' ? '$' : '') + n.toFixed(2);
       }
 
+      function setResumeError(msg) {
+        var el = document.getElementById('detail-resume-error');
+        if (!el) return;
+        if (msg) {
+          el.textContent = msg;
+          el.classList.remove('hidden');
+        } else {
+          el.textContent = '';
+          el.classList.add('hidden');
+        }
+      }
+
       function renderOrder(order) {
         cachedOrder = order;
         var orderLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
@@ -143,7 +159,22 @@
         }
 
         document.getElementById('detail-order-id').textContent = order.order_number || order.id;
-        document.getElementById('detail-status').textContent = order.status || 'paid';
+        var st = order.status || 'paid';
+        document.getElementById('detail-status').textContent = st;
+        var stEl = document.getElementById('detail-status');
+        stEl.className =
+          'px-2 py-1 rounded text-sm font-medium ' +
+          (st === 'pending' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800');
+        var resumeWrap = document.getElementById('detail-resume-wrap');
+        var resumeBtn = document.getElementById('btn-resume-payment');
+        if (resumeWrap && resumeBtn) {
+          if (st === 'pending' && token && token.length >= 10) {
+            resumeWrap.classList.remove('hidden');
+            resumeBtn.textContent = orderLang === 'fa' ? 'تکمیل پرداخت' : 'Complete payment';
+          } else {
+            resumeWrap.classList.add('hidden');
+          }
+        }
         document.getElementById('detail-date').textContent = 'Placed ' + formatDate(order.created_at);
         var itemsEl = document.getElementById('detail-items');
         itemsEl.innerHTML = '';
@@ -187,6 +218,40 @@
             showSection('order-not-found');
           });
       }
+
+      document.getElementById('btn-resume-payment').addEventListener('click', function() {
+        if (!token || token.length < 10) return;
+        var btn = this;
+        var lg = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
+        var genericErr = lg === 'fa' ? 'باز کردن صفحه پرداخت ممکن نشد.' : 'Could not open checkout.';
+        setResumeError('');
+        btn.disabled = true;
+        fetch('/api/orders/guest-resume-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token, locale: lg === 'fa' ? 'fa' : 'en' })
+        })
+          .then(function(r) {
+            return r.json().then(function(d) {
+              return { ok: r.ok, data: d };
+            });
+          })
+          .then(function(_ref) {
+            var ok = _ref.ok;
+            var data = _ref.data;
+            if (ok && data && data.url) {
+              window.location.href = data.url;
+              return;
+            }
+            setResumeError((data && data.error) ? data.error : genericErr);
+          })
+          .catch(function() {
+            setResumeError(genericErr);
+          })
+          .finally(function() {
+            btn.disabled = false;
+          });
+      });
 
       if (token && token.length >= 10) {
         document.getElementById('finder-section').classList.add('hidden');
