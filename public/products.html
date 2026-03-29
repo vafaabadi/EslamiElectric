@@ -9,7 +9,6 @@
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
-  <script src="js/currency-toggle.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -371,9 +370,9 @@
     loadCategories();
 
     var langEn = document.getElementById('lang-en');
-    if (langEn) langEn.addEventListener('click', function() { currentLang = 'en'; localStorage.setItem('lang', 'en'); localStorage.setItem('currency', 'usd'); localStorage.setItem('localePref', 'user'); applyPageLanguage(); });
+    if (langEn) langEn.addEventListener('click', function() { currentLang = 'en'; localStorage.setItem('lang', 'en'); localStorage.setItem('localePref', 'user'); applyPageLanguage(); });
     var langFa = document.getElementById('lang-fa');
-    if (langFa) langFa.addEventListener('click', function() { currentLang = 'fa'; localStorage.setItem('lang', 'fa'); localStorage.setItem('currency', 'toman'); localStorage.setItem('localePref', 'user'); applyPageLanguage(); });
+    if (langFa) langFa.addEventListener('click', function() { currentLang = 'fa'; localStorage.setItem('lang', 'fa'); localStorage.setItem('localePref', 'user'); applyPageLanguage(); });
     var navLogoutEl = document.getElementById('nav-logout');
     if (navLogoutEl) navLogoutEl.addEventListener('click', function() { localStorage.removeItem('token'); window.location.reload(); });
 

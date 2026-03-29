@@ -11,9 +11,6 @@
     if (!localStorage.getItem('usdToToman')) {
       localStorage.setItem('usdToToman', '42000');
     }
-    if (!localStorage.getItem('currency')) {
-      localStorage.setItem('currency', localStorage.getItem('lang') === 'fa' ? 'toman' : 'usd');
-    }
   }
 
   if ((window.location.pathname || '').indexOf('auth-callback') !== -1) {
@@ -41,7 +38,6 @@
     .then(function (d) {
       var rate = d.usdToToman != null ? d.usdToToman : 42000;
       localStorage.setItem('usdToToman', String(rate));
-      localStorage.setItem('currency', d.defaultCurrency || 'usd');
       if (!localStorage.getItem('lang')) {
         localStorage.setItem('lang', d.defaultLang || 'en');
       }
@@ -51,9 +47,6 @@
     .catch(function () {
       if (!localStorage.getItem('usdToToman')) {
         localStorage.setItem('usdToToman', '42000');
-      }
-      if (!localStorage.getItem('currency')) {
-        localStorage.setItem('currency', 'usd');
       }
       if (!localStorage.getItem('lang')) {
         localStorage.setItem('lang', 'en');

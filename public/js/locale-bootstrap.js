@@ -23,3 +23,20 @@
     );
   };
 })();
+
+/** After EN/FA click handlers update localStorage, refresh price displays that listen for this event. */
+(function () {
+  document.addEventListener(
+    'click',
+    function (e) {
+      var t = e.target;
+      if (!t || (t.id !== 'lang-en' && t.id !== 'lang-fa')) return;
+      setTimeout(function () {
+        try {
+          window.dispatchEvent(new CustomEvent('appcurrencychange'));
+        } catch (err) {}
+      }, 0);
+    },
+    false
+  );
+})();

@@ -4,8 +4,9 @@
     return Number.isFinite(r) && r > 0 ? r : 42000;
   }
 
+  /** Toman with Farsi UI; USD with English (no separate currency preference). */
   function getCurrency() {
-    return localStorage.getItem('currency') || 'usd';
+    return localStorage.getItem('lang') === 'fa' ? 'toman' : 'usd';
   }
 
   /** Display-only: catalog and basket prices are stored as USD numbers. */
