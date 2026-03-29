@@ -2328,7 +2328,96 @@ async function resumePendingCheckoutForOrder(order, localeSeg) {
   return { url: newSession.url, recreated: true };
 }
 
+/** Best-effort: close an open Checkout Session so the customer cannot pay after cancel. */
+async function expireStripeCheckoutSessionIfPossible(sessionId) {
+  if (!stripe || !sessionId || typeof sessionId !== 'string' || !sessionId.startsWith('cs_')) return;
+  try {
+    await stripe.checkout.sessions.expire(sessionId);
+  } catch (e) {
+    console.log('Expire checkout session (non-fatal):', e && e.message);
+  }
+}
+
 const ORDER_RESUME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Logged-in user: cancel a pending (unpaid) order
+app.post('/api/orders/:orderId/cancel', authMiddleware, async (req, res) => {
+  const orderId = (req.params.orderId || '').trim();
+  if (!ORDER_RESUME_UUID.test(orderId)) {
+    return res.status(400).json({ error: 'Invalid order id' });
+  }
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('id, status, stripe_session_id')
+      .eq('id', orderId)
+      .eq('user_id', req.userId)
+      .single();
+    if (error || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (order.status !== 'pending') {
+      return res.status(400).json({ error: 'Only unpaid orders can be cancelled.' });
+    }
+    await expireStripeCheckoutSessionIfPossible(order.stripe_session_id);
+    const { data: updated, error: upErr } = await supabase
+      .from('orders')
+      .update({ status: 'cancelled' })
+      .eq('id', order.id)
+      .eq('status', 'pending')
+      .select('id');
+    if (upErr) {
+      console.error('Cancel order update error:', upErr);
+      return res.status(500).json({ error: 'Failed to cancel order' });
+    }
+    if (!updated || updated.length === 0) {
+      return res.status(409).json({ error: 'Order is no longer pending.' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Cancel order error:', err);
+    res.status(500).json({ error: err.message || 'Failed to cancel order' });
+  }
+});
+
+// Guest: cancel pending order using guest_access_token (same as tracking link)
+app.post('/api/orders/guest-cancel', async (req, res) => {
+  const token = req.body && req.body.token ? String(req.body.token).trim() : '';
+  if (!token || token.length < 10) {
+    return res.status(400).json({ error: 'Valid order token required' });
+  }
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('id, status, stripe_session_id')
+      .eq('guest_access_token', token)
+      .single();
+    if (error || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (order.status !== 'pending') {
+      return res.status(400).json({ error: 'Only unpaid orders can be cancelled.' });
+    }
+    await expireStripeCheckoutSessionIfPossible(order.stripe_session_id);
+    const { data: updated, error: upErr } = await supabase
+      .from('orders')
+      .update({ status: 'cancelled' })
+      .eq('id', order.id)
+      .eq('status', 'pending')
+      .select('id');
+    if (upErr) {
+      console.error('Guest cancel order update error:', upErr);
+      return res.status(500).json({ error: 'Failed to cancel order' });
+    }
+    if (!updated || updated.length === 0) {
+      return res.status(409).json({ error: 'Order is no longer pending.' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Guest cancel order error:', err);
+    res.status(500).json({ error: err.message || 'Failed to cancel order' });
+  }
+});
 
 // Logged-in user: resume pending order checkout
 app.post('/api/orders/:orderId/resume-checkout', authMiddleware, async (req, res) => {

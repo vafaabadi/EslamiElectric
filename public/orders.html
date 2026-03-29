@@ -90,9 +90,13 @@
         orderStatus: 'Status',
         statusPaid: 'Paid',
         statusPending: 'Pending payment',
+        statusCancelled: 'Cancelled',
         paymentRequiredHint: 'This order is waiting for payment.',
         resumePayment: 'Complete payment',
         resumeError: 'Could not open checkout. Please try again.',
+        cancelOrder: 'Cancel order',
+        cancelConfirm: 'Cancel this unpaid order? You will not be charged. This cannot be undone.',
+        cancelError: 'Could not cancel the order. Please try again.',
         viewDetails: 'Details',
         items: 'Items',
         fulfillment: 'Fulfillment',
@@ -122,9 +126,13 @@
         orderStatus: 'وضعیت',
         statusPaid: 'پرداخت شده',
         statusPending: 'در انتظار پرداخت',
+        statusCancelled: 'لغو شده',
         paymentRequiredHint: 'این سفارش هنوز پرداخت نشده است.',
         resumePayment: 'تکمیل پرداخت',
         resumeError: 'باز کردن درگاه پرداخت ممکن نشد. دوباره تلاش کنید.',
+        cancelOrder: 'لغو سفارش',
+        cancelConfirm: 'این سفارش پرداخت‌نشده لغو شود؟ هزینه‌ای از شما کسر نمی‌شود و این عمل قابل بازگشت نیست.',
+        cancelError: 'لغو سفارش انجام نشد. دوباره تلاش کنید.',
         viewDetails: 'جزئیات',
         items: 'اقلام',
         fulfillment: 'نحوه دریافت',
@@ -219,8 +227,10 @@
       listEl.innerHTML = '';
       const t = translations[currentLang];
       const statusLabel = (s) => {
-        if (s === 'paid') return t.statusPaid;
-        if (s === 'pending') return t.statusPending;
+        const n = normalizeOrderStatus(s);
+        if (n === 'paid') return t.statusPaid;
+        if (n === 'pending') return t.statusPending;
+        if (n === 'cancelled' || n === 'canceled') return t.statusCancelled;
         return s || '—';
       };
 
@@ -271,7 +281,7 @@
             const qty = item.quantity || 1;
             const amt = item.amount_total != null ? formatAmount(item.amount_total, order.currency) : '';
             const row = document.createElement('li');
-            row.textContent = `${escapeHtml(item.name)} × ${qty}${amt ? ' — ' + amt : ''}`;
+            row.textContent = `${item.name != null ? String(item.name) : 'Item'} × ${qty}${amt ? ' — ' + amt : ''}`;
             itemsListEl.appendChild(row);
           });
         } else {
@@ -333,6 +343,65 @@
           })
           .catch(function () {
             setErr(translations[currentLang].resumeError);
+          })
+          .finally(function () {
+            btn.disabled = false;
+          });
+      });
+    })();
+
+    (function bindCancelOrderOnce() {
+      const list = document.getElementById('orders-list');
+      if (!list || list.dataset.cancelBound) return;
+      list.dataset.cancelBound = '1';
+      list.addEventListener('click', function (ev) {
+        const btn = ev.target.closest('.cancel-order-btn');
+        if (!btn) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        const oid = btn.getAttribute('data-order-id');
+        const authToken = localStorage.getItem('token');
+        if (!oid || !authToken) return;
+        const tr = translations[currentLang];
+        if (!confirm(tr.cancelConfirm)) return;
+        const resumeRow = btn.closest('.resume-row');
+        const errEl = resumeRow && resumeRow.querySelector('.cancel-checkout-error');
+        function setCancelErr(msg) {
+          if (!errEl) return;
+          if (msg) {
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+          } else {
+            errEl.textContent = '';
+            errEl.classList.add('hidden');
+          }
+        }
+        setCancelErr('');
+        const resumeErr = resumeRow && resumeRow.querySelector('.resume-checkout-error');
+        if (resumeErr) {
+          resumeErr.textContent = '';
+          resumeErr.classList.add('hidden');
+        }
+        btn.disabled = true;
+        fetch('/api/orders/' + encodeURIComponent(oid) + '/cancel', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + authToken }
+        })
+          .then(function (r) {
+            return r.json().then(function (d) {
+              return { ok: r.ok, data: d };
+            });
+          })
+          .then(function ({ ok, data }) {
+            if (ok && data && data.ok) {
+              loadOrders();
+              return;
+            }
+            var msg = (data && data.error) ? String(data.error) : tr.cancelError;
+            setCancelErr(msg);
+          })
+          .catch(function () {
+            setCancelErr(translations[currentLang].cancelError);
           })
           .finally(function () {
             btn.disabled = false;
