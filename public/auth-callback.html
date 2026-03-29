@@ -43,12 +43,30 @@
         }
       }
 
+      function localePathPrefix() {
+        const p = window.location.pathname || '';
+        if (p.indexOf('/fa/') === 0) return '/fa/';
+        if (p.indexOf('/en/') === 0) return '/en/';
+        return '';
+      }
+
+      function loginPageHref() {
+        const loc = localePathPrefix();
+        return loc ? loc + 'login.html' : '/en/login.html';
+      }
+
+      function homePageHref() {
+        const loc = localePathPrefix();
+        if (loc) return loc;
+        return localStorage.getItem('lang') === 'fa' ? '/fa/' : '/en/';
+      }
+
       try {
         const config = readServerPublicConfig();
         if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
           showFatal('Configuration missing.', '');
           setTimeout(function () {
-            window.location.href = 'login.html';
+            window.location.href = loginPageHref();
           }, 3000);
           return;
         }
@@ -110,7 +128,7 @@
           errorEl.textContent = hint;
           errorEl.classList.remove('hidden');
           setTimeout(function () {
-            window.location.href = 'login.html';
+            window.location.href = loginPageHref();
           }, 8000);
           return;
         }
@@ -142,13 +160,13 @@
           errorEl.textContent = errMsg;
           errorEl.classList.remove('hidden');
           setTimeout(function () {
-            window.location.href = 'login.html';
+            window.location.href = loginPageHref();
           }, 6000);
         }
       } catch (e) {
         showFatal('Something went wrong.', (e && e.message) || String(e));
         setTimeout(function () {
-          window.location.href = 'login.html';
+          window.location.href = loginPageHref();
         }, 6000);
       }
     })();

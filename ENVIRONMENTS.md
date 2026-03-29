@@ -12,6 +12,8 @@ The server logs a one-line summary on startup (`[env] deployment=…`) using `VE
 
 ## 1. Vercel (recommended path)
 
+
+
 1. Open [Vercel](https://vercel.com) → your project → **Settings** → **Environment Variables**.
 2. Add each variable from `.env.example`. **Supabase:** use your **staging** project’s `SUPABASE_*` values for **Preview** (and match local `.env`). Use your **production** project’s `SUPABASE_*` values **only** for **Production**. Same Stripe account is fine; keys can still be test mode on both until you go live.
    - **Stripe (Preview + Production):** you can use the **same Stripe test keys** (`sk_test_`, matching `whsec_` from **Test mode** webhooks) on both while you are not taking real payments. Set **`STRIPE_ALLOW_TEST_IN_PRODUCTION=1`** on **Production** so the server does not warn about `sk_test_` on the live deployment.

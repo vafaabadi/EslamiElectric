@@ -372,7 +372,13 @@
             console.warn('auth.initialize:', initErr);
           }
         }
-        const redirectTo = config.baseUrl.replace(/\/$/, '') + '/auth-callback.html';
+        // Match callback URL to locale (/en/ or /fa/) so PKCE + Supabase redirect URLs stay consistent.
+        var path = window.location.pathname || '';
+        var loc = '';
+        if (path.indexOf('/fa/') === 0) loc = '/fa/';
+        else if (path.indexOf('/en/') === 0) loc = '/en/';
+        var redirectTo =
+          config.baseUrl.replace(/\/$/, '') + (loc ? loc + 'auth-callback.html' : '/auth-callback.html');
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
