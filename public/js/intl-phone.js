@@ -64,10 +64,11 @@
       var iti = intlTelInput(input, {
         initialCountry: ic,
         preferredCountries: ['ir', 'pk', 'gb', 'ae', 'us', 'de', 'fr'],
-        separateDialCode: true,
+        /** One field: +country code and number appear inside the input (not beside it). */
+        separateDialCode: false,
         utilsScript: UTILS,
         formatOnDisplay: true,
-        nationalMode: true,
+        nationalMode: false,
         autoPlaceholder: 'off'
       });
       instances.set(input, iti);

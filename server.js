@@ -761,8 +761,8 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
     const type = (meta.type || '').trim() || 'person';
     const mobile = (meta.mobile || '').trim() || '';
     let address = (meta.address || '').trim() || '';
-    if (!address || !validationPatterns.address.test(address)) {
-      address = 'Please update your profile address in My Profile.';
+    if (address && !validationPatterns.address.test(address)) {
+      address = '';
     }
     const landline = (meta.landline || '').trim() || null;
     const bankDetails = (meta.bank_details || '').trim() || null;
@@ -1033,7 +1033,7 @@ app.post('/api/auth/telegram', async (req, res) => {
       telegram_id: tgId,
       telegram_username: username,
       auth_provider: 'telegram',
-      address: 'Please update your profile address after login.',
+      address: '',
       type: 'person'
     };
 

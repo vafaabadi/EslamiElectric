@@ -85,11 +85,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label id="label-mobile" for="mobile" class="block text-sm font-medium text-slate-700 mb-1">Mobile *</label>
-          <input type="tel" id="mobile" required class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <input type="tel" id="mobile" required class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
         <div>
           <label id="label-landline" for="landline" class="block text-sm font-medium text-slate-700 mb-1">Landline</label>
-          <input type="tel" id="landline" class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <input type="tel" id="landline" class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
       </div>
 
@@ -115,7 +115,7 @@
         </div>
         <div>
           <label id="label-company-contact" for="companyContactNumber" class="block text-sm font-medium text-slate-700 mb-1">Company contact number</label>
-          <input type="tel" id="companyContactNumber" class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <input type="tel" id="companyContactNumber" class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
         <div>
           <label id="label-company-principal" for="companyPrincipalContact" class="block text-sm font-medium text-slate-700 mb-1">Principal contact</label>
@@ -177,11 +177,11 @@
         saveError: 'Could not save changes.',
         errorMobile: 'Invalid mobile number.',
         errorLandline: 'Invalid landline number.',
-        phoneHintMobile: 'Country code required: pick flag + national number, or paste +44… / 0044… / +989…',
-        phoneHintLandline: 'Optional. Same rule: country code (+ or 00) or flag + number.',
-        phoneHintCompany: 'If provided: international format with country code (flag + number or +…).',
+        phoneHintMobile: 'e.g. +44 7123 456789 · +98 912 345 6789 · +1 202 555 0123',
+        phoneHintLandline: 'e.g. +44 20 7123 4567 · +98 21 1234 5678',
+        phoneHintCompany: 'e.g. +971 4 123 4567 · +44 20 7123 4567',
         phoneErrorEmpty: 'Enter your mobile number.',
-        phoneErrorCountry: 'Include a country code: choose the country on the left, then type your number (no leading 0), or paste a full number starting with + or 00.',
+        phoneErrorCountry: 'Your number must include a country code (e.g. +44, +98). Pick the flag, then type or paste the full number in this field, starting with + or 00.',
         phoneErrorFormat: 'The number length does not match international format. Check the country code and the digits that follow.',
         phoneErrorInvalid: 'This number is not valid for the selected country. Change the country or correct the digits.'
       },
@@ -223,11 +223,11 @@
         saveError: 'ذخیره تغییرات ناموفق بود.',
         errorMobile: 'شماره موبایل نامعتبر است.',
         errorLandline: 'شماره تلفن ثابت نامعتبر است.',
-        phoneHintMobile: 'کد کشور الزامی: کشور را از چپ انتخاب کنید و شماره ملی را وارد کنید، یا شماره کامل +۹۸… / ۰۰۹۸… / +۴۴…',
-        phoneHintLandline: 'اختیاری. همان قانون: کد کشور (+ یا ۰۰) یا پرچم + شماره.',
-        phoneHintCompany: 'در صورت پر کردن: شماره بین‌المللی با کد کشور.',
+        phoneHintMobile: 'مثال: +98 912 345 6789 · +44 7123 456789 · +1 202 555 0123',
+        phoneHintLandline: 'مثال: +98 21 1234 5678 · +44 20 7123 4567',
+        phoneHintCompany: 'مثال: +971 4 123 4567 · +44 20 7123 4567',
         phoneErrorEmpty: 'شماره موبایل را وارد کنید.',
-        phoneErrorCountry: 'کد کشور لازم است: کشور را انتخاب کنید و شماره را بدون صفر ابتدایی وارد کنید، یا شماره کامل با + یا ۰۰.',
+        phoneErrorCountry: 'شماره باید با کد کشور شروع شود (مثلاً +98 یا +44). کشور را انتخاب کنید، سپس شماره کامل را در همین فیلد با + یا ۰۰ وارد یا جای‌گذاری کنید.',
         phoneErrorFormat: 'طول شماره با فرمت بین‌المللی هم‌خوانی ندارد. کد کشور و ارقام بعد از آن را بررسی کنید.',
         phoneErrorInvalid: 'این شماره برای کشور انتخاب‌شده معتبر نیست. کشور را عوض کنید یا ارقام را اصلاح کنید.'
       }

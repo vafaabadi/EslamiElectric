@@ -7,6 +7,8 @@
   z-index: 50;
 }
 .iti input::placeholder {
-  color: #94a3b8;
+  color: #64748b;
   opacity: 1;
+  font-size: 0.8125rem;
+  line-height: 1.35;
 }
