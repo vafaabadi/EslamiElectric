@@ -109,7 +109,7 @@
           </div>
           <div>
             <label for="guest-phone" class="block text-sm font-medium text-slate-700 mb-1"><span id="label-guest-phone">Phone</span></label>
-            <input type="tel" id="guest-phone" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. +1 234 567 8900">
+            <input type="tel" id="guest-phone" class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
           </div>
         </div>
         <div id="guest-address-block">
@@ -209,7 +209,12 @@
         labelRegPostal: 'Postal code',
         additionalInfoHeader: 'Additional info',
         additionalInfoPlaceholder: 'e.g. gate code, delivery instructions, preferred time window',
-        additionalInfoHint: 'Optional. Helps us deliver your order.'
+        additionalInfoHint: 'Optional. Helps us deliver your order.',
+        phoneHintGuest: 'Country code required: pick flag + number, or paste +44… / +989… / 0044…',
+        phoneErrorEmpty: 'Enter your phone number.',
+        phoneErrorCountry: 'Include a country code: choose the country on the left, then type your number, or paste a full number starting with + or 00.',
+        phoneErrorFormat: 'The number length does not match international format. Check the country code and digits.',
+        phoneErrorInvalid: 'This number is not valid for the selected country. Change the country or correct the digits.'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -257,7 +262,12 @@
         labelRegPostal: 'کد پستی',
         additionalInfoHeader: 'اطلاعات تکمیلی',
         additionalInfoPlaceholder: 'مثلاً کد درب، توضیح تحویل، بازه زمانی ترجیحی',
-        additionalInfoHint: 'اختیاری. به ارسال سفارش کمک می‌کند.'
+        additionalInfoHint: 'اختیاری. به ارسال سفارش کمک می‌کند.',
+        phoneHintGuest: 'کد کشور الزامی: پرچم + شماره، یا +۹۸… / +۴۴… / ۰۰۹۸…',
+        phoneErrorEmpty: 'شماره تلفن را وارد کنید.',
+        phoneErrorCountry: 'کد کشور لازم است: کشور را انتخاب کنید و شماره را وارد کنید، یا شماره کامل با + یا ۰۰.',
+        phoneErrorFormat: 'طول شماره با فرمت بین‌المللی هم‌خوانی ندارد.',
+        phoneErrorInvalid: 'این شماره برای کشور انتخاب‌شده معتبر نیست.'
       }
     };
 
@@ -357,6 +367,8 @@
         if (lblAddress) lblAddress.textContent = t.guestAddress || 'Address';
         if (lblCity) lblCity.textContent = t.guestCity || 'City';
         if (lblPostal) lblPostal.textContent = t.guestPostal || 'Postal code';
+        const guestPhoneInput = document.getElementById('guest-phone');
+        if (guestPhoneInput) guestPhoneInput.placeholder = t.phoneHintGuest || '';
       }
 
       document.getElementById('lang-en').className = currentLang === 'en'
@@ -622,7 +634,7 @@
           }
           body.guestEmail = guestEmail;
           body.guestName = guestName;
-          body.guestPhone = guestPhone || undefined;
+          body.guestPhone = getIntlPhoneE164(guestPhoneEl) || undefined;
           if (fulfillment === 'delivery') {
             const guestExtra = document.getElementById('guest-additional-info') && document.getElementById('guest-additional-info').value.trim();
             body.shippingAddress = {
@@ -687,6 +699,8 @@
     (async function () {
       try {
         await initIntlPhoneInputs('#guest-phone');
+        const gp = document.getElementById('guest-phone');
+        if (gp) gp.placeholder = translations[currentLang].phoneHintGuest || '';
       } catch (e) {
         console.error(e);
       }

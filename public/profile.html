@@ -85,11 +85,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label id="label-mobile" for="mobile" class="block text-sm font-medium text-slate-700 mb-1">Mobile *</label>
-          <input type="tel" id="mobile" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <input type="tel" id="mobile" required class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
         <div>
           <label id="label-landline" for="landline" class="block text-sm font-medium text-slate-700 mb-1">Landline</label>
-          <input type="tel" id="landline" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <input type="tel" id="landline" class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
       </div>
 
@@ -115,7 +115,7 @@
         </div>
         <div>
           <label id="label-company-contact" for="companyContactNumber" class="block text-sm font-medium text-slate-700 mb-1">Company contact number</label>
-          <input type="tel" id="companyContactNumber" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <input type="tel" id="companyContactNumber" class="w-full border border-slate-300 rounded px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
         <div>
           <label id="label-company-principal" for="companyPrincipalContact" class="block text-sm font-medium text-slate-700 mb-1">Principal contact</label>
@@ -176,7 +176,14 @@
         loadError: 'Could not load profile. Please try again.',
         saveError: 'Could not save changes.',
         errorMobile: 'Invalid mobile number.',
-        errorLandline: 'Invalid landline number.'
+        errorLandline: 'Invalid landline number.',
+        phoneHintMobile: 'Country code required: pick flag + national number, or paste +44… / 0044… / +989…',
+        phoneHintLandline: 'Optional. Same rule: country code (+ or 00) or flag + number.',
+        phoneHintCompany: 'If provided: international format with country code (flag + number or +…).',
+        phoneErrorEmpty: 'Enter your mobile number.',
+        phoneErrorCountry: 'Include a country code: choose the country on the left, then type your number (no leading 0), or paste a full number starting with + or 00.',
+        phoneErrorFormat: 'The number length does not match international format. Check the country code and the digits that follow.',
+        phoneErrorInvalid: 'This number is not valid for the selected country. Change the country or correct the digits.'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -213,12 +220,37 @@
         saveChanges: 'ذخیره تغییرات',
         saved: 'پروفایل به‌روز شد.',
         loadError: 'بارگذاری پروفایل ناموفق بود.',
-        saveError: 'ذخیره تغییرات ناموفق بود.'
+        saveError: 'ذخیره تغییرات ناموفق بود.',
+        errorMobile: 'شماره موبایل نامعتبر است.',
+        errorLandline: 'شماره تلفن ثابت نامعتبر است.',
+        phoneHintMobile: 'کد کشور الزامی: کشور را از چپ انتخاب کنید و شماره ملی را وارد کنید، یا شماره کامل +۹۸… / ۰۰۹۸… / +۴۴…',
+        phoneHintLandline: 'اختیاری. همان قانون: کد کشور (+ یا ۰۰) یا پرچم + شماره.',
+        phoneHintCompany: 'در صورت پر کردن: شماره بین‌المللی با کد کشور.',
+        phoneErrorEmpty: 'شماره موبایل را وارد کنید.',
+        phoneErrorCountry: 'کد کشور لازم است: کشور را انتخاب کنید و شماره را بدون صفر ابتدایی وارد کنید، یا شماره کامل با + یا ۰۰.',
+        phoneErrorFormat: 'طول شماره با فرمت بین‌المللی هم‌خوانی ندارد. کد کشور و ارقام بعد از آن را بررسی کنید.',
+        phoneErrorInvalid: 'این شماره برای کشور انتخاب‌شده معتبر نیست. کشور را عوض کنید یا ارقام را اصلاح کنید.'
       }
     };
 
     let currentLang = localStorage.getItem('lang') || 'en';
     let cachedMe = null;
+
+    function phoneErrMsg(detail, tr) {
+      if (!detail || detail.ok) return '';
+      var k = intlPhoneMessageKey(detail.code);
+      return tr[k] || tr.phoneErrorInvalid;
+    }
+
+    function applyPhonePlaceholders() {
+      var tr = translations[currentLang];
+      var m = document.getElementById('mobile');
+      var l = document.getElementById('landline');
+      var c = document.getElementById('companyContactNumber');
+      if (m) m.placeholder = tr.phoneHintMobile || '';
+      if (l) l.placeholder = tr.phoneHintLandline || '';
+      if (c) c.placeholder = tr.phoneHintCompany || '';
+    }
 
     function applyPageLanguage() {
       const t = translations[currentLang];
@@ -274,6 +306,7 @@
       document.getElementById('lang-fa').className = currentLang === 'fa'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center';
+      applyPhonePlaceholders();
     }
 
     function fillForm(me) {
@@ -295,7 +328,7 @@
         companyEl.classList.remove('hidden');
         document.getElementById('companyName').value = me.companyName || '';
         document.getElementById('companyNumber').value = me.companyNumber || '';
-        document.getElementById('companyContactNumber').value = me.companyContactNumber || '';
+        setIntlPhoneNumber(document.getElementById('companyContactNumber'), me.companyContactNumber || '');
         document.getElementById('companyPrincipalContact').value = me.companyPrincipalContact || '';
         document.getElementById('companyName').required = true;
         document.getElementById('companyNumber').required = true;
@@ -368,21 +401,30 @@
       if (!token) return;
       msg.textContent = '';
       msg.className = 'text-sm mt-2 text-slate-500';
-      if (!isIntlPhoneValidLenient(document.getElementById('mobile'))) {
-        msg.textContent = t.errorMobile;
+      var mobileDetail = getIntlPhoneValidationDetail(document.getElementById('mobile'));
+      if (!mobileDetail.ok) {
+        msg.textContent = phoneErrMsg(mobileDetail, t);
         msg.className = 'text-sm mt-2 text-red-600';
         return;
       }
       var landEl = document.getElementById('landline');
-      var landVal = getIntlPhoneE164(landEl);
-      if (
-        landVal &&
-        !isIntlPhoneValidLenient(landEl) &&
-        !profilePhonePatterns.landline.test(landVal.replace(/\s/g, ''))
-      ) {
-        msg.textContent = t.errorLandline;
+      var landDetail = getIntlPhoneValidationDetail(landEl, { optionalEmpty: true });
+      if (!landDetail.ok) {
+        msg.textContent = phoneErrMsg(landDetail, t) || t.errorLandline;
         msg.className = 'text-sm mt-2 text-red-600';
         return;
+      }
+      var meType = document.getElementById('company-fields').classList.contains('hidden') ? 'person' : 'company';
+      if (meType === 'company') {
+        var ccEl = document.getElementById('companyContactNumber');
+        if (ccEl && ccEl.value.trim()) {
+          var ccDetail = getIntlPhoneValidationDetail(ccEl);
+          if (!ccDetail.ok) {
+            msg.textContent = phoneErrMsg(ccDetail, t);
+            msg.className = 'text-sm mt-2 text-red-600';
+            return;
+          }
+        }
       }
       const payload = buildPayload();
       try {
@@ -434,7 +476,15 @@
     });
 
     applyPageLanguage();
-    loadProfile();
+    (async function () {
+      try {
+        await initIntlPhoneInputs('#mobile, #landline, #companyContactNumber');
+        applyPhonePlaceholders();
+      } catch (e) {
+        console.error(e);
+      }
+      loadProfile();
+    })();
     });
   </script>
 </body>

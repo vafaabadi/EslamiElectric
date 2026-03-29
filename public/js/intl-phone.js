@@ -1,12 +1,27 @@
 /**
  * International phone fields (intl-tel-input). Load intlTelInput.min.css + intl-phone.css + intlTelInput.min.js before this file.
  * Uses /api/locale-hint country for initial dial code (e.g. IR → +98, PK → +92).
+ * Requires international format with country code (+… or 00… normalized to +).
  */
 (function (global) {
   var ITI_VER = '19.5.6';
   var UTILS = 'https://cdn.jsdelivr.net/npm/intl-tel-input@' + ITI_VER + '/build/js/utils.js';
 
   var instances = new WeakMap();
+
+  /**
+   * E.164-style strings often use +; many users type 00 (international prefix) instead.
+   * Normalize so validation and regex fallbacks match both forms.
+   */
+  function normalizeLeadingIntlPrefix(s) {
+    if (!s) return '';
+    var t = String(s).trim().replace(/\s/g, '');
+    if (t.charAt(0) === '+') return t;
+    if (t.indexOf('00') === 0 && t.length > 4 && /^00[1-9]\d{6,}$/.test(t)) {
+      return '+' + t.slice(2);
+    }
+    return t;
+  }
 
   function countryToIso2(code) {
     if (!code || typeof code !== 'string') return 'us';
@@ -53,7 +68,7 @@
         utilsScript: UTILS,
         formatOnDisplay: true,
         nationalMode: true,
-        autoPlaceholder: 'polite'
+        autoPlaceholder: 'off'
       });
       instances.set(input, iti);
     }
@@ -62,18 +77,19 @@
   global.getIntlPhoneE164 = function (input) {
     if (!input) return '';
     var iti = instances.get(input);
-    if (!iti) return String(input.value || '').trim();
+    if (!iti) return normalizeLeadingIntlPrefix(String(input.value || '').trim());
     try {
       var n = iti.getNumber();
       if (n) return n;
     } catch (e) {}
-    return String(input.value || '').trim();
+    return normalizeLeadingIntlPrefix(String(input.value || '').trim());
   };
 
   global.setIntlPhoneNumber = function (input, e164OrRaw) {
     if (!input) return;
     var iti = instances.get(input);
     var v = (e164OrRaw && String(e164OrRaw).trim()) || '';
+    v = normalizeLeadingIntlPrefix(v);
     if (iti && v) {
       try {
         iti.setNumber(v);
@@ -83,20 +99,61 @@
     input.value = v;
   };
 
-  /** True if utils loaded and number validates; if utils not ready, falls back to loose E.164 / legacy IR check. */
-  global.isIntlPhoneValidLenient = function (input) {
-    if (!input) return false;
+  /**
+   * @param {HTMLInputElement} input
+   * @param {{ optionalEmpty?: boolean }} opts - if true, empty field counts as valid
+   * @returns {{ ok: boolean, code?: string }} code: empty | no_country_code | invalid_format | invalid_number
+   */
+  global.getIntlPhoneValidationDetail = function (input, opts) {
+    opts = opts || {};
+    if (!input) return { ok: false, code: 'empty' };
+    var trimmed = String(input.value || '').trim();
+    if (opts.optionalEmpty && !trimmed.replace(/\s/g, '')) return { ok: true };
+
+    if (!trimmed.replace(/\s/g, '')) return { ok: false, code: 'empty' };
+
     var iti = instances.get(input);
-    var raw = global.getIntlPhoneE164(input).replace(/\s/g, '');
+    var raw = '';
     if (iti) {
       try {
-        if (typeof intlTelInputUtils !== 'undefined' && iti.isValidNumber && iti.isValidNumber()) {
-          return true;
-        }
+        var n = iti.getNumber();
+        if (n) raw = normalizeLeadingIntlPrefix(n);
       } catch (e) {}
     }
-    if (/^\+[1-9]\d{7,14}$/.test(raw)) return true;
-    if (/^(\+98|0|0098)?9\d{9}$/.test(raw)) return true;
-    return false;
+    if (!raw) raw = normalizeLeadingIntlPrefix(trimmed);
+
+    if (!raw || raw.charAt(0) !== '+') {
+      return { ok: false, code: 'no_country_code' };
+    }
+
+    if (!/^\+[1-9]\d{7,14}$/.test(raw)) {
+      return { ok: false, code: 'invalid_format' };
+    }
+
+    if (iti && typeof intlTelInputUtils !== 'undefined' && iti.isValidNumber) {
+      try {
+        if (iti.isValidNumber()) return { ok: true };
+        return { ok: false, code: 'invalid_number' };
+      } catch (e) {
+        return { ok: true };
+      }
+    }
+
+    return { ok: true };
+  };
+
+  /** Maps validation code to message keys used by pages (en/fa in HTML). */
+  global.intlPhoneMessageKey = function (code) {
+    var map = {
+      empty: 'phoneErrorEmpty',
+      no_country_code: 'phoneErrorCountry',
+      invalid_format: 'phoneErrorFormat',
+      invalid_number: 'phoneErrorInvalid'
+    };
+    return map[code] || 'phoneErrorInvalid';
+  };
+
+  global.isIntlPhoneValidLenient = function (input, opts) {
+    return global.getIntlPhoneValidationDetail(input, opts).ok;
   };
 })(typeof window !== 'undefined' ? window : this);
