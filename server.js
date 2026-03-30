@@ -126,9 +126,21 @@ function collectTelegramLoginWidgetHostnames(req) {
     } catch (e) {}
   }
   add(process.env.VERCEL_URL || '');
+  add(process.env.VERCEL_PROJECT_PRODUCTION_URL || '');
   if (req && typeof req.get === 'function') {
+    // Prefer X-Forwarded-Host (first hop) — on Vercel/custom domains this is often the public hostname.
+    const xfh = req.get('x-forwarded-host');
+    if (xfh) {
+      for (const part of xfh.split(',')) {
+        const segment = part.trim().split(':')[0];
+        add(segment);
+      }
+    }
     const host = (req.get('host') || '').split(':')[0];
     add(host);
+    if (typeof req.hostname === 'string' && req.hostname) {
+      add(req.hostname);
+    }
   }
   return out;
 }
@@ -257,12 +269,24 @@ function sendTelegramMessage(text) {
   });
 }
 
-// Redirect eslamielectric.ir to eslamielectric.com/fa/
+// Redirect eslamielectric.ir to canonical www host (Persian home).
 app.use((req, res, next) => {
   const host = (req.hostname || req.get('host') || '').toLowerCase().split(':')[0];
   if (host === 'eslamielectric.ir' || host.endsWith('.eslamielectric.ir')) {
-    const target = 'https://eslamielectric.com/fa/';
+    const target = 'https://www.eslamielectric.com/fa/';
     return res.redirect(302, target);
+  }
+  next();
+});
+
+// Apex → www: matches Telegram Login Widget domain (BotFather /setdomain) and one canonical URL.
+// 308 preserves method/body so POST (e.g. /api/webhooks/stripe) still works after redirect.
+app.use((req, res, next) => {
+  const host = (req.hostname || req.get('host') || '').toLowerCase().split(':')[0];
+  if (host === 'eslamielectric.com') {
+    const pathAndQuery = req.originalUrl || req.url || '/';
+    const target = 'https://www.eslamielectric.com' + pathAndQuery;
+    return res.redirect(308, target);
   }
   next();
 });

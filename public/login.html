@@ -50,7 +50,8 @@
         <div id="wrap-telegram" class="order-2">
           <p id="telegram-label" class="text-xs text-slate-500 mb-1 text-center">Telegram</p>
           <p id="telegram-domain-hint" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center leading-snug"></p>
-          <div id="telegram-widget-host" class="flex justify-center min-h-[44px]"></div>
+          <!-- dir=ltr: Telegram iframe is LTR; avoids broken layout on /fa/ RTL pages -->
+          <div id="telegram-widget-host" dir="ltr" class="flex justify-center items-center min-h-[48px] w-full min-w-0 overflow-x-auto py-1"></div>
         </div>
       </div>
 
@@ -499,7 +500,6 @@
     });
 
     applyPageLanguage();
-    mountTelegramWidget();
     loadLoginGeoHint();
     });
   </script>
