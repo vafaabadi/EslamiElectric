@@ -80,6 +80,32 @@
         <label id="label-email" for="email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
         <input type="email" id="email" readonly class="w-full border border-slate-200 bg-slate-50 rounded px-3 py-2 text-slate-600 cursor-not-allowed">
         <p id="email-hint" class="text-xs text-slate-500 mt-1">Email cannot be changed here.</p>
+        <p id="telegram-email-explain" class="hidden text-xs text-slate-600 mt-2 leading-snug border border-slate-200 rounded-lg px-3 py-2 bg-slate-50"></p>
+      </div>
+
+      <div id="link-email-setup" class="hidden space-y-3 border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
+        <h3 id="link-email-title" class="font-semibold text-slate-900 text-sm">Set your email & password</h3>
+        <p id="link-email-intro" class="text-xs text-slate-700 leading-snug"></p>
+        <div>
+          <label id="label-link-email" for="linkRealEmail" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+          <input type="email" id="linkRealEmail" autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white">
+        </div>
+        <div>
+          <label id="label-link-password" for="linkPassword" class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+          <input type="password" id="linkPassword" autocomplete="new-password" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" minlength="8">
+        </div>
+        <div>
+          <label id="label-link-password2" for="linkPassword2" class="block text-sm font-medium text-slate-700 mb-1">Confirm password</label>
+          <input type="password" id="linkPassword2" autocomplete="new-password" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" minlength="8">
+        </div>
+        <button type="button" id="btn-link-email-password" class="w-full py-2.5 rounded-lg bg-amber-500 text-slate-900 font-semibold text-sm hover:bg-amber-400">Save email & password</button>
+        <p id="link-email-message" class="text-sm min-h-[1.25rem]"></p>
+      </div>
+
+      <div id="contact-email-wrap">
+        <label id="label-contact-email" for="contactEmail" class="block text-sm font-medium text-slate-700 mb-1">Contact email</label>
+        <input type="email" id="contactEmail" autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="">
+        <p id="contact-email-hint" class="text-xs text-slate-500 mt-1"></p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -160,8 +186,24 @@
         labelFirstname: 'First name *',
         labelSurname: 'Surname *',
         labelDob: 'Date of birth',
-        labelEmail: 'Email',
-        emailHint: 'Email cannot be changed here.',
+        labelEmail: 'Account email',
+        emailHint: 'Sign-in email cannot be changed here.',
+        telegramEmailExplain:
+          'You signed in with Telegram. The address above is only an account id (not a mailbox). Use the section below to add your real email and a password — or keep using Telegram to sign in.',
+        linkEmailTitle: 'Set your email & password',
+        linkEmailIntro:
+          'Enter the email you want to use for this account and choose a password (at least 8 characters). You can sign in on the login page with this email and password, or continue using Telegram.',
+        labelLinkEmail: 'Your email',
+        labelLinkPassword: 'Password',
+        labelLinkPassword2: 'Confirm password',
+        linkEmailSubmit: 'Save email & password',
+        linkEmailSuccess: 'Your email and password are saved. You can sign in with email or Telegram.',
+        linkEmailError: 'Could not save. Check the details and try again.',
+        linkEmailMismatch: 'Passwords do not match.',
+        linkEmailShort: 'Password must be at least 8 characters.',
+        labelContactEmail: 'Contact email (optional)',
+        contactEmailHint:
+          'Optional second address for receipts if different from your account email.',
         labelMobile: 'Mobile *',
         labelLandline: 'Landline',
         labelBank: 'Bank account details',
@@ -206,8 +248,24 @@
         labelFirstname: 'نام *',
         labelSurname: 'نام خانوادگی *',
         labelDob: 'تاریخ تولد',
-        labelEmail: 'ایمیل',
-        emailHint: 'ایمیل از اینجا قابل تغییر نیست.',
+        labelEmail: 'ایمیل حساب',
+        emailHint: 'ایمیل ورود از اینجا قابل تغییر نیست.',
+        telegramEmailExplain:
+          'با تلگرام وارد شده‌اید. آدرس بالا فقط شناسهٔ حساب است (صندوق ایمیل نیست). در بخش زیر ایمیل واقعی و رمز عبور بگذارید — یا فقط با تلگرام وارد شوید.',
+        linkEmailTitle: 'تنظیم ایمیل و رمز عبور',
+        linkEmailIntro:
+          'ایمیلی که می‌خواهید برای این حساب استفاده شود و یک رمز عبور (حداقل ۸ کاراکتر) وارد کنید. می‌توانید با ایمیل و رمز در صفحهٔ ورود وارد شوید یا به تلگرام ادامه دهید.',
+        labelLinkEmail: 'ایمیل شما',
+        labelLinkPassword: 'رمز عبور',
+        labelLinkPassword2: 'تکرار رمز عبور',
+        linkEmailSubmit: 'ذخیره ایمیل و رمز',
+        linkEmailSuccess: 'ایمیل و رمز ذخیره شد. می‌توانید با ایمیل یا تلگرام وارد شوید.',
+        linkEmailError: 'ذخیره نشد. اطلاعات را بررسی کنید.',
+        linkEmailMismatch: 'رمزها یکسان نیستند.',
+        linkEmailShort: 'رمز باید حداقل ۸ کاراکتر باشد.',
+        labelContactEmail: 'ایمیل تماس (اختیاری)',
+        contactEmailHint:
+          'در صورت تفاوت با ایمیل حساب، برای رسید اختیاری است.',
         labelMobile: 'موبایل *',
         labelLandline: 'تلفن ثابت',
         labelBank: 'جزئیات حساب بانکی',
@@ -280,6 +338,21 @@
       document.getElementById('label-dob').textContent = t.labelDob;
       document.getElementById('label-email').textContent = t.labelEmail;
       document.getElementById('email-hint').textContent = t.emailHint;
+      document.getElementById('telegram-email-explain').textContent = t.telegramEmailExplain;
+      document.getElementById('label-contact-email').textContent = t.labelContactEmail;
+      document.getElementById('contact-email-hint').textContent = t.contactEmailHint;
+      var lte = document.getElementById('link-email-title');
+      var lti = document.getElementById('link-email-intro');
+      if (lte) lte.textContent = t.linkEmailTitle;
+      if (lti) lti.textContent = t.linkEmailIntro;
+      var lle = document.getElementById('label-link-email');
+      var llp = document.getElementById('label-link-password');
+      var ll2 = document.getElementById('label-link-password2');
+      if (lle) lle.textContent = t.labelLinkEmail;
+      if (llp) llp.textContent = t.labelLinkPassword;
+      if (ll2) ll2.textContent = t.labelLinkPassword2;
+      var blep = document.getElementById('btn-link-email-password');
+      if (blep) blep.textContent = t.linkEmailSubmit;
       document.getElementById('label-mobile').textContent = t.labelMobile;
       document.getElementById('label-landline').textContent = t.labelLandline;
       document.getElementById('label-bank').textContent = t.labelBank;
@@ -318,6 +391,32 @@
       document.getElementById('surname').value = me.surname || '';
       document.getElementById('dob').value = me.dob ? String(me.dob).slice(0, 10) : '';
       document.getElementById('email').value = me.email || '';
+      var tgExplain = document.getElementById('telegram-email-explain');
+      if (tgExplain) {
+        if (me.canLinkEmail) {
+          tgExplain.classList.remove('hidden');
+        } else {
+          tgExplain.classList.add('hidden');
+        }
+      }
+      var linkSetup = document.getElementById('link-email-setup');
+      var contactWrap = document.getElementById('contact-email-wrap');
+      if (me.canLinkEmail) {
+        if (linkSetup) linkSetup.classList.remove('hidden');
+        if (contactWrap) contactWrap.classList.add('hidden');
+        document.getElementById('linkRealEmail').value = '';
+        document.getElementById('linkPassword').value = '';
+        document.getElementById('linkPassword2').value = '';
+        var lem = document.getElementById('link-email-message');
+        if (lem) {
+          lem.textContent = '';
+          lem.className = 'text-sm min-h-[1.25rem]';
+        }
+      } else {
+        if (linkSetup) linkSetup.classList.add('hidden');
+        if (contactWrap) contactWrap.classList.remove('hidden');
+      }
+      document.getElementById('contactEmail').value = me.contactEmail || '';
       setIntlPhoneNumber(document.getElementById('mobile'), me.mobile || '');
       setIntlPhoneNumber(document.getElementById('landline'), me.landline || '');
       document.getElementById('bankDetails').value = me.bankDetails || '';
@@ -345,6 +444,10 @@
         firstName: document.getElementById('firstName').value.trim(),
         surname: document.getElementById('surname').value.trim(),
         dob: document.getElementById('dob').value || null,
+        contactEmail: (function () {
+          var v = document.getElementById('contactEmail').value.trim();
+          return v || null;
+        })(),
         mobile: getIntlPhoneE164(document.getElementById('mobile')),
         landline: (function () {
           var v = getIntlPhoneE164(document.getElementById('landline'));
@@ -473,6 +576,62 @@
       localStorage.setItem('lang', 'fa');
       localStorage.setItem('localePref', 'user');
       applyPageLanguage();
+    });
+
+    document.getElementById('btn-link-email-password').addEventListener('click', async function () {
+      const t = translations[currentLang];
+      const msgEl = document.getElementById('link-email-message');
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      msgEl.textContent = '';
+      msgEl.className = 'text-sm min-h-[1.25rem] text-slate-600';
+      const email = document.getElementById('linkRealEmail').value.trim().toLowerCase();
+      const p1 = document.getElementById('linkPassword').value;
+      const p2 = document.getElementById('linkPassword2').value;
+      if (!email) {
+        msgEl.textContent = t.linkEmailError;
+        msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+        return;
+      }
+      if (p1.length < 8) {
+        msgEl.textContent = t.linkEmailShort;
+        msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+        return;
+      }
+      if (p1 !== p2) {
+        msgEl.textContent = t.linkEmailMismatch;
+        msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/link-email-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({ email: email, password: p1 })
+        });
+        const data = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) {
+          msgEl.textContent = (data && data.error) ? String(data.error) : t.linkEmailError;
+          msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+          return;
+        }
+        msgEl.textContent = t.linkEmailSuccess;
+        msgEl.className = 'text-sm min-h-[1.25rem] text-emerald-600';
+        document.getElementById('linkPassword').value = '';
+        document.getElementById('linkPassword2').value = '';
+        const meRes = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } });
+        if (meRes.ok) {
+          fillForm(await meRes.json());
+        }
+      } catch (e) {
+        msgEl.textContent = t.linkEmailError;
+        msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+      }
     });
 
     applyPageLanguage();

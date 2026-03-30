@@ -315,6 +315,12 @@ function isValidPhoneOrCompanyLine(v) {
   return false;
 }
 
+/** Supabase Auth email for Telegram login is synthetic: tg_<telegramUserId>@<domain>. */
+function isSyntheticTelegramAuthEmail(email) {
+  const e = (email && String(email).trim().toLowerCase()) || '';
+  return /^tg_\d+@/.test(e);
+}
+
 function profileRowToJson(user) {
   if (!user) return null;
   return {
@@ -326,6 +332,8 @@ function profileRowToJson(user) {
     mobile: user.mobile,
     landline: user.landline,
     email: user.email,
+    contactEmail: user.contact_email,
+    canLinkEmail: isSyntheticTelegramAuthEmail(user.email),
     address: user.address,
     bankDetails: user.bank_details,
     companyName: user.company_name,
@@ -840,6 +848,8 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
       }
     }
 
+    const telegramIdMeta = (meta.telegram_id != null && String(meta.telegram_id).trim()) ? String(meta.telegram_id).trim() : null;
+
     const upsertRow = {
       id: userId,
       email: emailNorm || email,
@@ -864,6 +874,9 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
     }
     if (mergedLockedUntil != null) {
       upsertRow.locked_until = mergedLockedUntil;
+    }
+    if (telegramIdMeta) {
+      upsertRow.telegram_id = telegramIdMeta;
     }
 
     const { error: upsertErr } = await supabase.from('users').upsert(upsertRow, { onConflict: 'id' });
@@ -1021,6 +1034,21 @@ async function findAuthUserIdByEmail(emailNormalized) {
   return null;
 }
 
+/** After linking a real email, Telegram login resolves by this (not by synthetic tg_*@domain). */
+async function findUserIdByTelegramId(tgId) {
+  if (!tgId || typeof tgId !== 'string') return null;
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('telegram_id', tgId.trim())
+    .maybeSingle();
+  if (error) {
+    console.error('findUserIdByTelegramId:', error);
+    return null;
+  }
+  return data && data.id ? data.id : null;
+}
+
 /** Telegram Login Widget: verify hash, create or rotate-password sign-in, return app JWT. */
 app.post('/api/auth/telegram', async (req, res) => {
   try {
@@ -1045,7 +1073,7 @@ app.post('/api/auth/telegram', async (req, res) => {
     const tgId = body.id != null ? String(body.id) : '';
     if (!tgId) return res.status(400).json({ error: 'Missing Telegram user id' });
 
-    const email = `tg_${tgId}@${emailDomain}`.toLowerCase();
+    const syntheticEmail = `tg_${tgId}@${emailDomain}`.toLowerCase();
     const password = crypto.randomBytes(32).toString('hex');
     const firstName = (body.first_name && String(body.first_name).trim()) || 'Telegram';
     const lastName = (body.last_name && String(body.last_name).trim()) || '';
@@ -1062,45 +1090,79 @@ app.post('/api/auth/telegram', async (req, res) => {
     };
 
     let created = false;
-    const { data: createdData, error: createErr } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: meta
-    });
-    if (createErr) {
-      const msg = (createErr.message || '').toLowerCase();
-      const code = String(createErr.code || createErr.status || '');
-      if (
-        msg.includes('registered') ||
-        msg.includes('already') ||
-        msg.includes('exists') ||
-        code.includes('422') ||
-        code.includes('email_exists')
-      ) {
-        const userId = await findAuthUserIdByEmail(email);
-        if (!userId) {
-          console.error('Telegram login: user exists but not found in listUsers', email);
-          return res.status(500).json({ error: 'Could not complete Telegram login' });
-        }
-        const { error: updErr } = await supabase.auth.admin.updateUserById(userId, {
-          password,
-          user_metadata: meta
-        });
-        if (updErr) {
-          console.error('Telegram login updateUser:', updErr);
-          return res.status(500).json({ error: 'Could not complete Telegram login' });
+    let signInEmail = syntheticEmail;
+
+    const byTg = await findUserIdByTelegramId(tgId);
+    const bySynthetic = byTg ? null : await findAuthUserIdByEmail(syntheticEmail);
+    const existingUserId = byTg || bySynthetic;
+
+    if (existingUserId) {
+      const { data: gu, error: guErr } = await supabase.auth.admin.getUserById(existingUserId);
+      if (guErr || !gu || !gu.user) {
+        console.error('Telegram login getUserById:', guErr);
+        return res.status(500).json({ error: 'Could not complete Telegram login' });
+      }
+      signInEmail = (gu.user.email || '').trim().toLowerCase() || syntheticEmail;
+      const prevMeta = gu.user.user_metadata || {};
+      const mergedMeta = {
+        ...prevMeta,
+        ...meta,
+        first_name: firstName || prevMeta.first_name,
+        surname: lastName || prevMeta.surname
+      };
+      const { error: updErr } = await supabase.auth.admin.updateUserById(existingUserId, {
+        password,
+        user_metadata: mergedMeta
+      });
+      if (updErr) {
+        console.error('Telegram login updateUser:', updErr);
+        return res.status(500).json({ error: 'Could not complete Telegram login' });
+      }
+      await supabase.from('users').update({ telegram_id: tgId }).eq('id', existingUserId).is('telegram_id', null);
+    } else {
+      const { data: createdData, error: createErr } = await supabase.auth.admin.createUser({
+        email: syntheticEmail,
+        password,
+        email_confirm: true,
+        user_metadata: meta
+      });
+      if (createErr) {
+        const msg = (createErr.message || '').toLowerCase();
+        const code = String(createErr.code || createErr.status || '');
+        if (
+          msg.includes('registered') ||
+          msg.includes('already') ||
+          msg.includes('exists') ||
+          code.includes('422') ||
+          code.includes('email_exists')
+        ) {
+          const userId = await findAuthUserIdByEmail(syntheticEmail);
+          if (!userId) {
+            console.error('Telegram login: user exists but not found in listUsers', syntheticEmail);
+            return res.status(500).json({ error: 'Could not complete Telegram login' });
+          }
+          const { data: gu2 } = await supabase.auth.admin.getUserById(userId);
+          signInEmail = (gu2 && gu2.user && gu2.user.email) ? gu2.user.email.trim().toLowerCase() : syntheticEmail;
+          const { error: updErr2 } = await supabase.auth.admin.updateUserById(userId, {
+            password,
+            user_metadata: { ...(gu2 && gu2.user && gu2.user.user_metadata ? gu2.user.user_metadata : {}), ...meta }
+          });
+          if (updErr2) {
+            console.error('Telegram login updateUser:', updErr2);
+            return res.status(500).json({ error: 'Could not complete Telegram login' });
+          }
+          await supabase.from('users').update({ telegram_id: tgId }).eq('id', userId).is('telegram_id', null);
+        } else {
+          console.error('Telegram login createUser:', createErr);
+          return res.status(500).json({ error: 'Could not create account' });
         }
       } else {
-        console.error('Telegram login createUser:', createErr);
-        return res.status(500).json({ error: 'Could not create account' });
+        created = !!(createdData && createdData.user);
       }
-    } else {
-      created = !!(createdData && createdData.user);
     }
 
     const { data: signData, error: signErr } = await supabaseAnon.auth.signInWithPassword({
-      email,
+      email: signInEmail,
       password
     });
     if (signErr || !signData?.session?.access_token) {
@@ -1644,7 +1706,7 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   try {
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, type, first_name, surname, dob, mobile, landline, email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at')
+      .select('id, type, first_name, surname, dob, mobile, landline, email, contact_email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at')
       .eq('id', req.userId)
       .single();
 
@@ -1654,6 +1716,83 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Get me error:', err);
     res.status(500).json({ error: 'Failed to load profile' });
+  }
+});
+
+/** Telegram-only synthetic auth email → real email + password (same Supabase user id). */
+app.post('/api/auth/link-email-password', authMiddleware, async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const emailNormalized = (email && String(email).trim().toLowerCase()) || '';
+    const passwordPlain = password != null ? String(password) : '';
+    if (!emailNormalized || !validationPatterns.email.test(emailNormalized)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    if (passwordPlain.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    const { data: authUser, error: getErr } = await supabase.auth.admin.getUserById(req.userId);
+    if (getErr || !authUser || !authUser.user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const currentEmail = (authUser.user.email || '').trim().toLowerCase();
+    if (!isSyntheticTelegramAuthEmail(currentEmail)) {
+      return res.status(400).json({ error: 'Your account already has a real email address.' });
+    }
+    const otherId = await findAuthUserIdByEmail(emailNormalized);
+    if (otherId && otherId !== req.userId) {
+      return res.status(400).json({ error: 'That email is already in use.' });
+    }
+    const tgId =
+      authUser.user.user_metadata && authUser.user.user_metadata.telegram_id != null
+        ? String(authUser.user.user_metadata.telegram_id).trim()
+        : '';
+    const { error: updErr } = await supabase.auth.admin.updateUserById(req.userId, {
+      email: emailNormalized,
+      password: passwordPlain,
+      email_confirm: true
+    });
+    if (updErr) {
+      console.error('link-email-password auth update:', updErr);
+      return res.status(400).json({ error: updErr.message || 'Could not update email' });
+    }
+    const { error: dbErr } = await supabase
+      .from('users')
+      .update({
+        email: emailNormalized,
+        contact_email: null,
+        ...(tgId ? { telegram_id: tgId } : {})
+      })
+      .eq('id', req.userId);
+    if (dbErr) {
+      console.error('link-email-password users update:', dbErr);
+      return res.status(500).json({ error: 'Could not update profile' });
+    }
+    if (resend && resendFrom) {
+      const siteUrl = baseUrl.replace(/\/$/, '');
+      const loginUrl = `${siteUrl}/login.html`;
+      const esc = (s) =>
+        String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const html = `
+        <p>Hi,</p>
+        <p>Your Eslami Electric account email is now <strong>${esc(emailNormalized)}</strong>.</p>
+        <p>You can sign in with this email and the password you just set. Telegram sign-in still works too.</p>
+        <p><a href="${esc(loginUrl)}">${esc(loginUrl)}</a></p>
+        <p style="margin-top:1em;color:#64748b;font-size:0.875rem;">— Eslami Electric</p>
+      `;
+      resend.emails
+        .send({
+          from: resendFrom,
+          to: [emailNormalized],
+          subject: 'Your account email is set',
+          html
+        })
+        .catch((err) => console.error('link-email-password welcome email:', err));
+    }
+    res.json({ ok: true, email: emailNormalized });
+  } catch (err) {
+    console.error('link-email-password error:', err);
+    res.status(500).json({ error: 'Failed to link email' });
   }
 });
 
@@ -1737,6 +1876,14 @@ app.patch('/api/me', authMiddleware, async (req, res) => {
       }
       updates.landline = v;
     }
+    if (patch.contactEmail !== undefined) {
+      const raw = patch.contactEmail;
+      const v = raw === null || raw === '' ? null : String(raw).trim().toLowerCase();
+      if (v && !validationPatterns.email.test(v)) {
+        return res.status(400).json({ error: 'Invalid contact email format' });
+      }
+      updates.contact_email = v;
+    }
     if (patch.address !== undefined) {
       const v = String(patch.address).trim();
       if (!validationPatterns.address.test(v)) {
@@ -1799,7 +1946,7 @@ app.patch('/api/me', authMiddleware, async (req, res) => {
       .from('users')
       .update(updates)
       .eq('id', req.userId)
-      .select('id, type, first_name, surname, dob, mobile, landline, email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at')
+      .select('id, type, first_name, surname, dob, mobile, landline, email, contact_email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at')
       .single();
 
     if (upErr) {
@@ -2168,6 +2315,21 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
     const orderId = crypto.randomUUID();
     let orderNumber = generateOrderNumber();
+    let loggedInCustomerEmail = null;
+    if (userId) {
+      const { data: prof } = await supabase
+        .from('users')
+        .select('email, contact_email')
+        .eq('id', userId)
+        .maybeSingle();
+      if (prof) {
+        const authEmail = (prof.email || '').trim().toLowerCase();
+        const contact = (prof.contact_email || '').trim().toLowerCase();
+        const contactOk = contact && validationPatterns.email.test(contact);
+        const authOk = authEmail && validationPatterns.email.test(authEmail) && !isSyntheticTelegramAuthEmail(authEmail);
+        loggedInCustomerEmail = contactOk ? contact : authOk ? authEmail : null;
+      }
+    }
     const sessionParams = {
       mode: 'payment',
       line_items: lineItems,
@@ -2178,6 +2340,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
     if (userId) sessionParams.client_reference_id = String(userId);
     if (isGuest && guestEmail) {
       sessionParams.customer_email = (guestEmail || '').trim().toLowerCase();
+    } else if (userId && loggedInCustomerEmail) {
+      sessionParams.customer_email = loggedInCustomerEmail;
     }
     const session = await stripe.checkout.sessions.create(sessionParams);
 
@@ -2202,6 +2366,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
       line_items: lineItemsForDb,
       fulfillment_type: fulfillmentType
     };
+    if (userId && loggedInCustomerEmail) {
+      orderRow.customer_email = loggedInCustomerEmail;
+    }
     if (isGuest) {
       orderRow.guest_access_token = crypto.randomBytes(24).toString('hex');
       orderRow.customer_email = (guestEmail || '').trim().toLowerCase();
