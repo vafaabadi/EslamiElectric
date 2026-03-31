@@ -67,11 +67,28 @@ const PATH_TO_HTML = {
 };
 const publicDir = path.join(__dirname, 'public');
 
+/**
+ * Public site origin for OAuth redirectTo, Stripe, and email links.
+ * Prefer NEXT_PUBLIC_BASE_URL / BASE_URL; otherwise use the incoming request (fixes custom domains on Vercel when env is unset).
+ */
+function getPublicBaseUrlForClient(req) {
+  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '').trim();
+  if (explicit) return explicit.replace(/\/$/, '');
+  if (req && req.get) {
+    const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
+    if (host) {
+      const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+      return `${proto}://${host}`.replace(/\/$/, '');
+    }
+  }
+  return resolvePublicBaseUrl();
+}
+
 /** Supabase URL + anon key + baseUrl: embedded only in HTML pages that need them (not via a separate JSON API). */
 function getPublicConfigForClient(req) {
   const url = process.env.SUPABASE_URL || '';
   const anon = process.env.SUPABASE_ANON_KEY || '';
-  const base = (process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'))).replace(/\/$/, '');
+  const base = getPublicBaseUrlForClient(req);
   const telegramBotUsername = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
   const telegramLoginBotToken = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
   const telegramAuthDomain = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
@@ -1961,7 +1978,7 @@ app.patch('/api/me', authMiddleware, async (req, res) => {
   }
 });
 
-// Forgot password: request a reset link
+// Forgot password: request a reset link (emailed via Resend; do not expose reset URLs in JSON)
 app.post('/api/forgot-password', async (req, res) => {
   try {
     const { email } = req.body || {};
@@ -1970,33 +1987,120 @@ app.post('/api/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const { data: user } = await supabase
+    const siteUrl = getPublicBaseUrlForClient(req);
+    const escapeHtml = (str) => {
+      if (str == null) return '';
+      return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    };
+
+    const genericOk = () =>
+      res.json({
+        ok: true,
+        message: 'If that email is registered, you will receive a reset link. Check your inbox and spam folder.'
+      });
+
+    const { data: userRow, error: userErr } = await supabase
       .from('users')
       .select('id')
       .eq('email', emailNormalized)
-      .single();
+      .maybeSingle();
 
-    if (!user) {
-      return res.json({ ok: true, message: 'If that email is registered, you will receive a reset link.' });
-    }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-    const { error } = await supabase
-      .from('users')
-      .update({ reset_token: resetToken, reset_token_expires: expiresAt.toISOString() })
-      .eq('id', user.id);
-
-    if (error) {
-      console.error('Forgot password update error:', error);
+    if (userErr) {
+      console.error('Forgot password lookup error:', userErr);
       return res.status(500).json({ error: 'Failed to request reset' });
     }
 
-    const baseUrl = req.protocol + '://' + req.get('host');
-    const resetLink = baseUrl + '/reset-password.html?token=' + resetToken;
+    if (userRow && userRow.id) {
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    res.json({ ok: true, resetLink });
+      const { error } = await supabase
+        .from('users')
+        .update({ reset_token: resetToken, reset_token_expires: expiresAt.toISOString() })
+        .eq('id', userRow.id);
+
+      if (error) {
+        console.error('Forgot password update error:', error);
+        return res.status(500).json({ error: 'Failed to request reset' });
+      }
+
+      const resetLink = `${siteUrl}/reset-password.html?token=${encodeURIComponent(resetToken)}`;
+
+      if (!resend || !resendFrom) {
+        console.error('Forgot password: RESEND_API_KEY / RESEND_FROM not configured; cannot send email');
+        return res.status(503).json({ error: 'Password reset email is not configured' });
+      }
+
+      try {
+        await resend.emails.send({
+          from: resendFrom,
+          to: [emailNormalized],
+          subject: 'Reset your Eslami Electric password',
+          html: `
+            <p>Hi,</p>
+            <p>We received a request to reset the password for your account.</p>
+            <p><a href="${escapeHtml(resetLink)}">Set a new password</a></p>
+            <p style="margin-top:1em;color:#64748b;font-size:0.875rem;">This link expires in one hour. If you did not request this, you can ignore this email.</p>
+            <p style="margin-top:1em;color:#64748b;font-size:0.875rem;">— Eslami Electric</p>
+          `
+        });
+        console.log('Forgot password email sent (app token) to', emailNormalized);
+      } catch (sendErr) {
+        console.error('Forgot password Resend error:', sendErr);
+        return res.status(500).json({ error: 'Failed to send reset email' });
+      }
+
+      return genericOk();
+    }
+
+    const authUserId = await findAuthUserIdByEmail(emailNormalized);
+    if (!authUserId) {
+      return genericOk();
+    }
+
+    const { data: linkData, error: glErr } = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: emailNormalized,
+      options: {
+        redirectTo: `${siteUrl}/update-password.html`
+      }
+    });
+
+    const actionLink =
+      linkData &&
+      linkData.properties &&
+      (linkData.properties.action_link || linkData.properties.href || linkData.properties.confirmation_url);
+
+    if (glErr || !actionLink) {
+      console.error('Forgot password generateLink:', glErr, linkData);
+      return res.status(500).json({ error: 'Failed to request reset' });
+    }
+
+    if (!resend || !resendFrom) {
+      console.error('Forgot password: RESEND_API_KEY / RESEND_FROM not configured; cannot send recovery email');
+      return res.status(503).json({ error: 'Password reset email is not configured' });
+    }
+
+    try {
+      await resend.emails.send({
+        from: resendFrom,
+        to: [emailNormalized],
+        subject: 'Reset your Eslami Electric password',
+        html: `
+          <p>Hi,</p>
+          <p>We received a request to reset the password for your account.</p>
+          <p><a href="${escapeHtml(actionLink)}">Set a new password</a></p>
+          <p style="margin-top:1em;color:#64748b;font-size:0.875rem;">If you did not request this, you can ignore this email.</p>
+          <p style="margin-top:1em;color:#64748b;font-size:0.875rem;">— Eslami Electric</p>
+        `
+      });
+      console.log('Forgot password email sent (Supabase recovery link) to', emailNormalized);
+    } catch (sendErr) {
+      console.error('Forgot password Resend error (recovery):', sendErr);
+      return res.status(500).json({ error: 'Failed to send reset email' });
+    }
+
+    return genericOk();
   } catch (err) {
     console.error('Forgot password error:', err);
     res.status(500).json({ error: 'Failed to request reset' });

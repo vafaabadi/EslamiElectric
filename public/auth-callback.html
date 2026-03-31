@@ -143,13 +143,13 @@
         if (tokenRes.ok && data.token) {
           localStorage.setItem('token', data.token);
           statusEl.textContent = 'Signed in. Taking you to the home page…';
-          window.location.replace('index.html');
+          window.location.replace(homePageHref());
         } else {
           statusEl.textContent = 'Something went wrong.';
           var errMsg = data.error || '';
           if (errMsg.indexOf('Invalid or expired token') !== -1) {
             errMsg +=
-              ' Check that SUPABASE_JWT_SECRET in your server .env matches Supabase Project Settings → API → JWT Secret. You can also try logging in with your password.';
+              ' Confirm Supabase Auth redirect URLs include this site’s auth-callback URL (same host as the address bar) and that BASE_URL matches production. You can also try email/password login.';
           }
           if (!tokenRes.ok && tokenRes.status === 404) {
             errMsg =

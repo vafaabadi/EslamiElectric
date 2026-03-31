@@ -180,6 +180,13 @@
       }
     }
 
+    function homePageHref() {
+      const p = window.location.pathname || '';
+      if (p.indexOf('/fa/') === 0) return '/fa/';
+      if (p.indexOf('/en/') === 0) return '/en/';
+      return localStorage.getItem('lang') === 'fa' ? '/fa/' : '/en/';
+    }
+
     function applySocialButtonOrder() {
       const last = localStorage.getItem(LAST_AUTH_KEY);
       const gWrap = document.getElementById('wrap-google');
@@ -305,7 +312,7 @@
           loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-emerald-600';
           loginMessage.textContent = t.loginSuccess;
           setTimeout(function () {
-            window.location.href = 'index.html';
+            window.location.href = homePageHref();
           }, 600);
         } catch (e) {
           loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
@@ -475,7 +482,7 @@
         if (data.token) localStorage.setItem('token', data.token);
         loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-emerald-600';
         loginMessage.textContent = t.loginSuccess;
-        setTimeout(() => { window.location.href = 'index.html'; }, 800);
+        setTimeout(() => { window.location.href = homePageHref(); }, 800);
       } catch (err) {
         loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
         loginMessage.textContent = t.loginFailed;
