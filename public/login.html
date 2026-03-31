@@ -379,13 +379,19 @@
             console.warn('auth.initialize:', initErr);
           }
         }
-        // Match callback URL to locale (/en/ or /fa/) so PKCE + Supabase redirect URLs stay consistent.
+        // PKCE stores the code verifier in localStorage for THIS origin only. redirectTo must use
+        // window.location.origin (not config.baseUrl), or www vs apex / env mismatch breaks exchange.
         var path = window.location.pathname || '';
         var loc = '';
         if (path.indexOf('/fa/') === 0) loc = '/fa/';
         else if (path.indexOf('/en/') === 0) loc = '/en/';
-        var redirectTo =
-          config.baseUrl.replace(/\/$/, '') + (loc ? loc + 'auth-callback.html' : '/auth-callback.html');
+        var origin = (window.location && window.location.origin ? window.location.origin : '').replace(/\/$/, '');
+        if (!origin) {
+          loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+          loginMessage.textContent = t.oauthFailed;
+          return;
+        }
+        var redirectTo = origin + (loc ? loc + 'auth-callback.html' : '/auth-callback.html');
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {

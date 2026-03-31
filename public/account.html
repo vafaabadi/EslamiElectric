@@ -447,7 +447,12 @@
         } catch (e) {
           // If check fails, continue with signUp and let Supabase return its error.
         }
-        const redirectTo = (config.baseUrl || window.location.origin) + '/auth-callback.html';
+        var path = window.location.pathname || '';
+        var loc = '';
+        if (path.indexOf('/fa/') === 0) loc = '/fa/';
+        else if (path.indexOf('/en/') === 0) loc = '/en/';
+        var origin = (window.location && window.location.origin ? window.location.origin : config.baseUrl || '').replace(/\/$/, '');
+        const redirectTo = origin + (loc ? loc + 'auth-callback.html' : '/auth-callback.html');
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password: body.password,

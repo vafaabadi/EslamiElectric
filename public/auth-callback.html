@@ -91,7 +91,10 @@
         const q = new URLSearchParams(window.location.search);
         if (q.get('code')) {
           try {
-            const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+            // Use origin+path+search (no hash) so the URL matches the registered redirect exactly.
+            const callbackUrl =
+              window.location.origin + window.location.pathname + window.location.search;
+            const { data, error } = await supabase.auth.exchangeCodeForSession(callbackUrl);
             if (error) {
               exchangeErrText = error.message || String(error);
             } else if (data && data.session && data.session.access_token) {
