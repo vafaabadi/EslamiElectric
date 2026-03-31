@@ -1031,6 +1031,34 @@ function verifyTelegramLoginPayload(payload, botToken) {
   return hmac === hash;
 }
 
+/**
+ * Per-login password rotation for Telegram synthetic accounts (users never type this password).
+ * Supabase Auth often enforces complexity (lower, upper, digit, symbol) — hex from randomBytes fails that.
+ */
+function generateTelegramRotationPassword() {
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
+  const special = '!@#$%^&*()_+-=[]{}';
+  const all = lower + upper + digits + special;
+  const chars = [];
+  chars.push(lower[crypto.randomInt(lower.length)]);
+  chars.push(upper[crypto.randomInt(upper.length)]);
+  chars.push(digits[crypto.randomInt(digits.length)]);
+  chars.push(special[crypto.randomInt(special.length)]);
+  const targetLen = 48;
+  while (chars.length < targetLen) {
+    chars.push(all[crypto.randomInt(all.length)]);
+  }
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    const t = chars[i];
+    chars[i] = chars[j];
+    chars[j] = t;
+  }
+  return chars.join('');
+}
+
 async function findAuthUserIdByEmail(emailNormalized) {
   const target = emailNormalized.trim().toLowerCase();
   try {
@@ -1138,7 +1166,7 @@ app.post('/api/auth/telegram', async (req, res) => {
     if (!tgId) return res.status(400).json({ error: 'Missing Telegram user id' });
 
     const syntheticEmail = `tg_${tgId}@${emailDomain}`.toLowerCase();
-    const password = crypto.randomBytes(32).toString('hex');
+    const password = generateTelegramRotationPassword();
     const firstName = (body.first_name && String(body.first_name).trim()) || 'Telegram';
     const lastName = (body.last_name && String(body.last_name).trim()) || '';
     const username = body.username != null ? String(body.username) : '';
@@ -1194,7 +1222,7 @@ app.post('/api/auth/telegram', async (req, res) => {
       if (pwdErr) {
         console.error('Telegram login updateUser password:', pwdErr);
         return res.status(500).json({
-          error: `Telegram login: ${pwdErr.message || 'password update failed'}`
+          error: 'Telegram sign-in failed. Please try again.'
         });
       }
       const { error: metaErr } = await supabase.auth.admin.updateUserById(existingUserId, {
@@ -1236,7 +1264,7 @@ app.post('/api/auth/telegram', async (req, res) => {
           });
           if (pwdErr2) {
             console.error('Telegram login updateUser password (exists branch):', pwdErr2);
-            return res.status(500).json({ error: `Telegram login: ${pwdErr2.message || 'password update failed'}` });
+            return res.status(500).json({ error: 'Telegram sign-in failed. Please try again.' });
           }
           const { error: metaErr2 } = await supabase.auth.admin.updateUserById(userId, {
             user_metadata: merged2
