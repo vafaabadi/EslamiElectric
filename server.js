@@ -721,18 +721,18 @@ app.post('/api/check-email', async (req, res) => {
 
     // Cap pagination work to keep this endpoint snappy.
     // If you expect many users, we can increase limits or use a DB-backed index.
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 50; i++) {
       const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
       if (error) {
         console.error('check-email error:', error);
         return res.status(500).json({ error: 'Failed to check email' });
       }
       const users = (data && data.users) ? data.users : [];
+      if (users.length === 0) break;
       exists = users.some(u => (u.email || '').trim().toLowerCase() === email);
       if (exists) break;
-
-      page = data && data.nextPage ? data.nextPage : null;
-      if (!page) break;
+      if (users.length < perPage) break;
+      page += 1;
     }
 
     res.json({ exists });
@@ -1035,18 +1035,19 @@ async function findAuthUserIdByEmail(emailNormalized) {
   const target = emailNormalized.trim().toLowerCase();
   let page = 1;
   const perPage = 1000;
-  for (let attempt = 0; attempt < 50; attempt++) {
+  // Do not trust data.nextPage from listUsers — Link-header parsing in auth-js can be wrong for page > 9.
+  for (let attempt = 0; attempt < 100; attempt++) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
     if (error) {
       console.error('findAuthUserIdByEmail listUsers:', error);
       return null;
     }
     const users = data?.users || [];
+    if (users.length === 0) break;
     const hit = users.find((u) => (u.email || '').trim().toLowerCase() === target);
     if (hit) return hit.id;
-    const next = data?.nextPage;
-    if (!next) break;
-    page = next;
+    if (users.length < perPage) break;
+    page += 1;
   }
   return null;
 }
@@ -1129,6 +1130,7 @@ app.post('/api/auth/telegram', async (req, res) => {
       };
       const { error: updErr } = await supabase.auth.admin.updateUserById(existingUserId, {
         password,
+        email_confirm: true,
         user_metadata: mergedMeta
       });
       if (updErr) {
@@ -1162,6 +1164,7 @@ app.post('/api/auth/telegram', async (req, res) => {
           signInEmail = (gu2 && gu2.user && gu2.user.email) ? gu2.user.email.trim().toLowerCase() : syntheticEmail;
           const { error: updErr2 } = await supabase.auth.admin.updateUserById(userId, {
             password,
+            email_confirm: true,
             user_metadata: { ...(gu2 && gu2.user && gu2.user.user_metadata ? gu2.user.user_metadata : {}), ...meta }
           });
           if (updErr2) {
@@ -1178,13 +1181,25 @@ app.post('/api/auth/telegram', async (req, res) => {
       }
     }
 
-    const { data: signData, error: signErr } = await supabaseAnon.auth.signInWithPassword({
-      email: signInEmail,
-      password
-    });
+    signInEmail = signInEmail.trim().toLowerCase();
+    let signData = null;
+    let signErr = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const r = await supabaseAnon.auth.signInWithPassword({
+        email: signInEmail,
+        password
+      });
+      signData = r.data;
+      signErr = r.error;
+      if (!signErr && signData?.session?.access_token) break;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    }
     if (signErr || !signData?.session?.access_token) {
       console.error('Telegram login signIn:', signErr);
-      return res.status(500).json({ error: 'Could not start session' });
+      return res.status(500).json({
+        error:
+          'Could not start session. If this persists, confirm TELEGRAM_AUTH_EMAIL_DOMAIN is a valid domain and the account email is confirmed in Supabase.'
+      });
     }
 
     const accessToken = signData.session.access_token;
