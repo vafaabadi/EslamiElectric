@@ -1033,6 +1033,23 @@ function verifyTelegramLoginPayload(payload, botToken) {
 
 async function findAuthUserIdByEmail(emailNormalized) {
   const target = emailNormalized.trim().toLowerCase();
+  try {
+    const authBase = `${supabaseUrl.replace(/\/$/, '')}/auth/v1`;
+    const url = `${authBase}/admin/users?email=${encodeURIComponent(target)}`;
+    const r = await fetch(url, {
+      headers: {
+        apikey: supabaseServiceKey,
+        Authorization: `Bearer ${supabaseServiceKey}`
+      }
+    });
+    const json = await r.json().catch(() => ({}));
+    if (r.ok && json && Array.isArray(json.users)) {
+      const hit = json.users.find((u) => (u.email || '').trim().toLowerCase() === target);
+      if (hit && hit.id) return hit.id;
+    }
+  } catch (e) {
+    console.warn('findAuthUserIdByEmail direct email lookup:', e.message);
+  }
   let page = 1;
   const perPage = 1000;
   // Do not trust data.nextPage from listUsers — Link-header parsing in auth-js can be wrong for page > 9.
@@ -1065,6 +1082,35 @@ async function findUserIdByTelegramId(tgId) {
     return null;
   }
   return data && data.id ? data.id : null;
+}
+
+/**
+ * Merge Telegram auth metadata without spreading full prevMeta (nested OAuth blobs can break Auth API limits).
+ */
+function mergeTelegramAuthMetadata(prevMeta, meta) {
+  const p = prevMeta && typeof prevMeta === 'object' ? prevMeta : {};
+  const out = { ...meta };
+  const scalarKeys = [
+    'dob',
+    'mobile',
+    'landline',
+    'address',
+    'bank_details',
+    'company_name',
+    'company_number',
+    'company_contact_number',
+    'company_principal_contact',
+    'type'
+  ];
+  for (const k of scalarKeys) {
+    const v = p[k];
+    if (v != null && typeof v !== 'object') out[k] = v;
+  }
+  if (!out.first_name && p.first_name) out.first_name = String(p.first_name).trim();
+  if (!out.surname && (p.surname || p.family_name)) {
+    out.surname = String(p.surname || p.family_name || '').trim();
+  }
+  return out;
 }
 
 /** Telegram Login Widget: verify hash, create or rotate-password sign-in, return app JWT. */
@@ -1112,30 +1158,50 @@ app.post('/api/auth/telegram', async (req, res) => {
 
     const byTg = await findUserIdByTelegramId(tgId);
     const bySynthetic = byTg ? null : await findAuthUserIdByEmail(syntheticEmail);
-    const existingUserId = byTg || bySynthetic;
+    let existingUserId = byTg || bySynthetic;
 
     if (existingUserId) {
-      const { data: gu, error: guErr } = await supabase.auth.admin.getUserById(existingUserId);
+      let { data: gu, error: guErr } = await supabase.auth.admin.getUserById(existingUserId);
+      if (guErr || !gu || !gu.user) {
+        const fallbackId = await findAuthUserIdByEmail(syntheticEmail);
+        if (fallbackId && fallbackId !== existingUserId) {
+          console.warn(
+            'Telegram login: auth getUserById failed for public.users id; using auth id from email lookup',
+            { tried: existingUserId, fallback: fallbackId }
+          );
+          existingUserId = fallbackId;
+          ({ data: gu, error: guErr } = await supabase.auth.admin.getUserById(existingUserId));
+        }
+      }
       if (guErr || !gu || !gu.user) {
         console.error('Telegram login getUserById:', guErr);
-        return res.status(500).json({ error: 'Could not complete Telegram login' });
+        return res.status(500).json({
+          error:
+            'Could not complete Telegram login. Your profile may be out of sync — contact support or try signing in with email if you have a password.'
+        });
       }
       signInEmail = (gu.user.email || '').trim().toLowerCase() || syntheticEmail;
       const prevMeta = gu.user.user_metadata || {};
-      const mergedMeta = {
-        ...prevMeta,
+      const mergedMeta = mergeTelegramAuthMetadata(prevMeta, {
         ...meta,
-        first_name: firstName || prevMeta.first_name,
-        surname: lastName || prevMeta.surname
-      };
-      const { error: updErr } = await supabase.auth.admin.updateUserById(existingUserId, {
+        first_name: firstName || (prevMeta.first_name || '').trim() || meta.first_name,
+        surname: lastName || (prevMeta.surname || '').trim() || meta.surname
+      });
+      const { error: pwdErr } = await supabase.auth.admin.updateUserById(existingUserId, {
         password,
-        email_confirm: true,
+        email_confirm: true
+      });
+      if (pwdErr) {
+        console.error('Telegram login updateUser password:', pwdErr);
+        return res.status(500).json({
+          error: `Telegram login: ${pwdErr.message || 'password update failed'}`
+        });
+      }
+      const { error: metaErr } = await supabase.auth.admin.updateUserById(existingUserId, {
         user_metadata: mergedMeta
       });
-      if (updErr) {
-        console.error('Telegram login updateUser:', updErr);
-        return res.status(500).json({ error: 'Could not complete Telegram login' });
+      if (metaErr) {
+        console.error('Telegram login updateUser metadata (non-fatal):', metaErr);
       }
       await supabase.from('users').update({ telegram_id: tgId }).eq('id', existingUserId).is('telegram_id', null);
     } else {
@@ -1162,14 +1228,21 @@ app.post('/api/auth/telegram', async (req, res) => {
           }
           const { data: gu2 } = await supabase.auth.admin.getUserById(userId);
           signInEmail = (gu2 && gu2.user && gu2.user.email) ? gu2.user.email.trim().toLowerCase() : syntheticEmail;
-          const { error: updErr2 } = await supabase.auth.admin.updateUserById(userId, {
+          const prev2 = gu2 && gu2.user && gu2.user.user_metadata ? gu2.user.user_metadata : {};
+          const merged2 = mergeTelegramAuthMetadata(prev2, meta);
+          const { error: pwdErr2 } = await supabase.auth.admin.updateUserById(userId, {
             password,
-            email_confirm: true,
-            user_metadata: { ...(gu2 && gu2.user && gu2.user.user_metadata ? gu2.user.user_metadata : {}), ...meta }
+            email_confirm: true
           });
-          if (updErr2) {
-            console.error('Telegram login updateUser:', updErr2);
-            return res.status(500).json({ error: 'Could not complete Telegram login' });
+          if (pwdErr2) {
+            console.error('Telegram login updateUser password (exists branch):', pwdErr2);
+            return res.status(500).json({ error: `Telegram login: ${pwdErr2.message || 'password update failed'}` });
+          }
+          const { error: metaErr2 } = await supabase.auth.admin.updateUserById(userId, {
+            user_metadata: merged2
+          });
+          if (metaErr2) {
+            console.error('Telegram login updateUser metadata (exists branch, non-fatal):', metaErr2);
           }
           await supabase.from('users').update({ telegram_id: tgId }).eq('id', userId).is('telegram_id', null);
         } else {
