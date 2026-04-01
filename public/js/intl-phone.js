@@ -23,6 +23,37 @@
     return t;
   }
 
+  /**
+   * intl-tel-input updates the flag from +country… but not from 00… (common user habit).
+   * Convert 00 → + and setNumber so the dropdown matches the dialled country (e.g. 0044 → +44 → GB).
+   */
+  function compactDigits(s) {
+    return String(s || '').replace(/\s/g, '');
+  }
+
+  function attachDoubleZeroToPlusHandler(iti, input) {
+    var debounceMs = 120;
+    var t = null;
+    input.addEventListener('input', function () {
+      if (t) clearTimeout(t);
+      t = setTimeout(function () {
+        t = null;
+        var compact = compactDigits(input.value);
+        if (compact.indexOf('00') !== 0) return;
+        if (compact.length < 4) return;
+        var plusForm = '+' + compact.slice(2);
+        try {
+          var before = '';
+          try {
+            before = iti.getNumber() || '';
+          } catch (e) {}
+          if (before.replace(/\s/g, '') === plusForm) return;
+          iti.setNumber(plusForm);
+        } catch (e) {}
+      }, debounceMs);
+    });
+  }
+
   function countryToIso2(code) {
     if (!code || typeof code !== 'string') return 'us';
     var c = code.trim().toUpperCase();
@@ -72,6 +103,7 @@
         autoPlaceholder: 'off'
       });
       instances.set(input, iti);
+      attachDoubleZeroToPlusHandler(iti, input);
     }
   };
 
