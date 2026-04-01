@@ -53,6 +53,11 @@
 
     <div id="category-tabs" class="flex flex-wrap gap-2 mb-4 sm:mb-6"></div>
 
+    <div id="sort-bar" class="hidden mb-4 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+      <label for="product-sort" id="label-product-sort" class="text-sm font-medium text-slate-700 whitespace-nowrap">Sort by</label>
+      <select id="product-sort" class="min-w-[12rem] max-w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"></select>
+    </div>
+
     <p id="loading" class="text-center text-slate-500 py-8">Loading categories...</p>
     <div id="error" class="hidden rounded-xl bg-red-50 border border-red-200 p-4 text-red-700 text-center"></div>
     <p id="no-categories" class="hidden text-center text-slate-500 py-4">No categories available.</p>
@@ -89,7 +94,12 @@
         createAccount: 'Sign Up',
         wattage: 'W',
         addToBasket: 'Add',
-        quantity: 'Qty'
+        quantity: 'Qty',
+        sortLabel: 'Sort by',
+        sortDefault: 'Default',
+        sortPriceAsc: 'Price: low to high',
+        sortPriceDesc: 'Price: high to low',
+        sortNameAsc: 'Name: A–Z'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -109,9 +119,18 @@
         createAccount: 'ایجاد حساب کاربری',
         wattage: 'وات',
         addToBasket: 'افزودن',
-        quantity: 'تعداد'
+        quantity: 'تعداد',
+        sortLabel: 'مرتب‌سازی',
+        sortDefault: 'پیش‌فرض',
+        sortPriceAsc: 'قیمت: کم به زیاد',
+        sortPriceDesc: 'قیمت: زیاد به کم',
+        sortNameAsc: 'نام: الفبایی'
       }
     };
+
+    const SORT_MODES = ['default', 'price_asc', 'price_desc', 'name_asc'];
+    const storedSort = localStorage.getItem('productsSort');
+    let sortMode = SORT_MODES.includes(storedSort) ? storedSort : 'default';
 
     let currentLang = localStorage.getItem('lang') || 'en';
     let categoriesData = [];
@@ -170,6 +189,63 @@
       return currentLang === 'fa' && cat.name_fa ? cat.name_fa : cat.name;
     }
 
+    function getProductDisplayName(p) {
+      return currentLang === 'fa' && p.name_fa ? p.name_fa : (p.name || '');
+    }
+
+    function sortProductsList(products, mode, lang) {
+      const arr = products.slice();
+      if (mode === 'price_asc') {
+        arr.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+      } else if (mode === 'price_desc') {
+        arr.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+      } else if (mode === 'name_asc') {
+        const loc = lang === 'fa' ? 'fa' : 'en';
+        arr.sort((a, b) => {
+          const na = lang === 'fa' && a.name_fa ? a.name_fa : (a.name || '');
+          const nb = lang === 'fa' && b.name_fa ? b.name_fa : (b.name || '');
+          return na.localeCompare(nb, loc, { sensitivity: 'base' });
+        });
+      }
+      return arr;
+    }
+
+    function updateSortSelectLabels() {
+      const t = translations[currentLang];
+      const label = document.getElementById('label-product-sort');
+      const sel = document.getElementById('product-sort');
+      if (label) label.textContent = t.sortLabel || 'Sort by';
+      if (!sel) return;
+      const map = {
+        default: t.sortDefault,
+        price_asc: t.sortPriceAsc,
+        price_desc: t.sortPriceDesc,
+        name_asc: t.sortNameAsc
+      };
+      Array.from(sel.options).forEach(function (opt) {
+        if (map[opt.value] != null) opt.textContent = map[opt.value];
+      });
+      if (SORT_MODES.includes(sortMode)) sel.value = sortMode;
+    }
+
+    function initSortSelect() {
+      const sel = document.getElementById('product-sort');
+      if (!sel || sel.dataset.ready === '1') return;
+      sel.dataset.ready = '1';
+      SORT_MODES.forEach(function (val) {
+        const opt = document.createElement('option');
+        opt.value = val;
+        sel.appendChild(opt);
+      });
+      sel.value = SORT_MODES.includes(sortMode) ? sortMode : 'default';
+      updateSortSelectLabels();
+      sel.addEventListener('change', function () {
+        sortMode = sel.value;
+        localStorage.setItem('productsSort', sortMode);
+        if (selectedCategoryId) renderProducts(selectedCategoryId);
+      });
+    }
+
     function applyPageLanguage() {
       const t = translations[currentLang];
       document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
@@ -210,6 +286,8 @@
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
 
       if (typeof applyFooterI18n === 'function') applyFooterI18n();
+      initSortSelect();
+      updateSortSelectLabels();
       renderCategoryTabs();
       if (selectedCategoryId) {
         renderProducts(selectedCategoryId);
@@ -243,19 +321,26 @@
       if (!cat) return;
 
       const t = translations[currentLang];
+      const sortBar = document.getElementById('sort-bar');
+      const sortSel = document.getElementById('product-sort');
       productsGrid.innerHTML = '';
       productsGrid.classList.remove('hidden');
       noProducts.classList.add('hidden');
 
       if (!cat.products || cat.products.length === 0) {
+        if (sortBar) sortBar.classList.add('hidden');
         noProducts.textContent = t.noProducts;
         noProducts.classList.remove('hidden');
         return;
       }
 
+      if (sortBar) sortBar.classList.remove('hidden');
+      if (sortSel && SORT_MODES.includes(sortMode)) sortSel.value = sortMode;
+
       const catId = cat.id || '';
-      cat.products.forEach(p => {
-        const name = currentLang === 'fa' && p.name_fa ? p.name_fa : p.name;
+      const productsToShow = sortProductsList(cat.products, sortMode, currentLang);
+      productsToShow.forEach(p => {
+        const name = getProductDisplayName(p);
         const wattageHtml = p.wattage != null
           ? `<p class="text-slate-500 text-sm mt-1">${p.wattage} ${t.wattage}</p>`
           : '';
