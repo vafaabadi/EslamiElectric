@@ -180,12 +180,14 @@
         browseProducts: 'Browse Products',
         totalLabel: 'Total',
         quantity: 'Qty',
+        priceEach: 'each',
         remove: 'Remove',
         navHome: 'Home',
         navProducts: 'Products',
         navBasket: 'Basket',
         navLogin: 'Login',
         navOrders: 'My Orders',
+        navProfile: 'My Profile',
         createAccount: 'Sign Up',
         navLogout: 'Logout',
         proceedToCheckout: 'Proceed to checkout',
@@ -197,6 +199,9 @@
         guestAddress: 'Address',
         guestCity: 'City',
         guestPostal: 'Postal code',
+        guestNamePlaceholder: 'e.g. John Smith',
+        guestEmailPlaceholder: 'you@example.com',
+        guestStreetPlaceholder: 'Street, building, floor',
         guestDetailsRequired: 'Please fill in name, email and address for guest checkout.',
         fulfillmentTitle: 'Delivery or collection',
         fulfillmentHint: 'Choose how you would like to receive your order.',
@@ -238,7 +243,10 @@
         },
         profileCheckoutGate:
           'Complete your profile before paying — open My Profile and save your details.',
-        profileCheckoutLink: 'Open My Profile'
+        profileCheckoutLink: 'Open My Profile',
+        ariaDecreaseQty: 'Decrease quantity',
+        ariaIncreaseQty: 'Increase quantity',
+        ariaQuantityInput: 'Quantity'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -248,6 +256,7 @@
         browseProducts: 'مشاهده محصولات',
         totalLabel: 'مجموع',
         quantity: 'تعداد',
+        priceEach: 'به‌ازای هر واحد',
         remove: 'حذف',
         navHome: 'خانه',
         navProducts: 'محصولات',
@@ -266,6 +275,9 @@
         guestAddress: 'آدرس',
         guestCity: 'شهر',
         guestPostal: 'کد پستی',
+        guestNamePlaceholder: 'مثلاً رضا احمدی',
+        guestEmailPlaceholder: 'نمونه@example.com',
+        guestStreetPlaceholder: 'خیابان، پلاک، طبقه',
         guestDetailsRequired: 'برای خرید مهمان نام، ایمیل و آدرس را وارد کنید.',
         fulfillmentTitle: 'ارسال یا تحویل حضوری',
         fulfillmentHint: 'نحوه دریافت سفارش را انتخاب کنید.',
@@ -307,7 +319,10 @@
         },
         profileCheckoutGate:
           'قبل از پرداخت پروفایل را تکمیل کنید — «پروفایل من» را باز کنید و ذخیره کنید.',
-        profileCheckoutLink: 'باز کردن پروفایل'
+        profileCheckoutLink: 'باز کردن پروفایل',
+        ariaDecreaseQty: 'کم کردن تعداد',
+        ariaIncreaseQty: 'افزایش تعداد',
+        ariaQuantityInput: 'تعداد'
       }
     };
 
@@ -407,6 +422,42 @@
     function escapeHtml(str) {
       if (!str) return '';
       return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    /** Persian / Arabic-Indic / ASCII → Western digits only (for parsing quantity). */
+    function parseDigitsToWestern(str) {
+      if (str == null) return '';
+      var s = String(str).trim().replace(/\s/g, '');
+      var out = '';
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i);
+        if (c >= 0x06f0 && c <= 0x06f9) out += String.fromCharCode(c - 0x06f0 + 48);
+        else if (c >= 0x0660 && c <= 0x0669) out += String.fromCharCode(c - 0x0660 + 48);
+        else if (c >= 48 && c <= 57) out += String.fromCharCode(c);
+      }
+      return out;
+    }
+
+    /** Display quantity in basket row: Persian digits for fa, Western for en. Storage stays a number. */
+    function formatQtyDisplay(qty, lang) {
+      var n = Math.floor(Number(qty) || 0);
+      if (n < 1) n = 1;
+      if (n > 9999) n = 9999;
+      if (lang === 'fa') {
+        try {
+          return new Intl.NumberFormat('fa-IR', { useGrouping: false, maximumFractionDigits: 0 }).format(n);
+        } catch (e) {
+          return String(n);
+        }
+      }
+      return String(n);
+    }
+
+    function clampQtyFromInput(raw) {
+      var w = parseDigitsToWestern(raw);
+      var n = parseInt(w, 10);
+      if (!Number.isFinite(n) || n < 1) return 1;
+      return Math.min(n, 9999);
     }
 
     function profileMissingListHtml(missingKeys, tr) {
@@ -578,7 +629,16 @@
         if (lblPostal) lblPostal.textContent = t.guestPostal || 'Postal code';
         const guestPhoneInput = document.getElementById('guest-phone');
         if (guestPhoneInput) guestPhoneInput.placeholder = t.phoneHintGuest || '';
+        const guestNameInput = document.getElementById('guest-name');
+        if (guestNameInput) guestNameInput.placeholder = t.guestNamePlaceholder || '';
+        const guestEmailInput = document.getElementById('guest-email');
+        if (guestEmailInput) guestEmailInput.placeholder = t.guestEmailPlaceholder || '';
+        const guestAddrInput = document.getElementById('guest-address');
+        if (guestAddrInput) guestAddrInput.placeholder = t.guestStreetPlaceholder || '';
       }
+
+      const regAddrInput = document.getElementById('reg-address');
+      if (regAddrInput) regAddrInput.placeholder = t.guestStreetPlaceholder || '';
 
       document.getElementById('lang-en').className = currentLang === 'en'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
@@ -681,6 +741,7 @@
         const qty = item.quantity || 1;
         const lineTotal = price * qty;
         total += lineTotal;
+        const qtyDisplay = formatQtyDisplay(qty, currentLang);
 
         const li = document.createElement('li');
         li.className = 'bg-white rounded-xl shadow p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4';
@@ -691,14 +752,14 @@
             </div>
             <div class="flex-grow min-w-0">
               <h3 class="font-semibold text-slate-800 text-sm sm:text-base break-words">${escapeHtml(name)}</h3>
-              <p class="text-slate-500 text-xs sm:text-sm">${formatPriceUSD(price)} each</p>
+              <p class="text-slate-500 text-xs sm:text-sm">${formatPriceUSD(price)} ${escapeHtml(t.priceEach || 'each')}</p>
             </div>
           </div>
           <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
             <div class="flex items-center border border-slate-300 rounded overflow-hidden">
-              <button type="button" class="btn-basket-minus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="Decrease quantity">−</button>
-              <input type="number" class="basket-qty-input w-14 sm:w-16 text-center text-sm font-medium border-x border-slate-300 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="1" max="9999" value="${qty}" data-index="${index}" aria-label="Quantity">
-              <button type="button" class="btn-basket-plus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="Increase quantity">+</button>
+              <button type="button" class="btn-basket-minus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="${escapeHtml(t.ariaDecreaseQty || 'Decrease quantity')}">−</button>
+              <input type="text" inputmode="numeric" autocomplete="off" dir="ltr" lang="${currentLang === 'fa' ? 'fa' : 'en'}" class="basket-qty-input w-14 sm:w-16 text-center text-sm font-medium border-x border-slate-300 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset" value="${escapeHtml(qtyDisplay)}" data-index="${index}" aria-label="${escapeHtml(t.ariaQuantityInput || t.quantity || 'Quantity')}">
+              <button type="button" class="btn-basket-plus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="${escapeHtml(t.ariaIncreaseQty || 'Increase quantity')}">+</button>
             </div>
             <span class="font-semibold text-slate-900 basket-line-total">${formatPriceUSD(lineTotal)}</span>
             <button type="button" class="btn-remove min-h-[44px] px-3 py-2 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 rounded touch-manipulation" data-index="${index}">${t.remove}</button>
@@ -745,19 +806,12 @@
         });
       });
 
-      function clampQty(val) {
-        const n = parseInt(val, 10);
-        if (!Number.isFinite(n) || n < 1) return 1;
-        return Math.min(n, 9999);
-      }
-
       listEl.querySelectorAll('.basket-qty-input').forEach(input => {
         input.addEventListener('change', () => {
           const idx = parseInt(input.getAttribute('data-index'), 10);
           const basket = getBasket();
           if (!basket[idx]) return;
-          const qty = clampQty(input.value);
-          input.value = qty;
+          const qty = clampQtyFromInput(input.value);
           basket[idx].quantity = qty;
           setBasket(basket);
         });
