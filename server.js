@@ -1976,7 +1976,10 @@ app.post('/api/auth/link-email-password', authMiddleware, async (req, res) => {
     }
     const otherId = await findAuthUserIdByEmail(emailNormalized);
     if (otherId && otherId !== req.userId) {
-      return res.status(400).json({ error: 'That email is already in use.' });
+      return res.status(400).json({
+        error:
+          'That email is already registered to another account. Use Contact email on your profile (Save changes) for orders and receipts, or sign in with that email instead of Telegram.'
+      });
     }
     const tgId =
       authUser.user.user_metadata && authUser.user.user_metadata.telegram_id != null

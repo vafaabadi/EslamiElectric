@@ -84,6 +84,12 @@
         <p id="telegram-email-explain" class="hidden text-xs text-slate-600 mt-2 leading-snug border border-slate-200 rounded-lg px-3 py-2 bg-slate-50"></p>
       </div>
 
+      <div id="contact-email-wrap">
+        <label id="label-contact-email" for="contactEmail" class="block text-sm font-medium text-slate-700 mb-1">Contact email</label>
+        <input type="email" id="contactEmail" autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="">
+        <p id="contact-email-hint" class="text-xs text-slate-500 mt-1"></p>
+      </div>
+
       <div id="link-email-setup" class="hidden space-y-3 border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
         <h3 id="link-email-title" class="font-semibold text-slate-900 text-sm">Set your email & password</h3>
         <p id="link-email-intro" class="text-xs text-slate-700 leading-snug"></p>
@@ -101,12 +107,6 @@
         </div>
         <button type="button" id="btn-link-email-password" class="w-full py-2.5 rounded-lg bg-amber-500 text-slate-900 font-semibold text-sm hover:bg-amber-400">Save email & password</button>
         <p id="link-email-message" class="text-sm min-h-[1.25rem]"></p>
-      </div>
-
-      <div id="contact-email-wrap">
-        <label id="label-contact-email" for="contactEmail" class="block text-sm font-medium text-slate-700 mb-1">Contact email</label>
-        <input type="email" id="contactEmail" autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="">
-        <p id="contact-email-hint" class="text-xs text-slate-500 mt-1"></p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -194,7 +194,7 @@
           'You signed in with Telegram. The address above is only an account id (not a mailbox). Use the section below to add your real email and a password — or keep using Telegram to sign in.',
         linkEmailTitle: 'Set your email & password',
         linkEmailIntro:
-          'Enter the email you want to use for this account and choose a password (at least 8 characters). You can sign in on the login page with this email and password, or continue using Telegram.',
+          'Optional: set an email and password for signing in on the login page (in addition to Telegram). If you see “already in use”, that address belongs to another account — use Contact email above for your order instead, then Save changes.',
         labelLinkEmail: 'Your email',
         labelLinkPassword: 'Password',
         labelLinkPassword2: 'Confirm password',
@@ -204,8 +204,11 @@
         linkEmailMismatch: 'Passwords do not match.',
         linkEmailShort: 'Password must be at least 8 characters.',
         labelContactEmail: 'Contact email (optional)',
+        labelContactEmailTelegram: 'Contact email *',
         contactEmailHint:
           'Optional second address for receipts if different from your account email.',
+        contactEmailHintTelegram:
+          'Required for checkout while you sign in with Telegram. Use the same address as your order — this field is only for contact and receipts; it does not replace your Telegram login. If you cannot use “Set email & password” because that email is already registered, fill this and Save changes.',
         labelMobile: 'Mobile *',
         labelLandline: 'Landline',
         labelBank: 'Bank account details',
@@ -256,7 +259,7 @@
           'با تلگرام وارد شده‌اید. آدرس بالا فقط شناسهٔ حساب است (صندوق ایمیل نیست). در بخش زیر ایمیل واقعی و رمز عبور بگذارید — یا فقط با تلگرام وارد شوید.',
         linkEmailTitle: 'تنظیم ایمیل و رمز عبور',
         linkEmailIntro:
-          'ایمیلی که می‌خواهید برای این حساب استفاده شود و یک رمز عبور (حداقل ۸ کاراکتر) وارد کنید. می‌توانید با ایمیل و رمز در صفحهٔ ورود وارد شوید یا به تلگرام ادامه دهید.',
+          'اختیاری: ایمیل و رمز برای ورود در صفحهٔ ورود (علاوه بر تلگرام). اگر «قبلاً ثبت شده» دیدید، آن ایمیل متعلق به حساب دیگری است — برای سفارش از «ایمیل تماس» بالا استفاده کنید، سپس ذخیرهٔ تغییرات.',
         labelLinkEmail: 'ایمیل شما',
         labelLinkPassword: 'رمز عبور',
         labelLinkPassword2: 'تکرار رمز عبور',
@@ -266,8 +269,11 @@
         linkEmailMismatch: 'رمزها یکسان نیستند.',
         linkEmailShort: 'رمز باید حداقل ۸ کاراکتر باشد.',
         labelContactEmail: 'ایمیل تماس (اختیاری)',
+        labelContactEmailTelegram: 'ایمیل تماس *',
         contactEmailHint:
           'در صورت تفاوت با ایمیل حساب، برای رسید اختیاری است.',
+        contactEmailHintTelegram:
+          'برای تکمیل خرید با ورود تلگرامی الزامی است. می‌توانید همان ایمیل سفارش را بزنید — فقط برای تماس و رسید است و جایگزین ورود با تلگرام نیست. اگر «ایمیل و رمز» به‌خاطر ثبت قبلی نشد، همین را پر کنید و ذخیره کنید.',
         labelMobile: 'موبایل *',
         labelLandline: 'تلفن ثابت',
         labelBank: 'جزئیات حساب بانکی',
@@ -341,8 +347,13 @@
       document.getElementById('label-email').textContent = t.labelEmail;
       document.getElementById('email-hint').textContent = t.emailHint;
       document.getElementById('telegram-email-explain').textContent = t.telegramEmailExplain;
-      document.getElementById('label-contact-email').textContent = t.labelContactEmail;
-      document.getElementById('contact-email-hint').textContent = t.contactEmailHint;
+      if (cachedMe && cachedMe.canLinkEmail) {
+        document.getElementById('label-contact-email').textContent = t.labelContactEmailTelegram;
+        document.getElementById('contact-email-hint').textContent = t.contactEmailHintTelegram;
+      } else {
+        document.getElementById('label-contact-email').textContent = t.labelContactEmail;
+        document.getElementById('contact-email-hint').textContent = t.contactEmailHint;
+      }
       var lte = document.getElementById('link-email-title');
       var lti = document.getElementById('link-email-intro');
       if (lte) lte.textContent = t.linkEmailTitle;
@@ -403,10 +414,13 @@
         }
       }
       var linkSetup = document.getElementById('link-email-setup');
-      var contactWrap = document.getElementById('contact-email-wrap');
+      var contactEl = document.getElementById('contactEmail');
       if (me.canLinkEmail) {
         if (linkSetup) linkSetup.classList.remove('hidden');
-        if (contactWrap) contactWrap.classList.add('hidden');
+        if (contactEl) contactEl.required = true;
+        document.getElementById('label-contact-email').textContent = t.labelContactEmailTelegram;
+        var ceh = document.getElementById('contact-email-hint');
+        if (ceh) ceh.textContent = t.contactEmailHintTelegram;
         document.getElementById('linkRealEmail').value = '';
         document.getElementById('linkPassword').value = '';
         document.getElementById('linkPassword2').value = '';
@@ -417,7 +431,10 @@
         }
       } else {
         if (linkSetup) linkSetup.classList.add('hidden');
-        if (contactWrap) contactWrap.classList.remove('hidden');
+        if (contactEl) contactEl.required = false;
+        document.getElementById('label-contact-email').textContent = t.labelContactEmail;
+        var ceh2 = document.getElementById('contact-email-hint');
+        if (ceh2) ceh2.textContent = t.contactEmailHint;
       }
       document.getElementById('contactEmail').value = me.contactEmail || '';
       setIntlPhoneNumber(document.getElementById('mobile'), me.mobile || '');
