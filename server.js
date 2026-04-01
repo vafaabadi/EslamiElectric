@@ -200,6 +200,25 @@ function injectPublicConfig(html, req) {
   return html.replace(/<head(\s[^>]*)?>/, '<head$1>' + script + '\n');
 }
 
+/** PWA install (manifest + icons). Root-absolute URLs so locale <base> does not rewrite them. */
+function injectPwa(html) {
+  if (!html || html.includes('rel="manifest"')) return html;
+  const snippet =
+    '<link rel="manifest" href="/site.webmanifest">\n' +
+    '  <meta name="theme-color" content="#0f172a">\n' +
+    '  <meta name="apple-mobile-web-app-capable" content="yes">\n' +
+    '  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n' +
+    '  <link rel="apple-touch-icon" href="/icons/icon-192.png" sizes="180x180">\n' +
+    '  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">\n';
+  return html.replace(/<head(\s[^>]*)?>/i, '<head$1>\n  ' + snippet);
+}
+
+function injectServiceWorker(html) {
+  if (!html || html.includes('register-sw.js')) return html;
+  const snippet = '<script src="/js/register-sw.js" defer></script>\n';
+  return html.replace(/<\/head>/i, '  ' + snippet + '</head>');
+}
+
 const HTML_WITH_PUBLIC_CONFIG = new Set([
   'index.html',
   'auth-callback.html',
@@ -216,7 +235,7 @@ function serveHtmlWithPublicConfig(req, res, relativePath) {
       if (err.code === 'ENOENT') return res.status(404).send('Not found');
       return res.status(500).send('Error loading page');
     }
-    const injected = injectPublicConfig(data, req);
+    const injected = injectServiceWorker(injectPwa(injectPublicConfig(data, req)));
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(injected);
@@ -744,6 +763,7 @@ function serveLocalePage(locale, subPath, req, res) {
         return res.status(500).send('Error loading page');
       }
       let body = HTML_WITH_PUBLIC_CONFIG.has(htmlFile) ? injectPublicConfig(data, req) : data;
+      body = injectServiceWorker(injectPwa(body));
       const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'private, no-store');
@@ -766,7 +786,7 @@ function serveLocalePage(locale, subPath, req, res) {
   const indexPath = path.join(publicDir, 'index.html');
   fs.readFile(indexPath, 'utf8', (err, data) => {
     if (err) return res.status(404).send('Not found');
-    let body = injectPublicConfig(data, req);
+    let body = injectServiceWorker(injectPwa(injectPublicConfig(data, req)));
     const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
@@ -807,6 +827,18 @@ for (const name of HTML_WITH_PUBLIC_CONFIG) {
     res.redirect(303, req.originalUrl || req.url);
   });
 }
+
+app.get('/site.webmanifest', (req, res) => {
+  res.type('application/manifest+json');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(publicDir, 'site.webmanifest'));
+});
+
+app.get('/sw.js', (req, res) => {
+  res.type('application/javascript');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(publicDir, 'sw.js'));
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
