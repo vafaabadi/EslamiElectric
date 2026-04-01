@@ -714,9 +714,12 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
 
 app.use(express.json());
 
-// Root redirect to English locale
+// Root redirect to English locale (GET). Some clients wrongly POST to / (bots, misconfigured webhooks).
 app.get('/', (req, res) => {
   res.redirect(302, '/en/');
+});
+app.post('/', (req, res) => {
+  res.redirect(303, '/en/');
 });
 
 // Serve locale-prefixed routes: /en/, /en/products, /fa/, /fa/basket, etc.
