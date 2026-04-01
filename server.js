@@ -338,6 +338,74 @@ function isSyntheticTelegramAuthEmail(email) {
   return /^tg_\d+@/.test(e);
 }
 
+/** Google OAuth (Gmail) sign-in via Supabase. */
+function usesGoogleOAuthIdentity(authUser) {
+  const ids = authUser && Array.isArray(authUser.identities) ? authUser.identities : [];
+  return ids.some((i) => i && i.provider === 'google');
+}
+
+/**
+ * Telegram (synthetic or linked tg id) or Google OAuth accounts must complete profile before checkout.
+ */
+function isSocialCheckoutProfileRequired(profileRow, authUser) {
+  if (!profileRow || !authUser) return false;
+  if (isSyntheticTelegramAuthEmail(profileRow.email)) return true;
+  const tg = profileRow.telegram_id != null ? String(profileRow.telegram_id).trim() : '';
+  if (tg) return true;
+  return usesGoogleOAuthIdentity(authUser);
+}
+
+/**
+ * Required fields for post-purchase contact, delivery coordination, and collection pickup.
+ */
+function computeMissingSocialCheckoutFields(profileRow) {
+  const missing = [];
+  const fn = (profileRow.first_name || '').trim();
+  const sn = (profileRow.surname || '').trim();
+  if (!fn || !validationPatterns.name.test(fn) || fn === 'User') missing.push('firstName');
+  if (!sn || !validationPatterns.name.test(sn) || sn === 'Account') missing.push('surname');
+  const mob = (profileRow.mobile || '').trim();
+  if (!mob || !validationPatterns.mobile.test(mob)) missing.push('mobile');
+  const email = (profileRow.email || '').trim().toLowerCase();
+  const contact = (profileRow.contact_email || '').trim().toLowerCase();
+  if (isSyntheticTelegramAuthEmail(email)) {
+    if (!contact || !validationPatterns.email.test(contact)) missing.push('contactEmail');
+  }
+  if (profileRow.type === 'company') {
+    const cn = (profileRow.company_name || '').trim();
+    if (!cn || !validationPatterns.companyName.test(cn)) missing.push('companyName');
+    const cc = (profileRow.company_contact_number || '').trim();
+    if (!cc || !isValidPhoneOrCompanyLine(cc)) missing.push('companyContactNumber');
+  }
+  return [...new Set(missing)];
+}
+
+async function getCheckoutProfileStatus(userId, profileRowOptional) {
+  let row = profileRowOptional;
+  if (!row) {
+    const { data: r, error: rowErr } = await supabase
+      .from('users')
+      .select(
+        'id, type, email, contact_email, first_name, surname, mobile, telegram_id, company_name, company_contact_number'
+      )
+      .eq('id', userId)
+      .maybeSingle();
+    if (rowErr || !r) {
+      return { requiresSocial: false, complete: true, missing: [] };
+    }
+    row = r;
+  }
+  const { data: gu, error: guErr } = await supabase.auth.admin.getUserById(userId);
+  if (guErr || !gu || !gu.user) {
+    return { requiresSocial: false, complete: true, missing: [] };
+  }
+  if (!isSocialCheckoutProfileRequired(row, gu.user)) {
+    return { requiresSocial: false, complete: true, missing: [] };
+  }
+  const missing = computeMissingSocialCheckoutFields(row);
+  return { requiresSocial: true, complete: missing.length === 0, missing };
+}
+
 function profileRowToJson(user) {
   if (!user) return null;
   return {
@@ -1839,13 +1907,18 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   try {
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, type, first_name, surname, dob, mobile, landline, email, contact_email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at')
+      .select('id, type, first_name, surname, dob, mobile, landline, email, contact_email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at, telegram_id')
       .eq('id', req.userId)
       .single();
 
     if (error || !user) return res.status(404).json({ error: 'User not found' });
 
-    res.json(profileRowToJson(user));
+    const json = profileRowToJson(user);
+    const checkout = await getCheckoutProfileStatus(req.userId, user);
+    json.checkoutProfileComplete = checkout.complete;
+    json.checkoutProfileMissing = checkout.missing;
+    json.checkoutProfileRequired = checkout.requiresSocial;
+    res.json(json);
   } catch (err) {
     console.error('Get me error:', err);
     res.status(500).json({ error: 'Failed to load profile' });
@@ -2102,13 +2175,15 @@ app.post('/api/forgot-password', async (req, res) => {
     if (!emailNormalized) {
       return res.status(400).json({ error: 'Email is required' });
     }
+    if (!validationPatterns.email.test(emailNormalized)) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
 
     const siteUrl = getPublicBaseUrlForClient(req);
     const escapeHtml = (str) => {
       if (str == null) return '';
       return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     };
-
     const genericOk = () =>
       res.json({
         ok: true,
@@ -2447,6 +2522,8 @@ app.post('/api/claim-account', async (req, res) => {
   }
 });
 
+const ORDER_RESUME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Stripe Checkout: create session (priceId, amount in cents, or lineItems from basket)
 app.post('/api/create-checkout-session', async (req, res) => {
   if (!stripe) {
@@ -2471,8 +2548,22 @@ app.post('/api/create-checkout-session', async (req, res) => {
       guestPhone,
       shippingAddress,
       locale,
-      fulfillmentType: rawFulfillment
+      fulfillmentType: rawFulfillment,
+      pendingOrderId: rawPendingOrderId
     } = req.body || {};
+    const pendingOrderId = rawPendingOrderId != null ? String(rawPendingOrderId).trim() : '';
+
+    if (userId) {
+      const checkout = await getCheckoutProfileStatus(userId);
+      if (checkout.requiresSocial && !checkout.complete) {
+        return res.status(403).json({
+          error:
+            'Complete your profile before checkout: name, mobile, and (for Telegram sign-in) a contact email. Open My Profile to finish.',
+          code: 'PROFILE_INCOMPLETE',
+          missing: checkout.missing
+        });
+      }
+    }
 
     const fulfillmentType = rawFulfillment === 'collection' ? 'collection' : 'delivery';
 
@@ -2533,8 +2624,21 @@ app.post('/api/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Provide priceId, amount (in cents), or lineItems' });
     }
 
-    const orderId = crypto.randomUUID();
-    let orderNumber = generateOrderNumber();
+    if (pendingOrderId) {
+      if (!userId) {
+        return res.status(400).json({ error: 'Sign in to update a pending order before payment.' });
+      }
+      if (!ORDER_RESUME_UUID.test(pendingOrderId)) {
+        return res.status(400).json({ error: 'Invalid order id' });
+      }
+      if (priceId) {
+        return res.status(400).json({ error: 'Use basket line items when updating a pending order.' });
+      }
+      if (!Array.isArray(bodyLineItems) || bodyLineItems.length === 0) {
+        return res.status(400).json({ error: 'Basket line items are required to update a pending order.' });
+      }
+    }
+
     let loggedInCustomerEmail = null;
     if (userId) {
       const { data: prof } = await supabase
@@ -2550,6 +2654,91 @@ app.post('/api/create-checkout-session', async (req, res) => {
         loggedInCustomerEmail = contactOk ? contact : authOk ? authEmail : null;
       }
     }
+
+    const lineItemsForDb = Array.isArray(bodyLineItems) && bodyLineItems.length > 0
+      ? bodyLineItems.map((item) => ({
+          name: item.name || 'Item',
+          quantity: item.quantity || 1,
+          unit_amount: Math.round(Number(item.price) * 100),
+          amount_total: Math.round(Number(item.price) * 100) * (item.quantity || 1)
+        }))
+      : [];
+
+    if (pendingOrderId) {
+      const { data: existingOrder, error: exErr } = await supabase
+        .from('orders')
+        .select('id, order_number, status, user_id, stripe_session_id')
+        .eq('id', pendingOrderId)
+        .eq('user_id', userId)
+        .single();
+      if (exErr || !existingOrder) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      if (existingOrder.status !== 'pending') {
+        return res.status(400).json({ error: 'This order is not pending payment.' });
+      }
+      await expireStripeCheckoutSessionIfPossible(existingOrder.stripe_session_id);
+
+      const sessionParamsPending = {
+        mode: 'payment',
+        line_items: lineItems,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: { order_id: existingOrder.id, fulfillment: fulfillmentType }
+      };
+      sessionParamsPending.client_reference_id = String(userId);
+      if (loggedInCustomerEmail) {
+        sessionParamsPending.customer_email = loggedInCustomerEmail;
+      }
+      const sessionPending = await stripe.checkout.sessions.create(sessionParamsPending);
+      const amountTotal = sessionPending.amount_total || 0;
+
+      const updatePayload = {
+        stripe_session_id: sessionPending.id,
+        amount_total: amountTotal,
+        currency: 'usd',
+        line_items: lineItemsForDb,
+        fulfillment_type: fulfillmentType
+      };
+      if (loggedInCustomerEmail) {
+        updatePayload.customer_email = loggedInCustomerEmail;
+      }
+      if (fulfillmentType === 'delivery') {
+        const addr = shippingAddress && typeof shippingAddress === 'object' ? shippingAddress : null;
+        if (addr) {
+          updatePayload.shipping_address = {
+            line1: (addr.line1 || addr.address || addr.street || '').trim() || null,
+            line2: (addr.line2 || '').trim() || null,
+            city: (addr.city || '').trim() || null,
+            state: (addr.state || addr.province || '').trim() || null,
+            postal_code: (addr.postal_code || addr.postalCode || '').trim() || null,
+            country: (addr.country || '').trim() || null
+          };
+          const extra = trimDeliveryAdditionalInfo(addr);
+          if (extra) updatePayload.shipping_address.additional_info = extra;
+        }
+      } else {
+        updatePayload.shipping_address = null;
+      }
+
+      const { data: updatedRows, error: upErr } = await supabase
+        .from('orders')
+        .update(updatePayload)
+        .eq('id', existingOrder.id)
+        .eq('status', 'pending')
+        .select('id');
+      if (upErr) {
+        console.error('Update pending order checkout error:', upErr);
+        return res.status(500).json({ error: 'Failed to update order' });
+      }
+      if (!updatedRows || updatedRows.length === 0) {
+        return res.status(409).json({ error: 'Order is no longer pending.' });
+      }
+      return res.json({ url: sessionPending.url, sessionId: sessionPending.id });
+    }
+
+    const orderId = crypto.randomUUID();
+    let orderNumber = generateOrderNumber();
     const sessionParams = {
       mode: 'payment',
       line_items: lineItems,
@@ -2566,14 +2755,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
     const session = await stripe.checkout.sessions.create(sessionParams);
 
     const amountTotal = session.amount_total || 0;
-    const lineItemsForDb = Array.isArray(bodyLineItems) && bodyLineItems.length > 0
-      ? bodyLineItems.map((item) => ({
-          name: item.name || 'Item',
-          quantity: item.quantity || 1,
-          unit_amount: Math.round(Number(item.price) * 100),
-          amount_total: Math.round(Number(item.price) * 100) * (item.quantity || 1)
-        }))
-      : [];
 
     const orderRow = {
       id: orderId,
@@ -2749,8 +2930,6 @@ async function expireStripeCheckoutSessionIfPossible(sessionId) {
   }
 }
 
-const ORDER_RESUME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 // Logged-in user: cancel a pending (unpaid) order
 app.post('/api/orders/:orderId/cancel', authMiddleware, async (req, res) => {
   const orderId = (req.params.orderId || '').trim();
@@ -2841,6 +3020,15 @@ app.post('/api/orders/:orderId/resume-checkout', authMiddleware, async (req, res
   }
   const localeSeg = req.body && (req.body.locale === 'fa' || req.body.locale === 'en') ? req.body.locale : 'en';
   try {
+    const checkout = await getCheckoutProfileStatus(req.userId);
+    if (checkout.requiresSocial && !checkout.complete) {
+      return res.status(403).json({
+        error:
+          'Complete your profile before checkout: name, mobile, and (for Telegram sign-in) a contact email. Open My Profile to finish.',
+        code: 'PROFILE_INCOMPLETE',
+        missing: checkout.missing
+      });
+    }
     const { data: order, error } = await supabase
       .from('orders')
       .select(
@@ -2863,6 +3051,56 @@ app.post('/api/orders/:orderId/resume-checkout', authMiddleware, async (req, res
     }
     console.error('Resume checkout (auth) error:', err);
     res.status(500).json({ error: err.message || 'Failed to resume checkout' });
+  }
+});
+
+// Logged-in: load basket + fulfillment from a pending order for editing before payment
+app.get('/api/orders/:orderId/basket-draft', authMiddleware, async (req, res) => {
+  const orderId = (req.params.orderId || '').trim();
+  if (!ORDER_RESUME_UUID.test(orderId)) {
+    return res.status(400).json({ error: 'Invalid order id' });
+  }
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('id, order_number, status, line_items, fulfillment_type, shipping_address, user_id')
+      .eq('id', orderId)
+      .eq('user_id', req.userId)
+      .single();
+    if (error || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (order.status !== 'pending') {
+      return res.status(400).json({ error: 'Only unpaid orders can be edited.' });
+    }
+    const basket = [];
+    for (const row of order.line_items || []) {
+      const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+      let unitCents = row.unit_amount != null ? Math.round(Number(row.unit_amount)) : null;
+      if (unitCents == null || unitCents <= 0) {
+        if (row.amount_total != null) unitCents = Math.round(Number(row.amount_total) / qty);
+      }
+      if (unitCents == null || unitCents < 0) unitCents = 0;
+      basket.push({
+        id: row.product_id || row.id || null,
+        name: row.name || 'Item',
+        name_fa: row.name_fa || undefined,
+        price: unitCents / 100,
+        quantity: qty,
+        image_url: row.image_url || '',
+        categoryId: row.category_id || null
+      });
+    }
+    res.json({
+      orderId: order.id,
+      orderNumber: order.order_number,
+      basket,
+      fulfillmentType: order.fulfillment_type === 'collection' ? 'collection' : 'delivery',
+      shippingAddress: order.shipping_address || null
+    });
+  } catch (err) {
+    console.error('Basket draft error:', err);
+    res.status(500).json({ error: err.message || 'Failed to load order draft' });
   }
 });
 

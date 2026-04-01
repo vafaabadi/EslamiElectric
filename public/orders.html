@@ -63,6 +63,7 @@
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
       <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
+      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
     </div>
   </footer>
 
@@ -93,10 +94,22 @@
         statusCancelled: 'Cancelled',
         paymentRequiredHint: 'This order is waiting for payment.',
         resumePayment: 'Complete payment',
+        editOrderBeforePayment: 'Edit before payment',
         resumeError: 'Could not open checkout. Please try again.',
         cancelOrder: 'Cancel order',
         cancelConfirm: 'Cancel this unpaid order? You will not be charged. This cannot be undone.',
         cancelError: 'Could not cancel the order. Please try again.',
+        profileIncompleteCheckout:
+          'Payment is blocked until your profile is complete. Open My Profile from the menu, save your details, then try again.',
+        profileMissingHeading: 'Still needed:',
+        profileMissingFields: {
+          firstName: 'First name',
+          surname: 'Surname',
+          mobile: 'Mobile number',
+          contactEmail: 'Contact email (Telegram sign-in)',
+          companyName: 'Company name',
+          companyContactNumber: 'Company contact number'
+        },
         viewDetails: 'Details',
         items: 'Items',
         fulfillment: 'Fulfillment',
@@ -129,10 +142,22 @@
         statusCancelled: 'لغو شده',
         paymentRequiredHint: 'این سفارش هنوز پرداخت نشده است.',
         resumePayment: 'تکمیل پرداخت',
+        editOrderBeforePayment: 'ویرایش قبل از پرداخت',
         resumeError: 'باز کردن درگاه پرداخت ممکن نشد. دوباره تلاش کنید.',
         cancelOrder: 'لغو سفارش',
         cancelConfirm: 'این سفارش پرداخت‌نشده لغو شود؟ هزینه‌ای از شما کسر نمی‌شود و این عمل قابل بازگشت نیست.',
         cancelError: 'لغو سفارش انجام نشد. دوباره تلاش کنید.',
+        profileIncompleteCheckout:
+          'تا تکمیل پروفایل، پرداخت ممکن نیست. از منو «پروفایل من» را باز کنید، ذخیره کنید و دوباره تلاش کنید.',
+        profileMissingHeading: 'موارد لازم:',
+        profileMissingFields: {
+          firstName: 'نام',
+          surname: 'نام خانوادگی',
+          mobile: 'شماره موبایل',
+          contactEmail: 'ایمیل تماس (تلگرام)',
+          companyName: 'نام شرکت',
+          companyContactNumber: 'تلفن تماس شرکت'
+        },
         viewDetails: 'جزئیات',
         items: 'اقلام',
         fulfillment: 'نحوه دریافت',
@@ -271,6 +296,7 @@
           <div class="resume-row relative z-10 px-4 py-3 border-t-2 border-amber-400 bg-amber-50">
             <p class="text-sm font-medium text-amber-950 mb-2">${escapeHtml(t.paymentRequiredHint)}</p>
             <div class="flex flex-col sm:flex-row gap-2 sm:items-center sm:flex-wrap">
+              <a href="basket.html?editOrder=${encodeURIComponent(order.id)}" class="edit-pending-order-link w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg border-2 border-sky-500 bg-white text-sky-900 font-semibold text-sm hover:bg-sky-50 text-center inline-flex items-center justify-center" onclick="event.stopPropagation()">${escapeHtml(t.editOrderBeforePayment)}</a>
               <button type="button" class="resume-pay-btn w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg bg-amber-500 text-slate-900 font-semibold text-sm hover:bg-amber-400 shadow-sm" data-order-id="${escapeHtml(order.id)}">${escapeHtml(t.resumePayment)}</button>
               <button type="button" class="cancel-order-btn w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg border-2 border-slate-400 bg-white text-slate-800 font-semibold text-sm hover:bg-slate-50" data-order-id="${escapeHtml(order.id)}">${escapeHtml(t.cancelOrder)}</button>
             </div>
@@ -350,6 +376,16 @@
               return;
             }
             var msg = (data && data.error) ? String(data.error) : tr.resumeError;
+            if (data && data.code === 'PROFILE_INCOMPLETE') {
+              msg = tr.profileIncompleteCheckout || msg;
+              if (tr.profileMissingFields && Array.isArray(data.missing) && data.missing.length) {
+                var labels = tr.profileMissingFields;
+                var parts = data.missing.map(function (k) {
+                  return labels[k] || k;
+                });
+                msg = msg + ' ' + (tr.profileMissingHeading || '') + ' ' + parts.join(', ') + '.';
+              }
+            }
             setErr(msg);
           })
           .catch(function () {

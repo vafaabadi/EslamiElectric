@@ -13,11 +13,19 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
-<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4 overflow-x-hidden">
+<body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
+  <div class="flex-1 flex items-center justify-center p-4 w-full">
   <div class="bg-white rounded-xl shadow-md p-8 max-w-md text-center">
     <p id="status" class="text-slate-600">Confirming your email…</p>
     <p id="error" class="hidden mt-2 text-sm text-red-600"></p>
   </div>
+  </div>
+  <footer class="bg-slate-800 text-slate-300 py-4 mt-auto w-full shrink-0">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
+      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
+    </div>
+  </footer>
   <script>
     (async function () {
       const statusEl = document.getElementById('status');

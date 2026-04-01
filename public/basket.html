@@ -45,6 +45,10 @@
   <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
     <h2 id="page-title" class="text-2xl sm:text-3xl font-bold text-slate-800 mb-4 sm:mb-6">Your Basket</h2>
 
+    <div id="edit-pending-banner" class="hidden mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950" role="status"></div>
+
+    <div id="profile-checkout-gate" class="hidden mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="alert"></div>
+
     <div id="basket-empty" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
       <p id="empty-message" class="mb-4">Your basket is empty.</p>
       <a href="products.html" id="empty-link" class="inline-block px-4 py-2 rounded bg-amber-500 text-slate-900 font-medium hover:bg-amber-400 transition-colors">Browse Products</a>
@@ -154,6 +158,7 @@
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
       <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
+      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
     </div>
   </footer>
 
@@ -162,6 +167,8 @@
   <script>
     runWhenLocaleReady(function () {
     const BASKET_KEY = 'basket';
+    const PENDING_ORDER_KEY = 'pendingCheckoutOrderId';
+    const PENDING_ORDER_LABEL_KEY = 'pendingCheckoutOrderLabel';
 
     const translations = {
       en: {
@@ -214,7 +221,22 @@
         phoneErrorEmpty: 'Enter your phone number.',
         phoneErrorCountry: 'Your number must include a country code (e.g. +44, +98). Pick the flag, then type or paste the full number in this field, starting with + or 00.',
         phoneErrorFormat: 'The number length does not match international format. Check the country code and digits.',
-        phoneErrorInvalid: 'This number is not valid for the selected country. Change the country or correct the digits.'
+        phoneErrorInvalid: 'This number is not valid for the selected country. Change the country or correct the digits.',
+        editPendingBanner: 'You are editing unpaid order {order}. Proceed to checkout to pay with your changes.',
+        profileCheckoutWhy:
+          'With Google or Telegram sign-in, we need a few details on My Profile before you can pay.',
+        profileMissingHeading: 'Please complete:',
+        profileMissingFields: {
+          firstName: 'First name',
+          surname: 'Surname',
+          mobile: 'Mobile number',
+          contactEmail: 'Contact email (required for Telegram sign-in)',
+          companyName: 'Company name',
+          companyContactNumber: 'Company contact number'
+        },
+        profileCheckoutGate:
+          'Complete your profile before paying — open My Profile and save your details.',
+        profileCheckoutLink: 'Open My Profile'
       },
       fa: {
         siteTitle: 'الکتریکی اسلامی',
@@ -267,11 +289,27 @@
         phoneErrorEmpty: 'شماره تلفن را وارد کنید.',
         phoneErrorCountry: 'شماره باید با کد کشور شروع شود (مثلاً +98 یا +44). کشور را انتخاب کنید، سپس شماره کامل را در همین فیلد با + یا ۰۰ وارد یا جای‌گذاری کنید.',
         phoneErrorFormat: 'طول شماره با فرمت بین‌المللی هم‌خوانی ندارد.',
-        phoneErrorInvalid: 'این شماره برای کشور انتخاب‌شده معتبر نیست.'
+        phoneErrorInvalid: 'این شماره برای کشور انتخاب‌شده معتبر نیست.',
+        editPendingBanner: 'در حال ویرایش سفارش پرداخت‌نشده {order} هستید. برای پرداخت با تغییرات، ادامه به پرداخت را بزنید.',
+        profileCheckoutWhy:
+          'با ورود گوگل یا تلگرام، قبل از پرداخت باید چند مورد را در «پروفایل من» تکمیل کنید.',
+        profileMissingHeading: 'لطفاً این موارد را تکمیل کنید:',
+        profileMissingFields: {
+          firstName: 'نام',
+          surname: 'نام خانوادگی',
+          mobile: 'شماره موبایل',
+          contactEmail: 'ایمیل تماس (برای ورود با تلگرام)',
+          companyName: 'نام شرکت',
+          companyContactNumber: 'تلفن تماس شرکت'
+        },
+        profileCheckoutGate:
+          'قبل از پرداخت پروفایل را تکمیل کنید — «پروفایل من» را باز کنید و ذخیره کنید.',
+        profileCheckoutLink: 'باز کردن پروفایل'
       }
     };
 
     let currentLang = localStorage.getItem('lang') || 'en';
+    var checkoutProfileBlocked = false;
 
     function getBasket() {
       try {
@@ -286,12 +324,180 @@
 
     function setBasket(items) {
       localStorage.setItem(BASKET_KEY, JSON.stringify(items));
+      if (!items || items.length === 0) {
+        sessionStorage.removeItem(PENDING_ORDER_KEY);
+        sessionStorage.removeItem(PENDING_ORDER_LABEL_KEY);
+      }
       renderBasket();
+    }
+
+    function updateEditPendingBanner() {
+      const el = document.getElementById('edit-pending-banner');
+      if (!el) return;
+      const label = sessionStorage.getItem(PENDING_ORDER_LABEL_KEY);
+      const id = sessionStorage.getItem(PENDING_ORDER_KEY);
+      if (!id || !label) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      const t = translations[currentLang];
+      const msg = (t.editPendingBanner || '').replace(/\{order\}/g, label);
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    async function loadPendingOrderDraftIfAny() {
+      const params = new URLSearchParams(window.location.search);
+      let oid = (params.get('editOrder') || '').trim();
+      if (!oid) {
+        const stored = sessionStorage.getItem('pendingEditOrderId');
+        if (stored) {
+          oid = stored.trim();
+          sessionStorage.removeItem('pendingEditOrderId');
+        }
+      }
+      if (!oid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oid)) return;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        sessionStorage.setItem('pendingEditOrderId', oid);
+        window.location.href = 'login.html';
+        return;
+      }
+      try {
+        const r = await fetch('/api/orders/' + encodeURIComponent(oid) + '/basket-draft', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const d = await r.json().catch(function () { return {}; });
+        if (!r.ok || !Array.isArray(d.basket)) return;
+        localStorage.setItem(BASKET_KEY, JSON.stringify(d.basket));
+        sessionStorage.setItem(PENDING_ORDER_KEY, d.orderId);
+        sessionStorage.setItem(PENDING_ORDER_LABEL_KEY, d.orderNumber || d.orderId || '');
+        var del = document.querySelector('input[name="fulfillment"][value="delivery"]');
+        var col = document.querySelector('input[name="fulfillment"][value="collection"]');
+        if (d.fulfillmentType === 'collection' && col) {
+          col.checked = true;
+          if (del) del.checked = false;
+        } else if (del) {
+          del.checked = true;
+          if (col) col.checked = false;
+        }
+        if (d.shippingAddress && d.fulfillmentType === 'delivery') {
+          var sa = d.shippingAddress;
+          var ra = document.getElementById('reg-address');
+          var rc = document.getElementById('reg-city');
+          var rp = document.getElementById('reg-postal');
+          var rai = document.getElementById('reg-additional-info');
+          if (ra) ra.value = (sa.line1 || sa.address || '').trim() || '';
+          if (rc) rc.value = (sa.city || '').trim() || '';
+          if (rp) rp.value = (sa.postal_code || sa.postalCode || '').trim() || '';
+          if (rai && sa.additional_info) rai.value = String(sa.additional_info).trim();
+        }
+        try {
+          history.replaceState({}, '', window.location.pathname);
+        } catch (e) { /* ignore */ }
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     function escapeHtml(str) {
       if (!str) return '';
       return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function profileMissingListHtml(missingKeys, tr) {
+      if (!Array.isArray(missingKeys) || missingKeys.length === 0) return '';
+      var labels = tr.profileMissingFields || {};
+      var items = missingKeys.map(function (key) {
+        return '<li>' + escapeHtml(labels[key] || key) + '</li>';
+      }).join('');
+      return (
+        '<p class="font-medium mb-1.5">' + escapeHtml(tr.profileMissingHeading || '') + '</p>' +
+        '<ul class="list-disc list-inside space-y-0.5 mb-3 text-start">' + items + '</ul>'
+      );
+    }
+
+    function profileMissingPlainText(missingKeys, tr) {
+      if (!Array.isArray(missingKeys) || missingKeys.length === 0) return '';
+      var labels = tr.profileMissingFields || {};
+      var parts = missingKeys.map(function (k) {
+        return labels[k] || k;
+      });
+      return (tr.profileMissingHeading || '') + ' ' + parts.join(', ') + '.';
+    }
+
+    function updateCheckoutButtonState() {
+      const btnCheckout = document.getElementById('btn-checkout');
+      if (!btnCheckout) return;
+      const basket = getBasket();
+      const empty = basket.length === 0;
+      const token = localStorage.getItem('token');
+      const block = !!(token && checkoutProfileBlocked);
+      btnCheckout.disabled = empty || block;
+      const tr = translations[currentLang];
+      if (block && tr) {
+        btnCheckout.setAttribute('title', tr.profileCheckoutWhy || tr.profileCheckoutGate || '');
+      } else {
+        btnCheckout.removeAttribute('title');
+      }
+    }
+
+    async function loadCheckoutProfileGate() {
+      const gateEl = document.getElementById('profile-checkout-gate');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        checkoutProfileBlocked = false;
+        if (gateEl) {
+          gateEl.classList.add('hidden');
+          gateEl.innerHTML = '';
+        }
+        updateCheckoutButtonState();
+        return;
+      }
+      try {
+        const r = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json().catch(function () { return {}; });
+        if (!r.ok) {
+          checkoutProfileBlocked = false;
+          if (gateEl) {
+            gateEl.classList.add('hidden');
+            gateEl.innerHTML = '';
+          }
+          updateCheckoutButtonState();
+          return;
+        }
+        var req = d.checkoutProfileRequired === true;
+        var complete = d.checkoutProfileComplete !== false;
+        checkoutProfileBlocked = !!(req && !complete);
+        var tr = translations[currentLang];
+        if (checkoutProfileBlocked && gateEl) {
+          var missing = Array.isArray(d.checkoutProfileMissing) ? d.checkoutProfileMissing : [];
+          var intro =
+            '<p class="mb-2">' + escapeHtml(tr.profileCheckoutWhy || tr.profileCheckoutGate || '') + '</p>';
+          var listPart = profileMissingListHtml(missing, tr);
+          if (!listPart) {
+            listPart = '<p class="mb-2">' + escapeHtml(tr.profileCheckoutGate || '') + '</p>';
+          }
+          gateEl.innerHTML =
+            intro +
+            listPart +
+            '<a href="profile.html" class="inline-flex font-semibold text-amber-900 underline hover:text-amber-800">' +
+            escapeHtml(tr.profileCheckoutLink || 'Profile') + '</a>';
+          gateEl.classList.remove('hidden');
+        } else if (gateEl) {
+          gateEl.classList.add('hidden');
+          gateEl.innerHTML = '';
+        }
+        updateCheckoutButtonState();
+      } catch (e) {
+        checkoutProfileBlocked = false;
+        if (gateEl) {
+          gateEl.classList.add('hidden');
+          gateEl.innerHTML = '';
+        }
+        updateCheckoutButtonState();
+      }
     }
 
     function applyPageLanguage() {
@@ -385,6 +591,7 @@
       if (navOrders) navOrders.classList.toggle('hidden', !tokenForNav);
       if (navProfileEl) navProfileEl.classList.toggle('hidden', !tokenForNav);
 
+      updateEditPendingBanner();
       renderBasket();
     }
 
@@ -453,6 +660,7 @@
       if (basket.length === 0) {
         emptyEl.classList.remove('hidden');
         contentEl.classList.add('hidden');
+        updateCheckoutButtonState();
         return;
       }
 
@@ -496,8 +704,7 @@
 
       totalEl.textContent = formatPriceUSD(total);
 
-      const btnCheckout = document.getElementById('btn-checkout');
-      if (btnCheckout) btnCheckout.disabled = false;
+      updateCheckoutButtonState();
 
       listEl.querySelectorAll('.btn-remove').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -564,12 +771,14 @@
       localStorage.setItem('lang', 'en');
       localStorage.setItem('localePref', 'user');
       applyPageLanguage();
+      void loadCheckoutProfileGate();
     });
     document.getElementById('lang-fa').addEventListener('click', () => {
       currentLang = 'fa';
       localStorage.setItem('lang', 'fa');
       localStorage.setItem('localePref', 'user');
       applyPageLanguage();
+      void loadCheckoutProfileGate();
     });
     document.getElementById('nav-logout').addEventListener('click', () => {
       localStorage.removeItem('token');
@@ -619,17 +828,17 @@
               ? (t.guestDetailsRequiredCollection || t.guestDetailsRequired)
               : (t.guestDetailsRequiredDelivery || t.guestDetailsRequired);
             errEl.classList.remove('hidden');
-            btnCheckout.disabled = false;
             btnText.classList.remove('hidden');
             btnLoading.classList.add('hidden');
+            updateCheckoutButtonState();
             return;
           }
           if (fulfillment === 'delivery' && (!guestAddress || guestAddress.length < 5)) {
             errEl.textContent = t.guestDetailsRequiredDelivery || t.guestDetailsRequired;
             errEl.classList.remove('hidden');
-            btnCheckout.disabled = false;
             btnText.classList.remove('hidden');
             btnLoading.classList.add('hidden');
+            updateCheckoutButtonState();
             return;
           }
           body.guestEmail = guestEmail;
@@ -652,9 +861,9 @@
           if (!regAddress || regAddress.length < 5) {
             errEl.textContent = t.regDeliveryRequired || t.checkoutError;
             errEl.classList.remove('hidden');
-            btnCheckout.disabled = false;
             btnText.classList.remove('hidden');
             btnLoading.classList.add('hidden');
+            updateCheckoutButtonState();
             return;
           }
           body.shippingAddress = {
@@ -665,6 +874,10 @@
           if (regExtra) body.shippingAddress.additional_info = regExtra;
         }
         body.locale = currentLang === 'fa' ? 'fa' : 'en';
+        var pendingOid = sessionStorage.getItem(PENDING_ORDER_KEY);
+        if (token && pendingOid) {
+          body.pendingOrderId = pendingOid;
+        }
         const res = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers,
@@ -672,11 +885,19 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          errEl.textContent = data.error || t.checkoutError;
+          if (res.status === 403 && data.code === 'PROFILE_INCOMPLETE') {
+            void loadCheckoutProfileGate();
+          }
+          var errMsg = data.error || t.checkoutError;
+          if (res.status === 403 && data.code === 'PROFILE_INCOMPLETE' && Array.isArray(data.missing) && data.missing.length) {
+            var extra = profileMissingPlainText(data.missing, t);
+            if (extra) errMsg = errMsg + ' ' + extra;
+          }
+          errEl.textContent = errMsg;
           errEl.classList.remove('hidden');
-          btnCheckout.disabled = false;
           btnText.classList.remove('hidden');
           btnLoading.classList.add('hidden');
+          updateCheckoutButtonState();
           return;
         }
         if (data.url) {
@@ -689,17 +910,18 @@
         errEl.textContent = t.checkoutError;
         errEl.classList.remove('hidden');
       }
-      btnCheckout.disabled = false;
       btnText.classList.remove('hidden');
       btnLoading.classList.add('hidden');
+      updateCheckoutButtonState();
     });
 
-    renderBasket();
-    applyPageLanguage();
-    (async function () {
+    (async function boot() {
+      await loadPendingOrderDraftIfAny();
+      await loadCheckoutProfileGate();
+      applyPageLanguage();
       try {
         await initIntlPhoneInputs('#guest-phone');
-        const gp = document.getElementById('guest-phone');
+        var gp = document.getElementById('guest-phone');
         if (gp) gp.placeholder = translations[currentLang].phoneHintGuest || '';
       } catch (e) {
         console.error(e);
@@ -708,6 +930,12 @@
 
     window.addEventListener('appcurrencychange', function() {
       renderBasket();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        void loadCheckoutProfileGate();
+      }
     });
     });
   </script>
