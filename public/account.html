@@ -10,6 +10,7 @@
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
+  <script src="js/site-footer-i18n.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
@@ -129,8 +130,8 @@
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
-      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
+      <p data-i18n="footer-copyright"></p>
+      <p data-i18n="footer-dev" class="text-xs text-slate-500 mt-2"></p>
     </div>
   </footer>
 
@@ -300,6 +301,7 @@
       document.getElementById('lang-fa').className = currentLang === 'fa'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+      if (typeof applyFooterI18n === 'function') applyFooterI18n();
       applyPhonePlaceholders();
     }
 

@@ -10,34 +10,104 @@
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
+  <script src="js/site-footer-i18n.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <div class="flex-1 flex items-center justify-center p-4 w-full">
-  <div class="bg-white rounded-xl shadow-md p-8 max-w-md text-center">
+  <div class="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
+    <div class="flex justify-end gap-2 mb-4">
+      <button type="button" id="lang-en" class="px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900">English</button>
+      <button type="button" id="lang-fa" class="px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50">فارسی</button>
+    </div>
     <p id="status" class="text-slate-600">Confirming your email…</p>
     <p id="error" class="hidden mt-2 text-sm text-red-600"></p>
   </div>
   </div>
   <footer class="bg-slate-800 text-slate-300 py-4 mt-auto w-full shrink-0">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
-      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
+      <p data-i18n="footer-copyright"></p>
+      <p data-i18n="footer-dev" class="text-xs text-slate-500 mt-2"></p>
     </div>
   </footer>
   <script>
+    runWhenLocaleReady(function () {
+    var T = {
+      en: {
+        pageTitle: 'Confirming… - Eslami Electric',
+        confirming: 'Confirming your email…',
+        returnLogin: 'Return to log in.',
+        configMissing: 'Configuration missing.',
+        supabaseFail: 'Supabase client failed to load.',
+        networkHint: 'Check your network or ad blocker.',
+        signInFailed: 'Could not complete sign-in.',
+        pkceHint:
+          'No session. Open Log in on this same site (same address) and try Google again — PKCE requires the same browser origin.',
+        tokenHelp:
+          ' Confirm Supabase Auth redirect URLs include this site’s auth-callback URL (same host as the address bar) and that BASE_URL matches production. You can also try email/password login.',
+        api404: ' The server may not be running this route on your host (e.g. static-only deploy).',
+        signedIn: 'Signed in. Taking you to the home page…',
+        somethingWrong: 'Something went wrong.',
+        fatalGeneric: 'Something went wrong.'
+      },
+      fa: {
+        pageTitle: 'در حال تأیید… - الکتریکی اسلامی',
+        confirming: 'در حال تأیید ایمیل شما…',
+        returnLogin: 'بازگشت به صفحه ورود.',
+        configMissing: 'پیکربندی یافت نشد.',
+        supabaseFail: 'بارگذاری کلاینت Supabase ناموفق بود.',
+        networkHint: 'اتصال شبکه یا مسدودکننده تبلیغات را بررسی کنید.',
+        signInFailed: 'ورود کامل نشد.',
+        pkceHint:
+          'جلسه‌ای یافت نشد. از همان آدرس سایت وارد شوید و دوباره با Google تلاش کنید — PKCE به همان مرورگر و آدرس نیاز دارد.',
+        tokenHelp:
+          ' آدرس‌های بازگشت Supabase را برای همین سایت تنظیم کنید و BASE_URL را با محیط production یکسان کنید. می‌توانید ورود با ایمیل/رمز را امتحان کنید.',
+        api404: ' ممکن است API روی این میزبان در دسترس نباشد (مثلاً فقط فایل‌های استاتیک).',
+        signedIn: 'وارد شدید. در حال انتقال به صفحه اصلی…',
+        somethingWrong: 'خطایی رخ داد.',
+        fatalGeneric: 'خطایی رخ داد.'
+      }
+    };
+    var currentLang = localStorage.getItem('lang') || 'en';
+    function tr(k) {
+      return (T[currentLang] && T[currentLang][k]) || T.en[k] || '';
+    }
+    function applyChrome() {
+      document.title = tr('pageTitle');
+      document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+      document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+      var e = document.getElementById('lang-en');
+      var f = document.getElementById('lang-fa');
+      if (e) e.className = currentLang === 'en' ? 'px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900' : 'px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50';
+      if (f) f.className = currentLang === 'fa' ? 'px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900' : 'px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50';
+      if (typeof applyFooterI18n === 'function') applyFooterI18n();
+    }
+    document.getElementById('lang-en').addEventListener('click', function() {
+      currentLang = 'en';
+      localStorage.setItem('lang', 'en');
+      localStorage.setItem('localePref', 'user');
+      applyChrome();
+    });
+    document.getElementById('lang-fa').addEventListener('click', function() {
+      currentLang = 'fa';
+      localStorage.setItem('lang', 'fa');
+      localStorage.setItem('localePref', 'user');
+      applyChrome();
+    });
+    applyChrome();
+
     (async function () {
       const statusEl = document.getElementById('status');
       const errorEl = document.getElementById('error');
 
-      function showFatal(msg, detail) {
-        statusEl.textContent = msg + ' Return to log in.';
+      function showFatal(msgKey, detail) {
+        statusEl.textContent = tr(msgKey) + ' ' + tr('returnLogin');
         if (detail) {
           errorEl.textContent = detail;
           errorEl.classList.remove('hidden');
         }
-        console.error('auth-callback:', msg, detail || '');
+        console.error('auth-callback:', msgKey, detail || '');
       }
 
       function readServerPublicConfig() {
@@ -69,9 +139,10 @@
       }
 
       try {
+        statusEl.textContent = tr('confirming');
         const config = readServerPublicConfig();
         if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
-          showFatal('Configuration missing.', '');
+          showFatal('configMissing', '');
           setTimeout(function () {
             window.location.href = loginPageHref();
           }, 3000);
@@ -79,7 +150,7 @@
         }
 
         if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-          showFatal('Supabase client failed to load.', 'Check your network or ad blocker.');
+          showFatal('supabaseFail', tr('networkHint'));
           return;
         }
 
@@ -131,10 +202,8 @@
         }
 
         if (!accessToken) {
-          var hint =
-            exchangeErrText ||
-            'No session. Open Log in on this same site (same address) and try Google again — PKCE requires the same browser origin.';
-          statusEl.textContent = 'Could not complete sign-in.';
+          var hint = exchangeErrText || tr('pkceHint');
+          statusEl.textContent = tr('signInFailed');
           errorEl.textContent = hint;
           errorEl.classList.remove('hidden');
           setTimeout(function () {
@@ -153,19 +222,16 @@
         });
         if (tokenRes.ok && data.token) {
           localStorage.setItem('token', data.token);
-          statusEl.textContent = 'Signed in. Taking you to the home page…';
+          statusEl.textContent = tr('signedIn');
           window.location.replace(homePageHref());
         } else {
-          statusEl.textContent = 'Something went wrong.';
+          statusEl.textContent = tr('somethingWrong');
           var errMsg = data.error || '';
           if (errMsg.indexOf('Invalid or expired token') !== -1) {
-            errMsg +=
-              ' Confirm Supabase Auth redirect URLs include this site’s auth-callback URL (same host as the address bar) and that BASE_URL matches production. You can also try email/password login.';
+            errMsg += tr('tokenHelp');
           }
           if (!tokenRes.ok && tokenRes.status === 404) {
-            errMsg =
-              (errMsg || 'API not found.') +
-              ' The server may not be running this route on your host (e.g. static-only deploy).';
+            errMsg = (errMsg || 'API not found.') + tr('api404');
           }
           errorEl.textContent = errMsg;
           errorEl.classList.remove('hidden');
@@ -174,12 +240,13 @@
           }, 6000);
         }
       } catch (e) {
-        showFatal('Something went wrong.', (e && e.message) || String(e));
+        showFatal('fatalGeneric', (e && e.message) || String(e));
         setTimeout(function () {
           window.location.href = loginPageHref();
         }, 6000);
       }
     })();
+    });
   </script>
 </body>
 </html>

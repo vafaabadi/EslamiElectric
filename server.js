@@ -338,27 +338,12 @@ function isSyntheticTelegramAuthEmail(email) {
   return /^tg_\d+@/.test(e);
 }
 
-/** Google OAuth (Gmail) sign-in via Supabase. */
-function usesGoogleOAuthIdentity(authUser) {
-  const ids = authUser && Array.isArray(authUser.identities) ? authUser.identities : [];
-  return ids.some((i) => i && i.provider === 'google');
-}
-
-/**
- * Telegram (synthetic or linked tg id) or Google OAuth accounts must complete profile before checkout.
- */
-function isSocialCheckoutProfileRequired(profileRow, authUser) {
-  if (!profileRow || !authUser) return false;
-  if (isSyntheticTelegramAuthEmail(profileRow.email)) return true;
-  const tg = profileRow.telegram_id != null ? String(profileRow.telegram_id).trim() : '';
-  if (tg) return true;
-  return usesGoogleOAuthIdentity(authUser);
-}
-
 /**
  * Required fields for post-purchase contact, delivery coordination, and collection pickup.
+ * All logged-in purchasers need first name, surname, mobile, and a reachable email (account email,
+ * or contact email when Telegram sign-in uses a synthetic auth address).
  */
-function computeMissingSocialCheckoutFields(profileRow) {
+function computeMissingCheckoutProfileFields(profileRow, authEmailOptional) {
   const missing = [];
   const fn = (profileRow.first_name || '').trim();
   const sn = (profileRow.surname || '').trim();
@@ -368,8 +353,13 @@ function computeMissingSocialCheckoutFields(profileRow) {
   if (!mob || !validationPatterns.mobile.test(mob)) missing.push('mobile');
   const email = (profileRow.email || '').trim().toLowerCase();
   const contact = (profileRow.contact_email || '').trim().toLowerCase();
+  const authEmail = (authEmailOptional || '').trim().toLowerCase();
   if (isSyntheticTelegramAuthEmail(email)) {
     if (!contact || !validationPatterns.email.test(contact)) missing.push('contactEmail');
+  } else {
+    const profileOk = email && validationPatterns.email.test(email);
+    const authOk = authEmail && validationPatterns.email.test(authEmail);
+    if (!profileOk && !authOk) missing.push('email');
   }
   if (profileRow.type === 'company') {
     const cn = (profileRow.company_name || '').trim();
@@ -391,19 +381,22 @@ async function getCheckoutProfileStatus(userId, profileRowOptional) {
       .eq('id', userId)
       .maybeSingle();
     if (rowErr || !r) {
-      return { requiresSocial: false, complete: true, missing: [] };
+      return { requiresCheckoutProfile: false, complete: true, missing: [], authEmail: null };
     }
     row = r;
   }
   const { data: gu, error: guErr } = await supabase.auth.admin.getUserById(userId);
   if (guErr || !gu || !gu.user) {
-    return { requiresSocial: false, complete: true, missing: [] };
+    return { requiresCheckoutProfile: false, complete: true, missing: [], authEmail: null };
   }
-  if (!isSocialCheckoutProfileRequired(row, gu.user)) {
-    return { requiresSocial: false, complete: true, missing: [] };
-  }
-  const missing = computeMissingSocialCheckoutFields(row);
-  return { requiresSocial: true, complete: missing.length === 0, missing };
+  const authEmail = gu.user.email || '';
+  const missing = computeMissingCheckoutProfileFields(row, authEmail);
+  return {
+    requiresCheckoutProfile: true,
+    complete: missing.length === 0,
+    missing,
+    authEmail: authEmail || null
+  };
 }
 
 function profileRowToJson(user) {
@@ -583,15 +576,34 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
     || '';
   const siteUrl = baseUrl.replace(/\/$/, '');
   let lineItems = [];
+  let prevLineItems = [];
+  try {
+    const { data: rowBefore } = await supabase
+      .from('orders')
+      .select('line_items')
+      .eq('stripe_session_id', stripeSessionId)
+      .maybeSingle();
+    if (rowBefore && Array.isArray(rowBefore.line_items)) prevLineItems = rowBefore.line_items;
+  } catch (e) {
+    /* non-fatal */
+  }
   try {
     const fullSession = await stripe.checkout.sessions.retrieve(stripeSessionId, { expand: ['line_items.data.price.product'] });
     if (fullSession.line_items && fullSession.line_items.data) {
-      lineItems = fullSession.line_items.data.map((li) => ({
-        name: (li.price && li.price.product && typeof li.price.product === 'object' && li.price.product.name) ? li.price.product.name : (li.description || 'Item'),
-        quantity: li.quantity || 1,
-        unit_amount: li.price ? li.price.unit_amount : 0,
-        amount_total: li.amount_total
-      }));
+      lineItems = fullSession.line_items.data.map((li, idx) => {
+        const fromStripe = {
+          name: (li.price && li.price.product && typeof li.price.product === 'object' && li.price.product.name)
+            ? li.price.product.name
+            : (li.description || 'Item'),
+          quantity: li.quantity || 1,
+          unit_amount: li.price ? li.price.unit_amount : 0,
+          amount_total: li.amount_total
+        };
+        const prev = prevLineItems[idx];
+        const pid = prev && (prev.product_id || prev.productId) ? String(prev.product_id || prev.productId).trim() : '';
+        if (pid) fromStripe.product_id = pid;
+        return fromStripe;
+      });
     }
   } catch (e) {
     console.error('Stripe session retrieve error:', e);
@@ -1927,7 +1939,14 @@ app.get('/api/me', authMiddleware, async (req, res) => {
     const checkout = await getCheckoutProfileStatus(req.userId, user);
     json.checkoutProfileComplete = checkout.complete;
     json.checkoutProfileMissing = checkout.missing;
-    json.checkoutProfileRequired = checkout.requiresSocial;
+    json.checkoutProfileRequired = checkout.requiresCheckoutProfile;
+    if (json && !isSyntheticTelegramAuthEmail(user.email)) {
+      const ae = checkout.authEmail != null ? String(checkout.authEmail).trim() : '';
+      const pe = (user.email || '').trim().toLowerCase();
+      if (ae && validationPatterns.email.test(ae.toLowerCase()) && (!pe || !validationPatterns.email.test(pe))) {
+        json.email = ae;
+      }
+    }
     res.json(json);
   } catch (err) {
     console.error('Get me error:', err);
@@ -2018,6 +2037,7 @@ const PROFILE_PATCH_KEYS = [
   'dob',
   'mobile',
   'landline',
+  'contactEmail',
   'address',
   'bankDetails',
   'companyName',
@@ -2565,10 +2585,10 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
     if (userId) {
       const checkout = await getCheckoutProfileStatus(userId);
-      if (checkout.requiresSocial && !checkout.complete) {
+      if (checkout.requiresCheckoutProfile && !checkout.complete) {
         return res.status(403).json({
           error:
-            'Complete your profile before checkout: name, mobile, and (for Telegram sign-in) a contact email. Open My Profile to finish.',
+            'Complete your profile before checkout: first name, surname, mobile, and email. Open My Profile to finish.',
           code: 'PROFILE_INCOMPLETE',
           missing: checkout.missing
         });
@@ -2666,12 +2686,17 @@ app.post('/api/create-checkout-session', async (req, res) => {
     }
 
     const lineItemsForDb = Array.isArray(bodyLineItems) && bodyLineItems.length > 0
-      ? bodyLineItems.map((item) => ({
-          name: item.name || 'Item',
-          quantity: item.quantity || 1,
-          unit_amount: Math.round(Number(item.price) * 100),
-          amount_total: Math.round(Number(item.price) * 100) * (item.quantity || 1)
-        }))
+      ? bodyLineItems.map((item) => {
+          const pid = item.productId != null ? String(item.productId).trim() : item.id != null ? String(item.id).trim() : '';
+          const row = {
+            name: item.name || 'Item',
+            quantity: item.quantity || 1,
+            unit_amount: Math.round(Number(item.price) * 100),
+            amount_total: Math.round(Number(item.price) * 100) * (item.quantity || 1)
+          };
+          if (pid) row.product_id = pid;
+          return row;
+        })
       : [];
 
     if (pendingOrderId) {
@@ -3031,10 +3056,10 @@ app.post('/api/orders/:orderId/resume-checkout', authMiddleware, async (req, res
   const localeSeg = req.body && (req.body.locale === 'fa' || req.body.locale === 'en') ? req.body.locale : 'en';
   try {
     const checkout = await getCheckoutProfileStatus(req.userId);
-    if (checkout.requiresSocial && !checkout.complete) {
+    if (checkout.requiresCheckoutProfile && !checkout.complete) {
       return res.status(403).json({
         error:
-          'Complete your profile before checkout: name, mobile, and (for Telegram sign-in) a contact email. Open My Profile to finish.',
+          'Complete your profile before checkout: first name, surname, mobile, and email. Open My Profile to finish.',
         code: 'PROFILE_INCOMPLETE',
         missing: checkout.missing
       });

@@ -8,7 +8,9 @@
   <style>html:not(.locale-ready) body{opacity:0}</style>
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
+  <script src="js/order-line-items.js"></script>
   <script src="js/locale-init.js"></script>
+  <script src="js/site-footer-i18n.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -16,54 +18,56 @@
     <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-2">
       <div class="min-w-0 flex-1">
         <a href="index.html" class="hover:opacity-80 block truncate">
-          <h1 class="text-xl sm:text-2xl font-bold tracking-tight truncate">Eslami Electric</h1>
-          <p class="text-slate-400 text-xs sm:text-sm truncate">Quality electrical supplies</p>
+          <h1 id="site-title" class="text-xl sm:text-2xl font-bold tracking-tight truncate">Eslami Electric</h1>
+          <p id="site-subtitle" class="text-slate-400 text-xs sm:text-sm truncate">Quality electrical supplies</p>
         </a>
       </div>
       <button type="button" id="nav-toggle" class="sm:hidden p-2 rounded-lg text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Menu" aria-expanded="false">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <nav id="header-nav" class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-2 w-full sm:w-auto">
-        <a href="index.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
-        <a href="products.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
-        <a href="basket.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket</a>
-        <a href="orders.html" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
-        <a href="order.html" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">Track order</a>
+        <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
+        <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
+        <a href="basket.html" id="nav-basket" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket</a>
+        <a href="orders.html" id="nav-orders" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
+        <a href="order.html" id="nav-track" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">Track order</a>
+        <button id="lang-en" type="button" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center">English</button>
+        <button id="lang-fa" type="button" class="px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center">فارسی</button>
       </nav>
     </div>
   </header>
   <script src="js/mobile-nav.js"></script>
 
   <main class="flex-grow max-w-2xl w-full mx-auto px-4 py-8">
-    <h2 class="text-2xl font-bold text-slate-800 mb-6">Track your order</h2>
+    <h2 id="page-title" class="text-2xl font-bold text-slate-800 mb-6">Track your order</h2>
 
     <div id="finder-section" class="bg-white rounded-xl shadow-md p-6 mb-6">
-      <p class="text-slate-600 mb-4">Enter the email address and order ID from your confirmation to view status.</p>
+      <p id="finder-intro" class="text-slate-600 mb-4">Enter the email address and order ID from your confirmation to view status.</p>
       <form id="finder-form" class="space-y-4">
         <div>
-          <label for="finder-email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+          <label id="label-finder-email" for="finder-email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
           <input type="email" id="finder-email" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="you@example.com">
         </div>
         <div>
-          <label for="finder-order-id" class="block text-sm font-medium text-slate-700 mb-1">Order number</label>
+          <label id="label-finder-order" for="finder-order-id" class="block text-sm font-medium text-slate-700 mb-1">Order number</label>
           <input type="text" id="finder-order-id" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm" placeholder="e.g. ORD-A3X9K2">
         </div>
         <p id="finder-error" class="hidden text-sm text-red-600"></p>
-        <button type="submit" class="px-4 py-2 rounded bg-emerald-600 text-white font-medium hover:bg-emerald-500">View order</button>
+        <button id="finder-submit" type="submit" class="px-4 py-2 rounded bg-emerald-600 text-white font-medium hover:bg-emerald-500">View order</button>
       </form>
     </div>
 
     <div id="order-loading" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-500">
-      <p>Loading order…</p>
+      <p id="order-loading-text">Loading order…</p>
     </div>
 
     <div id="order-not-found" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-600">
-      <p>Order not found. Check your email and order ID.</p>
+      <p id="order-not-found-text">Order not found. Check your email and order ID.</p>
     </div>
 
     <div id="order-detail" class="hidden bg-white rounded-xl shadow-md p-6 space-y-4">
-      <div class="flex justify-between items-start">
-        <h3 class="font-semibold text-slate-800">Order <span id="detail-order-id" class="font-mono text-sm"></span></h3>
+      <div class="flex justify-between items-start gap-2">
+        <h3 class="font-semibold text-slate-800"><span id="detail-order-prefix">Order</span> <span id="detail-order-id" class="font-mono text-sm"></span></h3>
         <span id="detail-status" class="px-2 py-1 rounded text-sm font-medium bg-emerald-100 text-emerald-800">Paid</span>
       </div>
       <p id="detail-date" class="text-slate-600 text-sm"></p>
@@ -80,25 +84,157 @@
         <p id="detail-cancel-error" class="hidden mt-1 text-sm text-red-600" role="alert"></p>
       </div>
       <div id="detail-tracking" class="hidden pt-2 border-t border-slate-200">
-        <p class="text-sm text-slate-600">Tracking: <span id="detail-tracking-number" class="font-medium"></span></p>
+        <p class="text-sm text-slate-600"><span id="detail-tracking-label">Tracking:</span> <span id="detail-tracking-number" class="font-medium"></span></p>
       </div>
-      <p class="text-slate-500 text-sm">Questions? Contact us with your order ID.</p>
+      <p id="detail-questions" class="text-slate-500 text-sm">Questions? Contact us with your order ID.</p>
     </div>
   </main>
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
-      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
+      <p data-i18n="footer-copyright"></p>
+      <p data-i18n="footer-dev" class="text-xs text-slate-500 mt-2"></p>
     </div>
   </footer>
 
   <script>
     runWhenLocaleReady(function () {
-    (function() {
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
+      var translations = {
+        en: {
+          pageTitle: 'Track Order - Eslami Electric',
+          siteTitle: 'Eslami Electric',
+          siteSubtitle: 'Quality electrical supplies',
+          navHome: 'Home',
+          navProducts: 'Products',
+          navBasket: 'Basket',
+          navOrders: 'My Orders',
+          navTrack: 'Track order',
+          mainTitle: 'Track your order',
+          finderIntro: 'Enter the email address and order ID from your confirmation to view status.',
+          labelEmail: 'Email',
+          labelOrderId: 'Order number',
+          phEmail: 'you@example.com',
+          phOrder: 'e.g. ORD-A3X9K2',
+          finderSubmit: 'View order',
+          finderBothRequired: 'Please enter both email and order number.',
+          loadingOrder: 'Loading order…',
+          notFound: 'Order not found. Check your email and order number.',
+          orderPrefix: 'Order',
+          fulfillment: 'Fulfillment',
+          delivery: 'Delivery',
+          collection: 'Collection (pickup)',
+          additionalInfo: 'Additional info',
+          statusPaid: 'Paid',
+          statusPending: 'Pending payment',
+          statusCancelled: 'Cancelled',
+          placedPrefix: 'Placed ',
+          dateLabelFa: 'تاریخ: ',
+          totalPrefix: 'Total: ',
+          totalPrefixFa: 'جمع: ',
+          trackingLabel: 'Tracking:',
+          trackingLabelFa: 'پیگیری:',
+          questions: 'Questions? Contact us with your order ID.',
+          resumePayment: 'Complete payment',
+          cancelOrder: 'Cancel order',
+          cancelConfirm: 'Cancel this unpaid order? You will not be charged. This cannot be undone.',
+          cancelErr: 'Could not cancel the order. Please try again.',
+          resumeErr: 'Could not open checkout.',
+          itemFallback: 'Item'
+        },
+        fa: {
+          pageTitle: 'پیگیری سفارش - الکتریکی اسلامی',
+          siteTitle: 'الکتریکی اسلامی',
+          siteSubtitle: 'تجهیزات برقی با کیفیت',
+          navHome: 'خانه',
+          navProducts: 'محصولات',
+          navBasket: 'سبد خرید',
+          navOrders: 'سفارشات من',
+          navTrack: 'پیگیری سفارش',
+          mainTitle: 'پیگیری سفارش شما',
+          finderIntro: 'ایمیل و شماره سفارش را از ایمیل تأیید وارد کنید.',
+          labelEmail: 'ایمیل',
+          labelOrderId: 'شماره سفارش',
+          phEmail: 'you@example.com',
+          phOrder: 'مثال ORD-A3X9K2',
+          finderSubmit: 'مشاهده سفارش',
+          finderBothRequired: 'ایمیل و شماره سفارش را وارد کنید.',
+          loadingOrder: 'در حال بارگذاری سفارش…',
+          notFound: 'سفارش یافت نشد. ایمیل و شماره را بررسی کنید.',
+          orderPrefix: 'سفارش',
+          fulfillment: 'نحوه دریافت',
+          delivery: 'ارسال به آدرس',
+          collection: 'تحویل حضوری',
+          additionalInfo: 'اطلاعات تکمیلی',
+          statusPaid: 'پرداخت‌شده',
+          statusPending: 'در انتظار پرداخت',
+          statusCancelled: 'لغو شده',
+          placedPrefix: 'ثبت: ',
+          dateLabelFa: 'تاریخ: ',
+          totalPrefix: 'Total: ',
+          totalPrefixFa: 'جمع: ',
+          trackingLabel: 'پیگیری:',
+          trackingLabelFa: 'پیگیری:',
+          questions: 'سوال دارید؟ با شماره سفارش با ما تماس بگیرید.',
+          resumePayment: 'تکمیل پرداخت',
+          cancelOrder: 'لغو سفارش',
+          cancelConfirm: 'این سفارش پرداخت‌نشده لغو شود؟ هزینه‌ای از شما کسر نمی‌شود و این عمل قابل بازگشت نیست.',
+          cancelErr: 'لغو سفارش انجام نشد. دوباره تلاش کنید.',
+          resumeErr: 'باز کردن صفحه پرداخت ممکن نشد.',
+          itemFallback: 'کالا'
+        }
+      };
+      var currentLang = localStorage.getItem('lang') || 'en';
       var cachedOrder = null;
+      var params = new URLSearchParams(window.location.search);
+      var token = params.get('token');
+
+      function applyPageLanguage() {
+        var t = translations[currentLang];
+        document.title = t.pageTitle;
+        document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+        document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+        document.getElementById('site-title').textContent = t.siteTitle;
+        document.getElementById('site-subtitle').textContent = t.siteSubtitle;
+        document.getElementById('nav-home').textContent = t.navHome;
+        document.getElementById('nav-products').textContent = t.navProducts;
+        document.getElementById('nav-basket').textContent = t.navBasket;
+        document.getElementById('nav-orders').textContent = t.navOrders;
+        document.getElementById('nav-track').textContent = t.navTrack;
+        document.getElementById('page-title').textContent = t.mainTitle;
+        document.getElementById('finder-intro').textContent = t.finderIntro;
+        document.getElementById('label-finder-email').textContent = t.labelEmail;
+        document.getElementById('label-finder-order').textContent = t.labelOrderId;
+        document.getElementById('finder-email').placeholder = t.phEmail;
+        document.getElementById('finder-order-id').placeholder = t.phOrder;
+        document.getElementById('finder-submit').textContent = t.finderSubmit;
+        document.getElementById('order-loading-text').textContent = t.loadingOrder;
+        document.getElementById('order-not-found-text').textContent = t.notFound;
+        document.getElementById('detail-order-prefix').textContent = t.orderPrefix;
+        document.getElementById('detail-questions').textContent = t.questions;
+        document.getElementById('btn-cancel-order').textContent = t.cancelOrder;
+        document.getElementById('lang-en').className = currentLang === 'en'
+          ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center'
+          : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center';
+        document.getElementById('lang-fa').className = currentLang === 'fa'
+          ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center'
+          : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center';
+        if (typeof applyFooterI18n === 'function') applyFooterI18n();
+      }
+
+      document.getElementById('lang-en').addEventListener('click', function() {
+        currentLang = 'en';
+        localStorage.setItem('lang', 'en');
+        localStorage.setItem('localePref', 'user');
+        applyPageLanguage();
+        if (cachedOrder) renderOrder(cachedOrder);
+      });
+      document.getElementById('lang-fa').addEventListener('click', function() {
+        currentLang = 'fa';
+        localStorage.setItem('lang', 'fa');
+        localStorage.setItem('localePref', 'user');
+        applyPageLanguage();
+        if (cachedOrder) renderOrder(cachedOrder);
+      });
 
       function showSection(id) {
         ['finder-section', 'order-loading', 'order-not-found', 'order-detail'].forEach(function(s) {
@@ -113,7 +249,9 @@
         if (!iso) return '';
         try {
           var d = new Date(iso);
-          return isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+          if (isNaN(d.getTime())) return iso;
+          var lg = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
+          return lg === 'fa' ? d.toLocaleDateString('fa-IR') : d.toLocaleDateString(undefined, { dateStyle: 'medium' });
         } catch (e) { return iso; }
       }
 
@@ -158,14 +296,12 @@
       function renderOrder(order) {
         cachedOrder = order;
         var orderLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
-        var ft = orderLang === 'fa'
-          ? { fulfillment: 'نحوه دریافت', delivery: 'ارسال به آدرس', collection: 'تحویل حضوری' }
-          : { fulfillment: 'Fulfillment', delivery: 'Delivery', collection: 'Collection (pickup)' };
-        var ffText = order.fulfillment_type === 'collection' ? ft.collection : ft.delivery;
+        var t = translations[orderLang];
+        var ffText = order.fulfillment_type === 'collection' ? t.collection : t.delivery;
         var ffEl = document.getElementById('detail-fulfillment');
-        if (ffEl) ffEl.textContent = ft.fulfillment + ': ' + ffText;
+        if (ffEl) ffEl.textContent = t.fulfillment + ': ' + ffText;
 
-        var addLabel = orderLang === 'fa' ? 'اطلاعات تکمیلی' : 'Additional info';
+        var addLabel = t.additionalInfo;
         var ship = order.shipping_address;
         var extraTxt = ship && typeof ship === 'object' && ship.additional_info ? String(ship.additional_info).trim() : '';
         var addEl = document.getElementById('detail-additional-info');
@@ -179,9 +315,14 @@
           }
         }
 
+        document.getElementById('detail-order-prefix').textContent = t.orderPrefix;
         document.getElementById('detail-order-id').textContent = order.order_number || order.id;
         var st = order.status || 'paid';
-        document.getElementById('detail-status').textContent = st;
+        var stDisp = st;
+        if (st === 'paid') stDisp = t.statusPaid;
+        else if (st === 'pending') stDisp = t.statusPending;
+        else if (st === 'cancelled' || st === 'canceled') stDisp = t.statusCancelled;
+        document.getElementById('detail-status').textContent = stDisp;
         var stEl = document.getElementById('detail-status');
         stEl.className =
           'px-2 py-1 rounded text-sm font-medium ' +
@@ -191,35 +332,50 @@
         if (resumeWrap && resumeBtn) {
           if (st === 'pending' && token && token.length >= 10) {
             resumeWrap.classList.remove('hidden');
-            resumeBtn.textContent = orderLang === 'fa' ? 'تکمیل پرداخت' : 'Complete payment';
+            resumeBtn.textContent = t.resumePayment;
           } else {
             resumeWrap.classList.add('hidden');
           }
         }
-        document.getElementById('detail-date').textContent = 'Placed ' + formatDate(order.created_at);
+        document.getElementById('detail-date').textContent =
+          (orderLang === 'fa' ? t.dateLabelFa : t.placedPrefix) + formatDate(order.created_at);
         var itemsEl = document.getElementById('detail-items');
         itemsEl.innerHTML = '';
         var items = order.line_items || [];
-        items.forEach(function(item) {
-          var qty = item.quantity || 1;
-          var name = item.name || 'Item';
-          var lineAmt = '';
-          if (item.amount_total != null) {
-            lineAmt = typeof formatStripeUsdCents === 'function'
-              ? formatStripeUsdCents(item.amount_total)
-              : ('$' + (Number(item.amount_total) / 100).toFixed(2));
-          } else {
-            var sub = (Number(item.unit_amount || 0) / 100) * qty;
-            lineAmt = typeof formatPriceUSD === 'function' ? formatPriceUSD(sub) : ('$' + sub.toFixed(2));
-          }
-          var li = document.createElement('p');
-          li.className = 'text-slate-700';
-          li.textContent = name + ' × ' + qty + ' — ' + lineAmt;
-          itemsEl.appendChild(li);
-        });
-        document.getElementById('detail-total').textContent = 'Total: ' + formatAmount(order.amount_total, order.currency);
+        var loc = window.orderLineItemsLocale;
+        var finishItems = function(byId) {
+          items.forEach(function(item) {
+            var qty = item.quantity || 1;
+            var name =
+              loc && typeof loc.lineItemDisplayName === 'function'
+                ? loc.lineItemDisplayName(item, orderLang, byId || {})
+                : item.name || t.itemFallback;
+            var lineAmt = '';
+            if (item.amount_total != null) {
+              lineAmt = typeof formatStripeUsdCents === 'function'
+                ? formatStripeUsdCents(item.amount_total)
+                : ('$' + (Number(item.amount_total) / 100).toFixed(2));
+            } else {
+              var sub = (Number(item.unit_amount || 0) / 100) * qty;
+              lineAmt = typeof formatPriceUSD === 'function' ? formatPriceUSD(sub) : ('$' + sub.toFixed(2));
+            }
+            var li = document.createElement('p');
+            li.className = 'text-slate-700';
+            li.textContent = name + ' × ' + qty + ' — ' + lineAmt;
+            itemsEl.appendChild(li);
+          });
+          document.getElementById('detail-total').textContent =
+            (orderLang === 'fa' ? 'جمع: ' : 'Total: ') + formatAmount(order.amount_total, order.currency);
+        };
+        if (loc && typeof loc.ensureProductCatalog === 'function') {
+          loc.ensureProductCatalog().then(finishItems).catch(function() { finishItems({}); });
+        } else {
+          finishItems({});
+        }
         if (order.tracking_number && order.tracking_number.trim()) {
           document.getElementById('detail-tracking').classList.remove('hidden');
+          document.getElementById('detail-tracking-label').textContent =
+            orderLang === 'fa' ? t.trackingLabelFa : t.trackingLabel;
           document.getElementById('detail-tracking-number').textContent = order.tracking_number;
         } else {
           document.getElementById('detail-tracking').classList.add('hidden');
@@ -244,7 +400,7 @@
         if (!token || token.length < 10) return;
         var btn = this;
         var lg = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
-        var genericErr = lg === 'fa' ? 'باز کردن صفحه پرداخت ممکن نشد.' : 'Could not open checkout.';
+        var genericErr = translations[lg].resumeErr;
         setResumeError('');
         btn.disabled = true;
         fetch('/api/orders/guest-resume-checkout', {
@@ -278,11 +434,8 @@
         if (!token || token.length < 10) return;
         var btn = this;
         var lg = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'en';
-        var confirmMsg =
-          lg === 'fa'
-            ? 'این سفارش پرداخت‌نشده لغو شود؟ هزینه‌ای از شما کسر نمی‌شود و این عمل قابل بازگشت نیست.'
-            : 'Cancel this unpaid order? You will not be charged. This cannot be undone.';
-        var genericErr = lg === 'fa' ? 'لغو سفارش انجام نشد. دوباره تلاش کنید.' : 'Could not cancel the order. Please try again.';
+        var confirmMsg = translations[lg].cancelConfirm;
+        var genericErr = translations[lg].cancelErr;
         if (!confirm(confirmMsg)) return;
         setCancelError('');
         setResumeError('');
@@ -314,19 +467,19 @@
           });
       });
 
+      applyPageLanguage();
+
       if (token && token.length >= 10) {
         document.getElementById('finder-section').classList.add('hidden');
         loadByToken(token);
-        return;
-      }
-
+      } else {
       document.getElementById('finder-form').addEventListener('submit', function(e) {
         e.preventDefault();
         var email = document.getElementById('finder-email').value.trim();
         var orderId = document.getElementById('finder-order-id').value.trim();
         var errEl = document.getElementById('finder-error');
         if (!email || !orderId) {
-          errEl.textContent = 'Please enter both email and order ID.';
+          errEl.textContent = translations[currentLang].finderBothRequired;
           errEl.classList.remove('hidden');
           return;
         }
@@ -342,11 +495,11 @@
             showSection('order-not-found');
           });
       });
+      }
 
       window.addEventListener('appcurrencychange', function() {
         if (cachedOrder) renderOrder(cachedOrder);
       });
-    })();
     });
   </script>
 </body>

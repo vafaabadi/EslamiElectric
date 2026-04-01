@@ -10,6 +10,7 @@
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
+  <script src="js/site-footer-i18n.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -118,8 +119,8 @@
         </div>
       </div>
       <div class="border-t border-slate-700 mt-8 pt-6 text-center text-sm text-slate-400">
-        <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
-        <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
+        <p data-i18n="footer-copyright"></p>
+        <p data-i18n="footer-dev" class="text-xs text-slate-500 mt-2"></p>
       </div>
     </div>
   </footer>
@@ -271,6 +272,7 @@
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
 
+      if (typeof applyFooterI18n === 'function') applyFooterI18n();
       renderProducts();
     }
 

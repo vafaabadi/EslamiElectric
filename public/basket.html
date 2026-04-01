@@ -9,6 +9,7 @@
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
+  <script src="js/site-footer-i18n.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
   <link rel="stylesheet" href="css/intl-phone.css">
@@ -157,8 +158,8 @@
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
-      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
+      <p data-i18n="footer-copyright"></p>
+      <p data-i18n="footer-dev" class="text-xs text-slate-500 mt-2"></p>
     </div>
   </footer>
 
@@ -224,13 +225,14 @@
         phoneErrorInvalid: 'This number is not valid for the selected country. Change the country or correct the digits.',
         editPendingBanner: 'You are editing unpaid order {order}. Proceed to checkout to pay with your changes.',
         profileCheckoutWhy:
-          'With Google or Telegram sign-in, we need a few details on My Profile before you can pay.',
+          'We need your first name, surname, mobile number, and email on My Profile before you can pay.',
         profileMissingHeading: 'Please complete:',
         profileMissingFields: {
           firstName: 'First name',
           surname: 'Surname',
           mobile: 'Mobile number',
-          contactEmail: 'Contact email (required for Telegram sign-in)',
+          email: 'Email',
+          contactEmail: 'Contact email (Telegram sign-in)',
           companyName: 'Company name',
           companyContactNumber: 'Company contact number'
         },
@@ -292,13 +294,14 @@
         phoneErrorInvalid: 'این شماره برای کشور انتخاب‌شده معتبر نیست.',
         editPendingBanner: 'در حال ویرایش سفارش پرداخت‌نشده {order} هستید. برای پرداخت با تغییرات، ادامه به پرداخت را بزنید.',
         profileCheckoutWhy:
-          'با ورود گوگل یا تلگرام، قبل از پرداخت باید چند مورد را در «پروفایل من» تکمیل کنید.',
+          'قبل از پرداخت باید نام، نام خانوادگی، موبایل و ایمیل را در «پروفایل من» تکمیل کنید.',
         profileMissingHeading: 'لطفاً این موارد را تکمیل کنید:',
         profileMissingFields: {
           firstName: 'نام',
           surname: 'نام خانوادگی',
           mobile: 'شماره موبایل',
-          contactEmail: 'ایمیل تماس (برای ورود با تلگرام)',
+          email: 'ایمیل',
+          contactEmail: 'ایمیل تماس (تلگرام)',
           companyName: 'نام شرکت',
           companyContactNumber: 'تلفن تماس شرکت'
         },
@@ -584,6 +587,8 @@
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
 
+      if (typeof applyFooterI18n === 'function') applyFooterI18n();
+
       document.getElementById('nav-login').classList.toggle('hidden', !!tokenForNav);
       document.getElementById('nav-logout').classList.toggle('hidden', !tokenForNav);
       document.getElementById('go-account').classList.toggle('hidden', !!tokenForNav);
@@ -803,11 +808,13 @@
 
       const lineItems = basket.map((item) => {
         const name = currentLang === 'fa' && item.name_fa ? item.name_fa : item.name;
-        return {
+        const row = {
           name: name || 'Item',
           price: Number(item.price) || 0,
           quantity: item.quantity || 1
         };
+        if (item.id) row.productId = item.id;
+        return row;
       });
 
       try {

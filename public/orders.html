@@ -8,7 +8,9 @@
   <style>html:not(.locale-ready) body{opacity:0}</style>
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
+  <script src="js/order-line-items.js"></script>
   <script src="js/locale-init.js"></script>
+  <script src="js/site-footer-i18n.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -62,8 +64,8 @@
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
     <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-      <p>&copy; 2026 Eslami Electric. All rights reserved.</p>
-      <p class="text-xs text-slate-500 mt-2">Website developed by Vafa Abadi.</p>
+      <p data-i18n="footer-copyright"></p>
+      <p data-i18n="footer-dev" class="text-xs text-slate-500 mt-2"></p>
     </div>
   </footer>
 
@@ -106,6 +108,7 @@
           firstName: 'First name',
           surname: 'Surname',
           mobile: 'Mobile number',
+          email: 'Email',
           contactEmail: 'Contact email (Telegram sign-in)',
           companyName: 'Company name',
           companyContactNumber: 'Company contact number'
@@ -154,6 +157,7 @@
           firstName: 'نام',
           surname: 'نام خانوادگی',
           mobile: 'شماره موبایل',
+          email: 'ایمیل',
           contactEmail: 'ایمیل تماس (تلگرام)',
           companyName: 'نام شرکت',
           companyContactNumber: 'تلفن تماس شرکت'
@@ -224,6 +228,7 @@
       document.getElementById('lang-fa').className = currentLang === 'fa'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+      if (typeof applyFooterI18n === 'function') applyFooterI18n();
       const token = localStorage.getItem('token');
       document.getElementById('nav-login').classList.toggle('hidden', !!token);
       document.getElementById('nav-logout').classList.toggle('hidden', !token);
@@ -231,7 +236,7 @@
       document.getElementById('nav-profile').classList.toggle('hidden', !token);
 
       if (lastOrdersSnapshot && document.getElementById('orders-list') && !document.getElementById('orders-list').classList.contains('hidden')) {
-        renderOrders(lastOrdersSnapshot);
+        void renderOrders(lastOrdersSnapshot);
       }
     }
 
@@ -247,10 +252,22 @@
       }
     }
 
-    function renderOrders(orders) {
+    async function renderOrders(orders) {
       const listEl = document.getElementById('orders-list');
       listEl.innerHTML = '';
       const t = translations[currentLang];
+      const byId =
+        window.orderLineItemsLocale && typeof window.orderLineItemsLocale.ensureProductCatalog === 'function'
+          ? await window.orderLineItemsLocale.ensureProductCatalog()
+          : {};
+      const lineName = (item) =>
+        window.orderLineItemsLocale && typeof window.orderLineItemsLocale.lineItemDisplayName === 'function'
+          ? window.orderLineItemsLocale.lineItemDisplayName(item, currentLang, byId)
+          : item && item.name != null
+            ? String(item.name)
+            : currentLang === 'fa'
+              ? 'کالا'
+              : 'Item';
       const statusLabel = (s) => {
         const n = normalizeOrderStatus(s);
         if (n === 'paid') return t.statusPaid;
@@ -264,7 +281,7 @@
         li.className = 'bg-white rounded-xl shadow-md overflow-hidden';
         const lineItems = order.line_items || [];
         const itemsSummary = lineItems.length
-          ? lineItems.map(i => escapeHtml(i.name) + (i.quantity > 1 ? ' × ' + i.quantity : '')).join(', ')
+          ? lineItems.map(i => escapeHtml(lineName(i)) + (i.quantity > 1 ? ' × ' + i.quantity : '')).join(', ')
           : '—';
         const orderNum = order.order_number || order.id;
         const ship = order.shipping_address;
@@ -318,7 +335,7 @@
             const qty = item.quantity || 1;
             const amt = item.amount_total != null ? formatAmount(item.amount_total, order.currency) : '';
             const row = document.createElement('li');
-            row.textContent = `${item.name != null ? String(item.name) : 'Item'} × ${qty}${amt ? ' — ' + amt : ''}`;
+            row.textContent = `${lineName(item)} × ${qty}${amt ? ' — ' + amt : ''}`;
             itemsListEl.appendChild(row);
           });
         } else {
@@ -500,7 +517,7 @@
         }
         showSection('orders-list');
         lastOrdersSnapshot = orders;
-        renderOrders(orders);
+        await renderOrders(orders);
       } catch (e) {
         showSection('orders-login-required');
         document.getElementById('login-required-message').textContent = 'Could not load orders. Please try again.';
@@ -526,7 +543,7 @@
     });
 
     window.addEventListener('appcurrencychange', function() {
-      if (lastOrdersSnapshot && lastOrdersSnapshot.length) renderOrders(lastOrdersSnapshot);
+      if (lastOrdersSnapshot && lastOrdersSnapshot.length) void renderOrders(lastOrdersSnapshot);
     });
 
     applyPageLanguage();
