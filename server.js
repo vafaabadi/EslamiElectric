@@ -297,13 +297,16 @@ app.use((req, res, next) => {
 });
 
 // Apex → www: matches Telegram Login Widget domain (BotFather /setdomain) and one canonical URL.
-// 308 preserves method/body so POST (e.g. /api/webhooks/stripe) still works after redirect.
+// Use 302 for pages so POST is not preserved (308 would keep POST and break HTML routes that only define GET).
+// Use 308 only for /api/* so POST (e.g. /api/webhooks/stripe) still works if something hits the apex host.
 app.use((req, res, next) => {
   const host = (req.hostname || req.get('host') || '').toLowerCase().split(':')[0];
   if (host === 'eslamielectric.com') {
     const pathAndQuery = req.originalUrl || req.url || '/';
     const target = 'https://www.eslamielectric.com' + pathAndQuery;
-    return res.redirect(308, target);
+    const pathOnly = pathAndQuery.split('?')[0] || '/';
+    const isApi = pathOnly === '/api' || pathOnly.startsWith('/api/');
+    return res.redirect(isApi ? 308 : 302, target);
   }
   next();
 });
@@ -776,6 +779,10 @@ LOCALE_PREFIXES.forEach((locale) => {
     const subPath = req.path.slice(('/' + locale).length) || '/';
     serveLocalePage(locale, subPath, req, res);
   });
+  // Browsers must GET HTML pages; some clients POST after a 308 apex→www redirect (method preserved).
+  app.post(new RegExp('^/' + locale + '(?:/.*)?$'), (req, res) => {
+    res.redirect(303, req.originalUrl || req.url);
+  });
 });
 
 /**
@@ -786,11 +793,18 @@ app.get('/login.html', (req, res) => {
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   res.redirect(302, '/en/login.html' + qs);
 });
+app.post('/login.html', (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(303, '/en/login.html' + qs);
+});
 
 for (const name of HTML_WITH_PUBLIC_CONFIG) {
   if (name === 'login.html') continue;
   app.get('/' + name, (req, res) => {
     serveHtmlWithPublicConfig(req, res, name);
+  });
+  app.post('/' + name, (req, res) => {
+    res.redirect(303, req.originalUrl || req.url);
   });
 }
 
