@@ -763,7 +763,17 @@ LOCALE_PREFIXES.forEach((locale) => {
   });
 });
 
+/**
+ * Root /login.html is easy to serve as a raw static file on some hosts (no Node injection), so
+ * SERVER_PUBLIC_CONFIG is missing and Telegram/Google break. Locale URLs always go through this app.
+ */
+app.get('/login.html', (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, '/en/login.html' + qs);
+});
+
 for (const name of HTML_WITH_PUBLIC_CONFIG) {
+  if (name === 'login.html') continue;
   app.get('/' + name, (req, res) => {
     serveHtmlWithPublicConfig(req, res, name);
   });

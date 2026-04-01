@@ -2,6 +2,18 @@
 <html lang="en">
 <head>
   <!--SERVER_PUBLIC_CONFIG-->
+  <script>
+    (function () {
+      try {
+        var el = document.getElementById('server-public-config');
+        if (el && el.textContent && String(el.textContent).trim()) return;
+        var path = location.pathname || '';
+        if (path !== '/login.html') return;
+        var lang = typeof localStorage !== 'undefined' && localStorage.getItem('lang') === 'fa' ? 'fa' : 'en';
+        location.replace('/' + lang + '/login.html' + location.search + location.hash);
+      } catch (e) {}
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Log In - Eslami Electric</title>
@@ -105,8 +117,12 @@
         siteSubtitle: 'Quality electrical supplies',
         formTitle: 'Log In',
         welcomeSub: 'Welcome to Eslami Electric',
-        hintTelegram: 'Telegram is popular in your region — both options work everywhere.',
-        hintGoogle: 'Google sign-in is widely used in your region — both options work everywhere.',
+        hintTelegram:
+          'Telegram is popular in your region — Google and email/password work everywhere too.',
+        hintGoogle:
+          'Google sign-in is widely used in your region — Telegram and email/password work everywhere too.',
+        hintSoloSocial:
+          'Use Google or sign in with email and password below. Telegram only appears when the site has Telegram sign-in configured — resetting your password does not remove it.',
         continueGoogle: 'Continue with Google',
         telegramLabel: 'Log in with Telegram',
         orDivider: 'or',
@@ -136,8 +152,12 @@
         siteSubtitle: 'تجهیزات برقی با کیفیت',
         formTitle: 'ورود',
         welcomeSub: 'به الکتریکی اسلامی خوش آمدید',
-        hintTelegram: 'در منطقه شما تلگرام رایج‌تر است — هر دو روش در همه جا در دسترس است.',
-        hintGoogle: 'ورود با گوگل برای بسیاری از کاربران راحت‌تر است — هر دو روش در همه جا در دسترس است.',
+        hintTelegram:
+          'در منطقه شما تلگرام رایج‌تر است — گوگل و ایمیل/رمز عبور هم در همه جا در دسترس است.',
+        hintGoogle:
+          'ورود با گوگل برای بسیاری راحت‌تر است — تلگرام و ایمیل/رمز عبور هم در همه جا در دسترس است.',
+        hintSoloSocial:
+          'با گوگل یا ایمیل و رمز عبور وارد شوید. تلگرام فقط وقتی نمایش داده می‌شود که برای سایت فعال باشد — بازنشانی رمز آن را حذف نمی‌کند.',
         continueGoogle: 'ادامه با گوگل',
         telegramLabel: 'ورود با تلگرام',
         orDivider: 'یا',
@@ -212,12 +232,21 @@
     function updateSoftHintText() {
       const hintEl = document.getElementById('auth-soft-hint');
       const t = translations[currentLang];
+      if (window.__loginGeoIran !== true && window.__loginGeoIran !== false) {
+        hintEl.classList.add('hidden');
+        return;
+      }
+      const cfg = readServerPublicConfig();
+      var tgOn = !!(cfg && cfg.telegramLoginEnabled);
+      hintEl.classList.remove('hidden');
+      if (!tgOn) {
+        hintEl.textContent = t.hintSoloSocial || t.hintGoogle;
+        return;
+      }
       if (window.__loginGeoIran === true) {
         hintEl.textContent = t.hintTelegram;
-        hintEl.classList.remove('hidden');
-      } else if (window.__loginGeoIran === false) {
+      } else {
         hintEl.textContent = t.hintGoogle;
-        hintEl.classList.remove('hidden');
       }
     }
 
