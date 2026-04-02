@@ -5,6 +5,7 @@ const {
   logStartupSummary,
   getDeploymentEnvironment
 } = require('./config/environment');
+const { injectSeoBundle, buildSitemapXml, buildRobotsTxt, normalizeRouteKey } = require('./lib/seo');
 const crypto = require('crypto');
 const express = require('express');
 const compression = require('compression');
@@ -230,17 +231,6 @@ function injectPublicConfig(html, req) {
 }
 
 /** PWA install (manifest + icons). Root-absolute URLs so locale <base> does not rewrite them. */
-/** Default SEO meta when pages omit one (Lighthouse SEO audit). */
-function injectSeo(html) {
-  if (!html || html.includes('name="description"')) return html;
-  const meta =
-    '<meta name="description" content="Eslami Electric — quality electrical supplies in Zahedan, Iran. Shop cables, lighting, sockets, and more.">';
-  if (/<meta\s+charset=/i.test(html)) {
-    return html.replace(/<meta\s+charset="UTF-8"\s*\/?>\s*/i, '<meta charset="UTF-8">\n  ' + meta + '\n  ');
-  }
-  return html.replace(/<head(\s[^>]*)?>/i, '<head$1>\n  ' + meta + '\n  ');
-}
-
 function injectPwa(html) {
   if (!html || html.includes('rel="manifest"')) return html;
   const snippet =
@@ -289,8 +279,14 @@ function serveHtmlWithPublicConfig(req, res, relativePath) {
       if (err.code === 'ENOENT') return res.status(404).send('Not found');
       return res.status(500).send('Error loading page');
     }
+    const baseUrl = getPublicBaseUrlForClient(req);
+    const routeKey = normalizeRouteKey(relativePath.replace(/\.html$/i, ''));
     const injected = injectAnalyticsScript(
-      injectSpeedInsightsScript(injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req)))))
+      injectSpeedInsightsScript(
+        injectServiceWorker(
+          injectPwa(injectSeoBundle(injectPublicConfig(data, req), { baseUrl, locale: 'en', routeKey }))
+        )
+      )
     );
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
@@ -819,8 +815,11 @@ function serveLocalePage(locale, subPath, req, res) {
         return res.status(500).send('Error loading page');
       }
       let body = HTML_WITH_PUBLIC_CONFIG.has(htmlFile) ? injectPublicConfig(data, req) : data;
+      const baseUrl = getPublicBaseUrlForClient(req);
+      const routeKey = normalizeRouteKey(seg);
+      body = injectSeoBundle(body, { baseUrl, locale, routeKey });
       body = injectAnalyticsScript(
-        injectSpeedInsightsScript(injectServiceWorker(injectPwa(injectSeo(body))))
+        injectSpeedInsightsScript(injectServiceWorker(injectPwa(body)))
       );
       const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -844,8 +843,10 @@ function serveLocalePage(locale, subPath, req, res) {
   const indexPath = path.join(publicDir, 'index.html');
   fs.readFile(indexPath, 'utf8', (err, data) => {
     if (err) return res.status(404).send('Not found');
-    let body = injectAnalyticsScript(
-      injectSpeedInsightsScript(injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req)))))
+    const baseUrl = getPublicBaseUrlForClient(req);
+    let body = injectSeoBundle(injectPublicConfig(data, req), { baseUrl, locale, routeKey: '' });
+    body = injectAnalyticsScript(
+      injectSpeedInsightsScript(injectServiceWorker(injectPwa(body)))
     );
     const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -898,6 +899,18 @@ app.get('/sw.js', (req, res) => {
   res.type('application/javascript');
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(publicDir, 'sw.js'));
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(buildRobotsTxt(getPublicBaseUrlForClient(req)));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(buildSitemapXml(getPublicBaseUrlForClient(req)));
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
