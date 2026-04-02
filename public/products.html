@@ -4,13 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Products - Eslami Electric</title>
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+  <link rel="dns-prefetch" href="https://images.unsplash.com">
+  <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&amp;h=300&amp;fit=crop" fetchpriority="high">
   <link rel="stylesheet" href="css/mobile.css">
-  <style>html:not(.locale-ready) body{opacity:0}</style>
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="js/site-footer-i18n.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <script>
@@ -48,7 +51,7 @@
   </header>
   <script src="js/mobile-nav.js"></script>
 
-  <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-8">
+  <main id="products-page-main" class="flex-grow max-w-6xl w-full mx-auto px-4 py-8">
     <h2 id="page-title" class="text-2xl sm:text-3xl font-bold text-slate-800 mb-4 sm:mb-6">Products</h2>
 
     <div id="category-tabs" class="flex flex-wrap gap-2 mb-4 sm:mb-6"></div>
@@ -58,7 +61,7 @@
       <select id="product-sort" class="min-w-[12rem] max-w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"></select>
     </div>
 
-    <p id="loading" class="text-center text-slate-500 py-8">Loading categories...</p>
+    <p id="loading" class="text-center text-slate-500 py-8 min-h-[3rem]">Loading categories...</p>
     <div id="error" class="hidden rounded-xl bg-red-50 border border-red-200 p-4 text-red-700 text-center"></div>
     <p id="no-categories" class="hidden text-center text-slate-500 py-4">No categories available.</p>
     <p id="no-products" class="hidden text-center text-slate-500"></p>
@@ -350,8 +353,8 @@
         const fetchPriority = idx === 0 ? ' fetchpriority="high"' : '';
         productsGrid.insertAdjacentHTML('beforeend', `
           <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow" data-product-id="${productId}" data-category-id="${catIdEscaped}">
-            <div class="aspect-[4/3] bg-slate-200 overflow-hidden">
-              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover" loading="${imgLoading}"${fetchPriority}>
+            <div class="product-card-media aspect-[4/3] bg-slate-200 overflow-hidden">
+              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover" width="400" height="300" decoding="async" loading="${imgLoading}"${fetchPriority}>
             </div>
             <div class="p-4">
               <h3 class="text-lg font-semibold text-slate-800 mt-1">${escapeHtml(name)}</h3>

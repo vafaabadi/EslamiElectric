@@ -3,6 +3,37 @@ html, body {
   overflow-x: hidden;
 }
 
+/* CLS / LCP: layout + image box before Tailwind CDN applies utility classes */
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f1f5f9;
+}
+
+.product-card-media {
+  aspect-ratio: 4 / 3;
+  background-color: rgb(226 232 240);
+  overflow: hidden;
+}
+
+.product-card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#home-main-product-area {
+  position: relative;
+  min-height: min(60vh, 720px);
+}
+
+#products-page-main {
+  position: relative;
+  min-height: min(50vh, 640px);
+}
+
 @media (max-width: 639px) {
   #header-nav {
     display: none;
