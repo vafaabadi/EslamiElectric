@@ -33,6 +33,19 @@ app.use(
   })
 );
 
+/** Serve @vercel/analytics browser bundle for /js/analytics-init.js (ESM import). */
+const analyticsDist = path.join(__dirname, 'node_modules', '@vercel', 'analytics', 'dist');
+app.use(
+  '/vendor/analytics',
+  express.static(analyticsDist, {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.mjs')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
+    }
+  })
+);
+
 const PORT = process.env.PORT || 3000;
 
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
@@ -253,6 +266,13 @@ function injectSpeedInsightsScript(html) {
   return html.replace(/<\/head>/i, '  ' + snippet + '</head>');
 }
 
+/** Vercel Web Analytics (vanilla / non-Next.js). Dashboard: Project → Analytics. */
+function injectAnalyticsScript(html) {
+  if (!html || html.includes('analytics-init.js')) return html;
+  const snippet = '<script type="module" src="/js/analytics-init.js"></script>\n';
+  return html.replace(/<\/head>/i, '  ' + snippet + '</head>');
+}
+
 const HTML_WITH_PUBLIC_CONFIG = new Set([
   'index.html',
   'auth-callback.html',
@@ -269,8 +289,8 @@ function serveHtmlWithPublicConfig(req, res, relativePath) {
       if (err.code === 'ENOENT') return res.status(404).send('Not found');
       return res.status(500).send('Error loading page');
     }
-    const injected = injectSpeedInsightsScript(
-      injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req))))
+    const injected = injectAnalyticsScript(
+      injectSpeedInsightsScript(injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req)))))
     );
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
@@ -799,7 +819,9 @@ function serveLocalePage(locale, subPath, req, res) {
         return res.status(500).send('Error loading page');
       }
       let body = HTML_WITH_PUBLIC_CONFIG.has(htmlFile) ? injectPublicConfig(data, req) : data;
-      body = injectSpeedInsightsScript(injectServiceWorker(injectPwa(injectSeo(body))));
+      body = injectAnalyticsScript(
+        injectSpeedInsightsScript(injectServiceWorker(injectPwa(injectSeo(body))))
+      );
       const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'private, no-store');
@@ -822,8 +844,8 @@ function serveLocalePage(locale, subPath, req, res) {
   const indexPath = path.join(publicDir, 'index.html');
   fs.readFile(indexPath, 'utf8', (err, data) => {
     if (err) return res.status(404).send('Not found');
-    let body = injectSpeedInsightsScript(
-      injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req))))
+    let body = injectAnalyticsScript(
+      injectSpeedInsightsScript(injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req)))))
     );
     const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
