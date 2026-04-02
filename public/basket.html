@@ -497,25 +497,34 @@
       }
     }
 
+    /** Profile completion banner only matters when there is something to pay for. */
+    function syncProfileGateFromState() {
+      const gateEl = document.getElementById('profile-checkout-gate');
+      if (!gateEl) return;
+      if (checkoutProfileBlocked && getBasket().length > 0) {
+        gateEl.classList.remove('hidden');
+      } else {
+        gateEl.classList.add('hidden');
+      }
+    }
+
     async function loadCheckoutProfileGate() {
       const gateEl = document.getElementById('profile-checkout-gate');
       const token = localStorage.getItem('token');
-      if (!token) {
-        checkoutProfileBlocked = false;
-        if (gateEl) {
-          gateEl.classList.add('hidden');
-          gateEl.innerHTML = '';
-        }
-        updateCheckoutButtonState();
-        return;
-      }
       try {
+        if (!token) {
+          checkoutProfileBlocked = false;
+          if (gateEl) {
+            gateEl.innerHTML = '';
+          }
+          updateCheckoutButtonState();
+          return;
+        }
         const r = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } });
         const d = await r.json().catch(function () { return {}; });
         if (!r.ok) {
           checkoutProfileBlocked = false;
           if (gateEl) {
-            gateEl.classList.add('hidden');
             gateEl.innerHTML = '';
           }
           updateCheckoutButtonState();
@@ -538,19 +547,18 @@
             listPart +
             '<a href="profile.html" class="inline-flex font-semibold text-amber-900 underline hover:text-amber-800">' +
             escapeHtml(tr.profileCheckoutLink || 'Profile') + '</a>';
-          gateEl.classList.remove('hidden');
         } else if (gateEl) {
-          gateEl.classList.add('hidden');
           gateEl.innerHTML = '';
         }
         updateCheckoutButtonState();
       } catch (e) {
         checkoutProfileBlocked = false;
         if (gateEl) {
-          gateEl.classList.add('hidden');
           gateEl.innerHTML = '';
         }
         updateCheckoutButtonState();
+      } finally {
+        syncProfileGateFromState();
       }
     }
 
@@ -726,6 +734,7 @@
         emptyEl.classList.remove('hidden');
         contentEl.classList.add('hidden');
         updateCheckoutButtonState();
+        syncProfileGateFromState();
         return;
       }
 
@@ -819,6 +828,7 @@
 
       syncFulfillmentUI();
       loadProfileForCheckout();
+      syncProfileGateFromState();
     }
 
     document.querySelectorAll('input[name="fulfillment"]').forEach(function (el) {
