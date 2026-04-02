@@ -17,10 +17,6 @@
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <div class="flex-1 flex items-center justify-center p-4 w-full">
   <div class="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
-    <div class="flex justify-end gap-2 mb-4">
-      <button type="button" id="lang-en" class="px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900">English</button>
-      <button type="button" id="lang-fa" class="px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50">فارسی</button>
-    </div>
     <p id="status" class="text-slate-600">Confirming your email…</p>
     <p id="error" class="hidden mt-2 text-sm text-red-600"></p>
   </div>
@@ -77,24 +73,8 @@
       document.title = tr('pageTitle');
       document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
       document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
-      var e = document.getElementById('lang-en');
-      var f = document.getElementById('lang-fa');
-      if (e) e.className = currentLang === 'en' ? 'px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900' : 'px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50';
-      if (f) f.className = currentLang === 'fa' ? 'px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900' : 'px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50';
       if (typeof applyFooterI18n === 'function') applyFooterI18n();
     }
-    document.getElementById('lang-en').addEventListener('click', function() {
-      currentLang = 'en';
-      localStorage.setItem('lang', 'en');
-      localStorage.setItem('localePref', 'user');
-      applyChrome();
-    });
-    document.getElementById('lang-fa').addEventListener('click', function() {
-      currentLang = 'fa';
-      localStorage.setItem('lang', 'fa');
-      localStorage.setItem('localePref', 'user');
-      applyChrome();
-    });
     applyChrome();
 
     (async function () {
