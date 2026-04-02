@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "build": "tailwindcss -i ./src/tailwind-input.css -o ./public/css/tailwind.css --minify",
     "lighthouse": "node scripts/lighthouse-run.mjs",
     "lighthouse:all": "node scripts/lighthouse-run.mjs --all"
   },
@@ -30,6 +31,7 @@
     "stripe": "^20.4.1"
   },
   "devDependencies": {
-    "lighthouse": "^12.8.2"
+    "lighthouse": "^12.8.2",
+    "tailwindcss": "^3.4.17"
   }
 }

@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/js/auth-nav-sync.js"></script>
   <title>Track Order - Eslami Electric</title>
+  <link rel="stylesheet" href="css/tailwind.css">
   <link rel="stylesheet" href="css/mobile.css">
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/order-line-items.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="js/site-footer-i18n.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -196,7 +197,8 @@
         document.getElementById('site-subtitle').textContent = t.siteSubtitle;
         document.getElementById('nav-home').textContent = t.navHome;
         document.getElementById('nav-products').textContent = t.navProducts;
-        document.getElementById('nav-basket').textContent = t.navBasket;
+        var navBasketLabel = document.getElementById('nav-basket-label');
+        if (navBasketLabel) navBasketLabel.textContent = t.navBasket;
         document.getElementById('nav-orders').textContent = t.navOrders;
         document.getElementById('nav-track').textContent = t.navTrack;
         document.getElementById('page-title').textContent = t.mainTitle;

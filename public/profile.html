@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/js/auth-nav-sync.js"></script>
   <title>My Profile - Eslami Electric</title>
+  <link rel="stylesheet" href="css/tailwind.css">
   <link rel="stylesheet" href="css/mobile.css">
   <script src="js/locale-bootstrap.js"></script>
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="js/site-footer-i18n.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
   <link rel="stylesheet" href="css/intl-phone.css">
 </head>
@@ -29,7 +30,7 @@
       <nav id="header-nav" class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-2 w-full sm:w-auto" aria-label="Navigation">
         <a href="index.html" id="nav-home" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Home</a>
         <a href="products.html" id="nav-products" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Products</a>
-        <a href="basket.html" id="nav-basket" class="hidden sm:inline-flex px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Basket</a>
+        <a href="basket.html" id="nav-basket" class="hidden sm:inline-flex px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors"><span id="nav-basket-label">Basket</span></a>
         <a href="orders.html" id="nav-orders" class="px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">My Orders</a>
         <a href="profile.html" id="nav-profile" class="px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900">My Profile</a>
         <a href="login.html" id="nav-login" class="hidden px-3 py-1.5 rounded text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">Login</a>
@@ -328,9 +329,10 @@
       document.getElementById('page-title').textContent = t.pageTitle;
       document.getElementById('nav-home').textContent = t.navHome;
       document.getElementById('nav-products').textContent = t.navProducts;
-      const navBasketMobileEl = document.getElementById('nav-basket-mobile');
-      if (navBasketMobileEl) navBasketMobileEl.textContent = t.navBasket;
-      document.getElementById('nav-basket').textContent = t.navBasket;
+      const navBasketMobileLabel = document.getElementById('nav-basket-mobile-label');
+      if (navBasketMobileLabel) navBasketMobileLabel.textContent = t.navBasket;
+      const navBasketLabel = document.getElementById('nav-basket-label');
+      if (navBasketLabel) navBasketLabel.textContent = t.navBasket;
       document.getElementById('nav-orders').textContent = t.navOrders;
       document.getElementById('nav-profile').textContent = t.navProfile;
       document.getElementById('nav-login').textContent = t.navLogin;

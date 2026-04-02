@@ -34,6 +34,29 @@ body {
   min-height: min(50vh, 640px);
 }
 
+/* CLS: orders list area swaps loading / empty / list — reserve space */
+#orders-page-main {
+  min-height: min(40vh, 480px);
+}
+
+/*
+ * CLS: match logged-in/out nav before applyLanguage (token in localStorage).
+ * Specificity must beat #header-nav .hidden on narrow screens.
+ */
+html.auth #header-nav #nav-login,
+html.auth #header-nav #go-account {
+  display: none !important;
+}
+html.auth #header-nav #nav-logout {
+  display: inline-flex !important;
+  align-items: center;
+}
+html.auth #header-nav #nav-orders,
+html.auth #header-nav #nav-profile {
+  display: inline-flex !important;
+  align-items: center;
+}
+
 @media (max-width: 639px) {
   #header-nav {
     display: none;

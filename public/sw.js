@@ -4,14 +4,16 @@
  * Eslami Electric — offline cache (Zahedan / spotty connections).
  * Bump CACHE_VERSION when you change precache URLs or need a full refresh.
  */
-var CACHE_VERSION = 'eslami-v5';
+var CACHE_VERSION = 'eslami-v7';
 var PRECACHE = [
   '/',
   '/offline.html',
   '/site.webmanifest',
   '/icons/icon.svg',
   '/icons/icon-192.png',
+  '/css/tailwind.css',
   '/css/mobile.css',
+  '/js/auth-nav-sync.js',
   '/css/intl-phone.css',
   '/js/locale-bootstrap.js',
   '/js/price-format.js',
