@@ -1,7 +1,7 @@
 /**
  * Registers the service worker (offline + asset cache). Safe no-op if unsupported.
- * Update UX: bilingual banner + manual refresh; optional soft-reload when the tab is
- * backgrounded (industry pattern) except on sensitive URLs or dirty forms.
+ * Update UX: locale banner (localStorage.lang, fallback en) + manual refresh; optional
+ * soft-reload when the tab is backgrounded (industry pattern) except on sensitive URLs or dirty forms.
  */
 (function () {
   if (!('serviceWorker' in navigator)) return;
@@ -107,6 +107,33 @@
     document.addEventListener('visibilitychange', onVisibilityChange);
   }
 
+  /** Matches site language (see locale-init / lang buttons). */
+  function getBannerLang() {
+    try {
+      var lang = localStorage.getItem('lang');
+      return lang === 'fa' ? 'fa' : 'en';
+    } catch (e) {
+      return 'en';
+    }
+  }
+
+  var SW_BANNER_COPY = {
+    en: {
+      main: 'A new version is available. Refresh to load the latest.',
+      hint: 'If you leave this tab briefly, we may refresh automatically (not on checkout or forms).',
+      refresh: 'Refresh',
+      later: 'Later',
+      dismissAria: 'Dismiss update notice'
+    },
+    fa: {
+      main: 'نسخهٔ جدید آماده است. با بازخوانی، آخرین نسخه بارگذاری می‌شود.',
+      hint: 'اگر تب را کمی ترک کنید، در صفحات امن ممکن است خودکار بازخوانی شود.',
+      refresh: 'بازخوانی',
+      later: 'بعداً',
+      dismissAria: 'بستن اعلان به‌روزرسانی'
+    }
+  };
+
   function showUpdateBanner() {
     markUpdatePending();
     if (document.getElementById('sw-update-banner')) return;
@@ -137,29 +164,26 @@
       'line-height:1.4'
     ].join(';');
 
+    var lang = getBannerLang();
+    var copy = SW_BANNER_COPY[lang] || SW_BANNER_COPY.en;
+
     var text = document.createElement('div');
     text.style.cssText = 'flex:1;min-width:min(100%,12rem)';
-    var lineEn = document.createElement('div');
-    lineEn.textContent = 'A new version is available. Refresh to load the latest.';
+    if (lang === 'fa') text.setAttribute('dir', 'rtl');
+    var lineMain = document.createElement('div');
+    lineMain.textContent = copy.main;
     var lineHint = document.createElement('div');
     lineHint.style.cssText = 'margin-top:0.35rem;font-size:0.8rem;opacity:0.85';
-    lineHint.textContent =
-      'If you leave this tab briefly, we may refresh automatically (not on checkout or forms).';
-    var lineFa = document.createElement('div');
-    lineFa.setAttribute('dir', 'rtl');
-    lineFa.style.cssText = 'margin-top:0.35rem;opacity:0.9';
-    lineFa.textContent =
-      'نسخهٔ جدید آماده است. با بازخوانی، آخرین نسخه بارگذاری می‌شود. اگر تب را کمی ترک کنید، در صفحات امن ممکن است خودکار بازخوانی شود.';
-    text.appendChild(lineEn);
+    lineHint.textContent = copy.hint;
+    text.appendChild(lineMain);
     text.appendChild(lineHint);
-    text.appendChild(lineFa);
 
     var actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center';
 
     var btnRefresh = document.createElement('button');
     btnRefresh.type = 'button';
-    btnRefresh.textContent = 'Refresh · بازخوانی';
+    btnRefresh.textContent = copy.refresh;
     btnRefresh.style.cssText =
       'cursor:pointer;border:none;border-radius:0.375rem;padding:0.5rem 0.875rem;font-weight:600;background:#f59e0b;color:#0f172a';
     btnRefresh.addEventListener('click', function () {
@@ -169,8 +193,8 @@
 
     var btnDismiss = document.createElement('button');
     btnDismiss.type = 'button';
-    btnDismiss.setAttribute('aria-label', 'Dismiss update notice');
-    btnDismiss.textContent = 'Later · بعداً';
+    btnDismiss.setAttribute('aria-label', copy.dismissAria);
+    btnDismiss.textContent = copy.later;
     btnDismiss.style.cssText =
       'cursor:pointer;border:1px solid rgba(248,250,252,0.35);border-radius:0.375rem;padding:0.5rem 0.75rem;background:transparent;color:#f8fafc';
     btnDismiss.addEventListener('click', function () {
