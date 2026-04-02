@@ -339,17 +339,19 @@
 
       const catId = cat.id || '';
       const productsToShow = sortProductsList(cat.products, sortMode, currentLang);
-      productsToShow.forEach(p => {
+      productsToShow.forEach((p, idx) => {
         const name = getProductDisplayName(p);
         const wattageHtml = p.wattage != null
           ? `<p class="text-slate-500 text-sm mt-1">${p.wattage} ${t.wattage}</p>`
           : '';
         const productId = p.id ? escapeHtml(p.id) : '';
         const catIdEscaped = escapeHtml(catId);
+        const imgLoading = idx === 0 ? 'eager' : 'lazy';
+        const fetchPriority = idx === 0 ? ' fetchpriority="high"' : '';
         productsGrid.insertAdjacentHTML('beforeend', `
           <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow" data-product-id="${productId}" data-category-id="${catIdEscaped}">
             <div class="aspect-[4/3] bg-slate-200 overflow-hidden">
-              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover" loading="lazy">
+              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover" loading="${imgLoading}"${fetchPriority}>
             </div>
             <div class="p-4">
               <h3 class="text-lg font-semibold text-slate-800 mt-1">${escapeHtml(name)}</h3>

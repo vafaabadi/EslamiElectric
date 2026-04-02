@@ -1,4 +1,5 @@
 node_modules/
+lighthouse-reports/
 .env
 .env.local
 .env.*.local

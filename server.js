@@ -7,6 +7,7 @@ const {
 } = require('./config/environment');
 const crypto = require('crypto');
 const express = require('express');
+const compression = require('compression');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -17,6 +18,7 @@ const https = require('https');
 
 const app = express();
 app.set('trust proxy', 1);
+app.use(compression());
 const PORT = process.env.PORT || 3000;
 
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
@@ -201,6 +203,17 @@ function injectPublicConfig(html, req) {
 }
 
 /** PWA install (manifest + icons). Root-absolute URLs so locale <base> does not rewrite them. */
+/** Default SEO meta when pages omit one (Lighthouse SEO audit). */
+function injectSeo(html) {
+  if (!html || html.includes('name="description"')) return html;
+  const meta =
+    '<meta name="description" content="Eslami Electric — quality electrical supplies in Zahedan, Iran. Shop cables, lighting, sockets, and more.">';
+  if (/<meta\s+charset=/i.test(html)) {
+    return html.replace(/<meta\s+charset="UTF-8"\s*\/?>\s*/i, '<meta charset="UTF-8">\n  ' + meta + '\n  ');
+  }
+  return html.replace(/<head(\s[^>]*)?>/i, '<head$1>\n  ' + meta + '\n  ');
+}
+
 function injectPwa(html) {
   if (!html || html.includes('rel="manifest"')) return html;
   const snippet =
@@ -235,7 +248,7 @@ function serveHtmlWithPublicConfig(req, res, relativePath) {
       if (err.code === 'ENOENT') return res.status(404).send('Not found');
       return res.status(500).send('Error loading page');
     }
-    const injected = injectServiceWorker(injectPwa(injectPublicConfig(data, req)));
+    const injected = injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req))));
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(injected);
@@ -763,7 +776,7 @@ function serveLocalePage(locale, subPath, req, res) {
         return res.status(500).send('Error loading page');
       }
       let body = HTML_WITH_PUBLIC_CONFIG.has(htmlFile) ? injectPublicConfig(data, req) : data;
-      body = injectServiceWorker(injectPwa(body));
+      body = injectServiceWorker(injectPwa(injectSeo(body)));
       const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'private, no-store');
@@ -786,7 +799,7 @@ function serveLocalePage(locale, subPath, req, res) {
   const indexPath = path.join(publicDir, 'index.html');
   fs.readFile(indexPath, 'utf8', (err, data) => {
     if (err) return res.status(404).send('Not found');
-    let body = injectServiceWorker(injectPwa(injectPublicConfig(data, req)));
+    let body = injectServiceWorker(injectPwa(injectSeo(injectPublicConfig(data, req))));
     const injected = body.replace(/<head(\s[^>]*)?>/, '<head$1>' + inject);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');

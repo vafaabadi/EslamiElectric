@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "lighthouse": "node scripts/lighthouse-run.mjs",
+    "lighthouse:all": "node scripts/lighthouse-run.mjs --all"
   },
   "keywords": [
     "lighting",
@@ -18,10 +20,14 @@
     "@stripe/stripe-js": "^8.9.0",
     "@supabase/supabase-js": "^2.98.0",
     "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
     "dotenv": "^17.3.1",
     "express": "^4.22.1",
     "jsonwebtoken": "^9.0.3",
     "resend": "^6.9.3",
     "stripe": "^20.4.1"
+  },
+  "devDependencies": {
+    "lighthouse": "^12.8.2"
   }
 }

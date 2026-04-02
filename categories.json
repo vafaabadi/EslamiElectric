@@ -42,7 +42,7 @@
           "name_fa": "لامپ LED پایه E27 ۹ وات سفید گرم",
           "price": 4.50,
           "wattage": 9,
-          "image_url": "https://images.unsplash.com/photo-1532007828672-7dc33afef17e?w=400&h=300&fit=crop",
+          "image_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=300&fit=crop",
           "description": "Energy efficient LED bulb"
         },
         {
@@ -51,7 +51,7 @@
           "name_fa": "لامپ LED پایه E27 ۱۵ وات نور روز",
           "price": 6.00,
           "wattage": 15,
-          "image_url": "https://images.unsplash.com/photo-1532007828672-7dc33afef17e?w=400&h=300&fit=crop",
+          "image_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=300&fit=crop",
           "description": "Bright daylight LED bulb"
         },
         {
@@ -60,7 +60,7 @@
           "name_fa": "لامپ هالوژن اسپات GU10 ۵۰ وات",
           "price": 3.00,
           "wattage": 50,
-          "image_url": "https://images.unsplash.com/photo-1532007828672-7dc33afef17e?w=400&h=300&fit=crop",
+          "image_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=300&fit=crop",
           "description": "Classic halogen spotlight"
         }
       ]
