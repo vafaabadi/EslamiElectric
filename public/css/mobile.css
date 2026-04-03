@@ -11,39 +11,44 @@ body {
   background-color: #f1f5f9;
 }
 
-/* Full product visible: flex center + intrinsic img size (avoids w-full/h-full fighting object-fit in some browsers) */
+/*
+ * Full product in frame: absolute centering inside a fixed aspect box.
+ * Flex + img fails in many browsers: flex items get min-height:auto from the
+ * image’s intrinsic size, so the bitmap can’t shrink and overflow:hidden clips
+ * (looks like object-fit:cover). Positioned img avoids that.
+ */
 .product-card-media {
+  position: relative;
   aspect-ratio: 4 / 3;
   background-color: rgb(226 232 240);
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .product-card-media img.product-card-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
   display: block;
   box-sizing: border-box;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
   object-fit: contain;
   object-position: center;
 }
 
-/* Basket line thumbnails: full product in frame */
+/* Basket line thumbnails: same “fit in box” behavior */
 .basket-item-thumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .basket-item-thumb img {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
   object-fit: contain;
   object-position: center;
 }
