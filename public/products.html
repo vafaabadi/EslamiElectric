@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/js/auth-nav-sync.js"></script>
   <title>Products - Eslami Electric</title>
-  <link rel="dns-prefetch" href="https://images.unsplash.com">
-  <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
-  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&amp;h=300&amp;fit=crop" fetchpriority="high">
   <link rel="stylesheet" href="css/tailwind.css">
   <link rel="stylesheet" href="css/mobile.css">
   <script src="js/locale-bootstrap.js"></script>
@@ -352,7 +349,7 @@
         productsGrid.insertAdjacentHTML('beforeend', `
           <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow" data-product-id="${productId}" data-category-id="${catIdEscaped}">
             <div class="product-card-media aspect-[4/3] bg-slate-200 overflow-hidden">
-              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="product-card-img" width="400" height="300" decoding="async" loading="${imgLoading}"${fetchPriority}>
+              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="product-card-img" width="400" height="300" decoding="async" loading="${imgLoading}"${fetchPriority} onerror="this.onerror=null;this.src='/images/products/placeholder.svg'">
             </div>
             <div class="p-4">
               <h3 class="text-lg font-semibold text-slate-800 mt-1">${escapeHtml(name)}</h3>

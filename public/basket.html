@@ -763,7 +763,7 @@
         li.innerHTML = `
           <div class="flex items-start gap-3 min-w-0 flex-1">
             <div class="basket-item-thumb w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
-              <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(name)}" class="block">
+              <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(name)}" class="block" onerror="this.onerror=null;this.src='/images/products/placeholder.svg'">
             </div>
             <div class="flex-grow min-w-0">
               <h3 class="font-semibold text-slate-800 text-sm sm:text-base break-words">${escapeHtml(name)}</h3>
