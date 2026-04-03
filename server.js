@@ -236,6 +236,7 @@ function injectPwa(html) {
   const snippet =
     '<link rel="manifest" href="/site.webmanifest">\n' +
     '  <meta name="theme-color" content="#0f172a">\n' +
+    '  <meta name="mobile-web-app-capable" content="yes">\n' +
     '  <meta name="apple-mobile-web-app-capable" content="yes">\n' +
     '  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n' +
     '  <link rel="apple-touch-icon" href="/icons/icon-192.png" sizes="180x180">\n' +
