@@ -4,7 +4,7 @@
  * Eslami Electric — offline cache (Zahedan / spotty connections).
  * Bump CACHE_VERSION when you change precache URLs or need a full refresh.
  */
-var CACHE_VERSION = 'eslami-v8';
+var CACHE_VERSION = 'eslami-v9';
 var PRECACHE = [
   '/',
   '/offline.html',
