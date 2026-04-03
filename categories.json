@@ -10,7 +10,7 @@
           "name": "2.5mm Twin & Earth Cable 100m",
           "name_fa": "کابل دو هسته ۲.۵ میلی‌متر ۱۰۰ متر",
           "price": 85.00,
-          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "image_url": "/public/images/products/cables/cable001.jpg",
           "description": "Standard building wire"
         },
         {
@@ -18,7 +18,7 @@
           "name": "1.5mm Single Core Cable 50m",
           "name_fa": "کابل تک هسته ۱.۵ میلی‌متر ۵۰ متر",
           "price": 32.00,
-          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "image_url": "/public/images/products/cables/cable002.jpg",
           "description": "Flexible single core wire"
         },
         {
@@ -26,7 +26,7 @@
           "name": "6mm Armoured Cable 25m",
           "name_fa": "کابل زره‌دار ۶ میلی‌متر ۲۵ متر",
           "price": 120.00,
-          "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+          "image_url": "/public/images/products/cables/cable003.jpg",
           "description": "Heavy-duty armoured cable for outdoor use"
         }
       ]
