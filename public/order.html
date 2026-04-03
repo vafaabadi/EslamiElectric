@@ -88,6 +88,10 @@
       </div>
       <p id="detail-questions" class="text-slate-500 text-sm">Questions? Contact us with your order ID.</p>
     </div>
+
+    <div class="mt-8 text-center">
+      <a href="products.html" id="link-continue-shopping" class="inline-flex justify-center items-center min-h-[44px] px-4 py-2 rounded-lg border-2 border-slate-300 bg-white text-slate-800 font-medium hover:bg-slate-50 hover:border-slate-400 transition-colors">Continue shopping</a>
+    </div>
   </main>
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
@@ -139,7 +143,8 @@
           cancelConfirm: 'Cancel this unpaid order? You will not be charged. This cannot be undone.',
           cancelErr: 'Could not cancel the order. Please try again.',
           resumeErr: 'Could not open checkout.',
-          itemFallback: 'Item'
+          itemFallback: 'Item',
+          continueShopping: 'Continue shopping'
         },
         fa: {
           pageTitle: 'پیگیری سفارش - الکتریکی اسلامی',
@@ -180,7 +185,8 @@
           cancelConfirm: 'این سفارش پرداخت‌نشده لغو شود؟ هزینه‌ای از شما کسر نمی‌شود و این عمل قابل بازگشت نیست.',
           cancelErr: 'لغو سفارش انجام نشد. دوباره تلاش کنید.',
           resumeErr: 'باز کردن صفحه پرداخت ممکن نشد.',
-          itemFallback: 'کالا'
+          itemFallback: 'کالا',
+          continueShopping: 'ادامهٔ خرید'
         }
       };
       var currentLang = localStorage.getItem('lang') || 'en';
@@ -213,6 +219,8 @@
         document.getElementById('detail-order-prefix').textContent = t.orderPrefix;
         document.getElementById('detail-questions').textContent = t.questions;
         document.getElementById('btn-cancel-order').textContent = t.cancelOrder;
+        var continueShop = document.getElementById('link-continue-shopping');
+        if (continueShop) continueShop.textContent = t.continueShopping;
         document.getElementById('lang-en').className = currentLang === 'en'
           ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900 text-left sm:text-center'
           : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors text-left sm:text-center';
