@@ -42,7 +42,7 @@
           "name_fa": "لامپ LED پایه E27 ۹ وات سفید گرم",
           "price": 4.50,
           "wattage": 9,
-          "image_url": "/images/products/light-bulbs/light-bulb-001.jpg",
+          "image_url": "/images/products/light bulbs/LightBulb001.jpg",
           "description": "Energy efficient LED bulb"
         },
         {
@@ -51,7 +51,7 @@
           "name_fa": "لامپ LED پایه E27 ۱۵ وات نور روز",
           "price": 6.00,
           "wattage": 15,
-          "image_url": "/images/products/light-bulbs/light-bulb-002.jpg",
+          "image_url": "/images/products/light bulbs/LightBulb002.jpg",
           "description": "Bright daylight LED bulb"
         },
         {
@@ -60,7 +60,7 @@
           "name_fa": "لامپ هالوژن اسپات GU10 ۵۰ وات",
           "price": 3.00,
           "wattage": 50,
-          "image_url": "/images/products/light-bulbs/light-bulb-003.jpg",
+          "image_url": "/images/products/light bulbs/LightBulb003.jpg",
           "description": "Classic halogen spotlight"
         }
       ]
@@ -138,7 +138,7 @@
           "name": "4-Way Extension Lead 2m",
           "name_fa": "چندراهی ۴ خانه ۲ متری",
           "price": 14.00,
-          "image_url": "/images/products/extension-cables/extension-cable001.jpg",
+          "image_url": "/images/products/extensioncables/extensioncable001.jpg",
           "description": "4 socket extension with surge protection"
         },
         {
@@ -146,7 +146,7 @@
           "name": "6-Way Extension Lead 5m",
           "name_fa": "چندراهی ۶ خانه ۵ متری",
           "price": 22.00,
-          "image_url": "/images/products/extension-cables/extension-cable002.jpg",
+          "image_url": "/images/products/extensioncables/extensioncable002.jpg",
           "description": "6 socket extension with individual switches"
         },
         {
@@ -154,7 +154,7 @@
           "name": "Cable Reel 25m Heavy Duty",
           "name_fa": "قرقره کابل ۲۵ متری صنعتی",
           "price": 45.00,
-          "image_url": "/images/products/extension-cables/extension-cable003.jpg",
+          "image_url": "/images/products/extensioncables/extensioncable003.jpg",
           "description": "Industrial cable reel with thermal cutout"
         }
       ]
