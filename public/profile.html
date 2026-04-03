@@ -85,8 +85,8 @@
       </div>
 
       <div id="contact-email-wrap">
-        <label id="label-contact-email" for="contactEmail" class="block text-sm font-medium text-slate-700 mb-1">Contact email</label>
-        <input type="email" id="contactEmail" autocomplete="email" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="">
+        <label id="label-contact-email" for="contactEmail" class="block text-sm font-medium text-slate-700 mb-1">Contact email *</label>
+        <input type="email" id="contactEmail" name="contactEmail" autocomplete="email" required class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="">
         <p id="contact-email-hint" class="text-xs text-slate-500 mt-1"></p>
       </div>
 
@@ -203,10 +203,9 @@
         linkEmailError: 'Could not save. Check the details and try again.',
         linkEmailMismatch: 'Passwords do not match.',
         linkEmailShort: 'Password must be at least 8 characters.',
-        labelContactEmail: 'Contact email (optional)',
-        labelContactEmailTelegram: 'Contact email *',
+        labelContactEmail: 'Contact email *',
         contactEmailHint:
-          'Optional second address for receipts if different from your account email.',
+          'Required for order confirmations and receipts. Use an address you check regularly.',
         contactEmailHintTelegram:
           'Required for checkout while you sign in with Telegram. Use the same address as your order — this field is only for contact and receipts; it does not replace your Telegram login. If you cannot use “Set email & password” because that email is already registered, fill this and Save changes.',
         labelMobile: 'Mobile *',
@@ -222,6 +221,7 @@
         saved: 'Profile updated.',
         loadError: 'Could not load profile. Please try again.',
         saveError: 'Could not save changes.',
+        errorContactEmail: 'Please enter your contact email.',
         errorMobile: 'Invalid mobile number.',
         errorLandline: 'Invalid landline number.',
         phoneHintMobile: 'e.g. +44 7123 456789 · +98 912 345 6789 · +1 202 555 0123',
@@ -268,10 +268,9 @@
         linkEmailError: 'ذخیره نشد. اطلاعات را بررسی کنید.',
         linkEmailMismatch: 'رمزها یکسان نیستند.',
         linkEmailShort: 'رمز باید حداقل ۸ کاراکتر باشد.',
-        labelContactEmail: 'ایمیل تماس (اختیاری)',
-        labelContactEmailTelegram: 'ایمیل تماس *',
+        labelContactEmail: 'ایمیل تماس *',
         contactEmailHint:
-          'در صورت تفاوت با ایمیل حساب، برای رسید اختیاری است.',
+          'برای تأیید سفارش و رسید الزامی است. لطفاً آدرسی را بزنید که واقعاً می‌خوانید.',
         contactEmailHintTelegram:
           'برای تکمیل خرید با ورود تلگرامی الزامی است. می‌توانید همان ایمیل سفارش را بزنید — فقط برای تماس و رسید است و جایگزین ورود با تلگرام نیست. اگر «ایمیل و رمز» به‌خاطر ثبت قبلی نشد، همین را پر کنید و ذخیره کنید.',
         labelMobile: 'موبایل *',
@@ -287,6 +286,7 @@
         saved: 'پروفایل به‌روز شد.',
         loadError: 'بارگذاری پروفایل ناموفق بود.',
         saveError: 'ذخیره تغییرات ناموفق بود.',
+        errorContactEmail: 'لطفاً ایمیل تماس را وارد کنید.',
         errorMobile: 'شماره موبایل نامعتبر است.',
         errorLandline: 'شماره تلفن ثابت نامعتبر است.',
         phoneHintMobile: 'مثال: +98 912 345 6789 · +44 7123 456789 · +1 202 555 0123',
@@ -348,11 +348,10 @@
       document.getElementById('label-email').textContent = t.labelEmail;
       document.getElementById('email-hint').textContent = t.emailHint;
       document.getElementById('telegram-email-explain').textContent = t.telegramEmailExplain;
+      document.getElementById('label-contact-email').textContent = t.labelContactEmail;
       if (cachedMe && cachedMe.canLinkEmail) {
-        document.getElementById('label-contact-email').textContent = t.labelContactEmailTelegram;
         document.getElementById('contact-email-hint').textContent = t.contactEmailHintTelegram;
       } else {
-        document.getElementById('label-contact-email').textContent = t.labelContactEmail;
         document.getElementById('contact-email-hint').textContent = t.contactEmailHint;
       }
       var lte = document.getElementById('link-email-title');
@@ -418,8 +417,7 @@
       var contactEl = document.getElementById('contactEmail');
       if (me.canLinkEmail) {
         if (linkSetup) linkSetup.classList.remove('hidden');
-        if (contactEl) contactEl.required = true;
-        document.getElementById('label-contact-email').textContent = t.labelContactEmailTelegram;
+        document.getElementById('label-contact-email').textContent = t.labelContactEmail;
         var ceh = document.getElementById('contact-email-hint');
         if (ceh) ceh.textContent = t.contactEmailHintTelegram;
         document.getElementById('linkRealEmail').value = '';
@@ -432,11 +430,11 @@
         }
       } else {
         if (linkSetup) linkSetup.classList.add('hidden');
-        if (contactEl) contactEl.required = false;
         document.getElementById('label-contact-email').textContent = t.labelContactEmail;
         var ceh2 = document.getElementById('contact-email-hint');
         if (ceh2) ceh2.textContent = t.contactEmailHint;
       }
+      if (contactEl) contactEl.required = true;
       document.getElementById('contactEmail').value = me.contactEmail || '';
       setIntlPhoneNumber(document.getElementById('mobile'), me.mobile || '');
       setIntlPhoneNumber(document.getElementById('landline'), me.landline || '');
@@ -536,6 +534,13 @@
       if (!landDetail.ok) {
         msg.textContent = phoneErrMsg(landDetail, t) || t.errorLandline;
         msg.className = 'text-sm mt-2 text-red-600';
+        return;
+      }
+      var contactEmailVal = document.getElementById('contactEmail').value.trim();
+      if (!contactEmailVal) {
+        msg.textContent = t.errorContactEmail;
+        msg.className = 'text-sm mt-2 text-red-600';
+        document.getElementById('contactEmail').focus();
         return;
       }
       var meType = document.getElementById('company-fields').classList.contains('hidden') ? 'person' : 'company';
