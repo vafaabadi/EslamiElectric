@@ -99,6 +99,10 @@
     <p id="loading" class="absolute left-0 right-0 top-8 z-10 text-center text-slate-500 pointer-events-none">Loading products...</p>
     <p id="error" class="hidden text-center text-red-600"></p>
     <div id="product-grid" class="relative z-0 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 pt-10"></div>
+    <div id="home-catalog-footer" class="hidden mt-8 text-center space-y-3">
+      <p id="home-more-hint" class="text-sm text-slate-600 max-w-xl mx-auto leading-snug"></p>
+      <a href="products.html" id="home-view-all" class="inline-flex min-h-[44px] items-center justify-center px-5 py-2.5 rounded-lg bg-amber-500 text-slate-900 font-semibold text-sm hover:bg-amber-400">View all products</a>
+    </div>
   </main>
 
   <button
@@ -161,7 +165,10 @@
         wattage: 'W',
         searchPlaceholder: 'Search products...',
         addToBasket: 'Add',
-        quantity: 'Qty'
+        quantity: 'Qty',
+        homeMoreHint: 'Showing 6 of {total} products. More are available in the full catalog.',
+        viewAllProducts: 'View all products',
+        viewAllProductsAria: 'View all products in the catalog'
       },
       fa: {
         siteTitle: 'الکتریکی‌ اسلامی',
@@ -184,14 +191,21 @@
         wattage: 'وات',
         searchPlaceholder: 'جستجوی محصولات...',
         addToBasket: 'افزودن',
-        quantity: 'تعداد'
+        quantity: 'تعداد',
+        homeMoreHint: '۶ مورد از {total} محصول اینجا نمایش داده می‌شود؛ بقیهٔ کالاها را در صفحهٔ محصولات ببینید.',
+        viewAllProducts: 'مشاهدهٔ همهٔ محصولات',
+        viewAllProductsAria: 'رفتن به صفحهٔ کامل محصولات'
       }
     };
 
     let currentLang = localStorage.getItem('lang') || 'en';
     let productsData = [];
+    const HOME_PRODUCT_LIMIT = 6;
 
     const grid = document.getElementById('product-grid');
+    const homeCatalogFooter = document.getElementById('home-catalog-footer');
+    const homeMoreHint = document.getElementById('home-more-hint');
+    const homeViewAll = document.getElementById('home-view-all');
     const loading = document.getElementById('loading');
     const errorEl = document.getElementById('error');
     const searchInput = document.getElementById('product-search');
@@ -289,7 +303,21 @@
     function renderProducts() {
       grid.innerHTML = '';
       const t = translations[currentLang];
-      productsData.forEach((p, idx) => {
+      const total = productsData.length;
+      const gridProducts = total > HOME_PRODUCT_LIMIT ? productsData.slice(0, HOME_PRODUCT_LIMIT) : productsData;
+
+      if (homeCatalogFooter && homeMoreHint && homeViewAll) {
+        if (total > HOME_PRODUCT_LIMIT) {
+          homeCatalogFooter.classList.remove('hidden');
+          homeMoreHint.textContent = (t.homeMoreHint || '').replace('{total}', String(total));
+          homeViewAll.textContent = t.viewAllProducts || 'View all products';
+          homeViewAll.setAttribute('aria-label', t.viewAllProductsAria || t.viewAllProducts || 'View all products');
+        } else {
+          homeCatalogFooter.classList.add('hidden');
+        }
+      }
+
+      gridProducts.forEach((p, idx) => {
         const name = currentLang === 'fa' && p.name_fa ? p.name_fa : p.name;
         const category = currentLang === 'fa' && p.category_fa ? p.category_fa : p.category;
         const wattageHtml = p.wattage != null
