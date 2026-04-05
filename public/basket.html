@@ -44,9 +44,8 @@
   <script src="js/mobile-nav.js"></script>
 
   <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
+    <div class="mb-4 sm:mb-6">
       <h2 id="page-title" class="text-2xl sm:text-3xl font-bold text-slate-800">Your Basket</h2>
-      <a href="products.html" id="link-continue-shopping" class="inline-flex justify-center items-center min-h-[44px] shrink-0 px-4 py-2 rounded-lg border-2 border-slate-300 bg-white text-slate-800 font-medium hover:bg-slate-50 hover:border-slate-400 transition-colors">Continue shopping</a>
     </div>
 
     <div id="edit-pending-banner" class="hidden mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950" role="status"></div>
@@ -582,8 +581,6 @@
       document.getElementById('page-title').textContent = t.pageTitle;
       document.getElementById('empty-message').textContent = t.emptyMessage;
       document.getElementById('empty-link').textContent = t.continueShopping;
-      var continueShop = document.getElementById('link-continue-shopping');
-      if (continueShop) continueShop.textContent = t.continueShopping;
       document.getElementById('total-label').textContent = t.totalLabel;
       document.getElementById('nav-home').textContent = t.navHome;
       document.getElementById('nav-products').textContent = t.navProducts;
