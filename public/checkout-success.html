@@ -15,10 +15,6 @@
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <div class="flex-1 flex items-center justify-center p-4 w-full">
   <div class="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
-    <div class="flex justify-end gap-2 mb-4">
-      <button type="button" id="lang-en" class="px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900">English</button>
-      <button type="button" id="lang-fa" class="px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50">فارسی</button>
-    </div>
     <h1 id="success-title" class="text-2xl font-bold text-slate-800 mb-2">Payment successful</h1>
     <p id="success-thanks" class="text-slate-600 mb-4">Thank you for your order.</p>
     <div id="guest-order-info" class="hidden mb-6 p-4 bg-slate-50 rounded-lg text-start text-sm">
@@ -29,7 +25,6 @@
     <div class="flex flex-wrap gap-2 justify-center">
       <a href="orders.html" id="link-my-orders" class="inline-block px-4 py-2 rounded bg-emerald-600 text-white font-medium hover:bg-emerald-500">My Orders</a>
       <a href="order.html" id="link-track-order" class="hidden inline-block px-4 py-2 rounded bg-emerald-600 text-white font-medium hover:bg-emerald-500">Track this order</a>
-      <a href="products.html" id="link-continue-shopping" class="inline-block px-4 py-2 rounded border-2 border-slate-300 bg-white text-slate-800 font-medium hover:bg-slate-50">Continue shopping</a>
       <a href="index.html" id="link-home" class="inline-block px-4 py-2 rounded bg-amber-500 text-slate-900 font-medium hover:bg-amber-400">Back to Home</a>
       <a href="basket.html" id="link-basket" class="inline-block px-4 py-2 rounded bg-slate-200 text-slate-800 font-medium hover:bg-slate-300">View Basket</a>
     </div>
@@ -52,7 +47,6 @@
         guestOrderHint: 'Save this link to track your order (we’ll also email you a receipt):',
         myOrders: 'My Orders',
         trackOrder: 'Track this order',
-        continueShopping: 'Continue shopping',
         backHome: 'Back to Home',
         viewBasket: 'View Basket'
       },
@@ -64,7 +58,6 @@
         guestOrderHint: 'این لینک را برای پیگیری سفارش ذخیره کنید (رسید هم به ایمیل شما ارسال می‌شود):',
         myOrders: 'سفارشات من',
         trackOrder: 'پیگیری این سفارش',
-        continueShopping: 'ادامهٔ خرید',
         backHome: 'بازگشت به خانه',
         viewBasket: 'سبد خرید'
       }
@@ -82,30 +75,10 @@
       document.getElementById('guest-order-hint').textContent = t.guestOrderHint;
       document.getElementById('link-my-orders').textContent = t.myOrders;
       document.getElementById('link-track-order').textContent = t.trackOrder;
-      document.getElementById('link-continue-shopping').textContent = t.continueShopping;
       document.getElementById('link-home').textContent = t.backHome;
       document.getElementById('link-basket').textContent = t.viewBasket;
-      document.getElementById('lang-en').className = currentLang === 'en'
-        ? 'px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900'
-        : 'px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50';
-      document.getElementById('lang-fa').className = currentLang === 'fa'
-        ? 'px-3 py-1 rounded text-xs font-medium bg-amber-500 text-slate-900'
-        : 'px-3 py-1 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50';
       if (typeof applyFooterI18n === 'function') applyFooterI18n();
     }
-
-    document.getElementById('lang-en').addEventListener('click', function() {
-      currentLang = 'en';
-      localStorage.setItem('lang', 'en');
-      localStorage.setItem('localePref', 'user');
-      applyPageLanguage();
-    });
-    document.getElementById('lang-fa').addEventListener('click', function() {
-      currentLang = 'fa';
-      localStorage.setItem('lang', 'fa');
-      localStorage.setItem('localePref', 'user');
-      applyPageLanguage();
-    });
 
     (function () {
       try {
