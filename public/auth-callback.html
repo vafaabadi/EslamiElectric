@@ -183,8 +183,23 @@
           return;
         }
 
+        // Email confirmation often returns #access_token=… (implicit). A PKCE-only client rejects that URL and
+        // initialize() fails; OAuth redirect uses ?code= on the query string (PKCE). Pick flow before createClient.
+        var hashEarly = window.location.hash.slice(1);
+        var searchEarly = new URLSearchParams(window.location.search);
+        var hashEarlyParams = new URLSearchParams(hashEarly);
+        var hasImplicitHashTokens =
+          hashEarlyParams.has('access_token') || hashEarlyParams.has('refresh_token');
+        var hasOAuthPkceCode = !!searchEarly.get('code');
+        var useImplicitFlow = hasImplicitHashTokens && !hasOAuthPkceCode;
+
         const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
-          auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, storage: window.localStorage }
+          auth: {
+            flowType: useImplicitFlow ? 'implicit' : 'pkce',
+            detectSessionInUrl: true,
+            persistSession: true,
+            storage: window.localStorage
+          }
         });
         if (supabase.auth && typeof supabase.auth.initialize === 'function') {
           try {
@@ -196,8 +211,9 @@
 
         let accessToken = null;
         let exchangeErrText = '';
-        const q = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.slice(1));
+        // Use snapshots: initialize() may strip the hash from the URL; re-reading would lose access_token.
+        const q = searchEarly;
+        const hashParams = hashEarlyParams;
 
         function mapOtpType(typeRaw) {
           var t = (typeRaw || '').toLowerCase().trim();
