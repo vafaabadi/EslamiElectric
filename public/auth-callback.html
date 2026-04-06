@@ -130,21 +130,8 @@
 
       try {
         statusEl.textContent = tr('confirming');
-        const config = readServerPublicConfig();
-        if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
-          showFatal('configMissing', '');
-          setTimeout(function () {
-            window.location.href = loginPageHref();
-          }, 3000);
-          return;
-        }
 
-        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-          showFatal('supabaseFail', tr('networkHint'));
-          return;
-        }
-
-        /** Supabase redirects here with #error=…&error_code=…&error_description=… (e.g. otp_expired). */
+        /** Supabase redirects here with #error=…&error_code=…&error_description=… (e.g. otp_expired). Handle before config so we never show "Configuration missing" for a simple expired link. */
         function readAuthErrorFromUrl() {
           const hash = new URLSearchParams(window.location.hash.slice(1));
           const search = new URLSearchParams(window.location.search);
@@ -180,6 +167,20 @@
           setTimeout(function () {
             window.location.href = loginPageHref();
           }, 8000);
+          return;
+        }
+
+        const config = readServerPublicConfig();
+        if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
+          showFatal('configMissing', '');
+          setTimeout(function () {
+            window.location.href = loginPageHref();
+          }, 3000);
+          return;
+        }
+
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+          showFatal('supabaseFail', tr('networkHint'));
           return;
         }
 
