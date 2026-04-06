@@ -70,6 +70,12 @@ const supabaseAnon = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey
 const LOGIN_LOCKOUT_MAX_ATTEMPTS = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MAX_ATTEMPTS || '5', 10) || 5);
 /** Lock duration after too many failures (minutes); default 60 */
 const LOGIN_LOCKOUT_MINUTES = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MINUTES || '60', 10) || 60);
+/** Days after immediate deletion before the profile row may be removed (business-safe default). */
+const ACCOUNT_DELETION_RETENTION_DAYS = Math.max(
+  30,
+  parseInt(process.env.ACCOUNT_DELETION_RETENTION_DAYS || '365', 10) || 365
+);
+const DELETE_ACCOUNT_CONFIRM_PHRASE = 'DELETE MY ACCOUNT';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 /** Public site URL for Stripe redirects, emails, receipts (see config/environment.js). */
@@ -487,6 +493,7 @@ function profileRowToJson(user) {
     email: user.email,
     contactEmail: user.contact_email,
     canLinkEmail: isSyntheticTelegramAuthEmail(user.email),
+    hasPassword: !!(user.password_hash && String(user.password_hash).trim()),
     address: user.address,
     bankDetails: user.bank_details,
     companyName: user.company_name,
@@ -2039,20 +2046,42 @@ function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
+  let payload;
   try {
-    const payload = jwt.verify(token, jwtSecret);
-    req.userId = payload.userId;
-    next();
+    payload = jwt.verify(token, jwtSecret);
   } catch {
     return res.status(401).json({ error: 'Not authenticated' });
   }
+  req.userId = payload.userId;
+  supabase
+    .from('users')
+    .select('account_status')
+    .eq('id', req.userId)
+    .maybeSingle()
+    .then(({ data: row, error }) => {
+      if (error) {
+        console.error('authMiddleware account_status:', error);
+        return res.status(500).json({ error: 'Failed to verify account' });
+      }
+      const status = (row && row.account_status) || 'active';
+      if (status !== 'active') {
+        return res.status(403).json({ error: 'Account is no longer active', code: 'ACCOUNT_INACTIVE' });
+      }
+      next();
+    })
+    .catch((err) => {
+      console.error('authMiddleware:', err);
+      res.status(500).json({ error: 'Failed to verify account' });
+    });
 }
 
 app.get('/api/me', authMiddleware, async (req, res) => {
   try {
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, type, first_name, surname, dob, mobile, landline, email, contact_email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at, telegram_id')
+      .select(
+        'id, type, first_name, surname, dob, mobile, landline, email, contact_email, address, bank_details, company_name, company_number, company_contact_number, company_principal_contact, created_at, telegram_id, password_hash'
+      )
       .eq('id', req.userId)
       .single();
 
@@ -2074,6 +2103,170 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Get me error:', err);
     res.status(500).json({ error: 'Failed to load profile' });
+  }
+});
+
+/**
+ * Two-phase account deletion (business-safe):
+ * Immediate: strip PII on linked orders, anonymize public.users, delete Supabase Auth user, mark pending_deletion.
+ * Later: cron removes public.users after ACCOUNT_DELETION_RETENTION_DAYS (orders retain amounts; user_id becomes null).
+ */
+app.post('/api/account/request-deletion', authMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const confirmPhrase = (body.confirmPhrase && String(body.confirmPhrase).trim()) || '';
+    const passwordPlain = body.password != null ? String(body.password) : '';
+
+    if (confirmPhrase !== DELETE_ACCOUNT_CONFIRM_PHRASE) {
+      return res.status(400).json({
+        error: `Confirmation must be exactly: ${DELETE_ACCOUNT_CONFIRM_PHRASE}`
+      });
+    }
+
+    const { data: row, error: rowErr } = await supabase
+      .from('users')
+      .select('id, email, contact_email, password_hash, account_status')
+      .eq('id', req.userId)
+      .single();
+
+    if (rowErr || !row) return res.status(404).json({ error: 'User not found' });
+    const accStatus = row.account_status || 'active';
+    if (accStatus !== 'active') {
+      return res.status(400).json({ error: 'Account is already inactive' });
+    }
+
+    const emailNorm = (row.email || '').trim().toLowerCase();
+    const contactNorm = (row.contact_email || '').trim().toLowerCase();
+
+    if (row.password_hash && String(row.password_hash).trim()) {
+      if (!passwordPlain || !(await bcrypt.compare(passwordPlain, row.password_hash))) {
+        return res.status(400).json({ error: 'Invalid password' });
+      }
+    } else if (passwordPlain.length >= 8 && supabaseAnon) {
+      const { data: authUser, error: getErr } = await supabase.auth.admin.getUserById(req.userId);
+      if (getErr || !authUser || !authUser.user) {
+        return res.status(400).json({ error: 'Could not verify password' });
+      }
+      const authEmail = (authUser.user.email || '').trim().toLowerCase();
+      if (!authEmail || !validationPatterns.email.test(authEmail)) {
+        return res.status(400).json({ error: 'Enter your account password to confirm' });
+      }
+      const { error: signErr } = await supabaseAnon.auth.signInWithPassword({
+        email: authEmail,
+        password: passwordPlain
+      });
+      if (signErr) {
+        return res.status(400).json({ error: 'Invalid password' });
+      }
+      await supabaseAnon.auth.signOut().catch(() => {});
+    }
+
+    const now = new Date();
+    const scheduled = new Date(now.getTime() + ACCOUNT_DELETION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const placeholderEmail = `deleted+${req.userId}@account.invalid`;
+
+    const { error: ordErr } = await supabase
+      .from('orders')
+      .update({
+        customer_email: null,
+        customer_name: null,
+        customer_phone: null,
+        shipping_address: null,
+        guest_access_token: null
+      })
+      .eq('user_id', req.userId);
+    if (ordErr) console.error('Deletion: orders update:', ordErr);
+
+    if (emailNorm) {
+      await supabase.from('account_claims').delete().ilike('email', emailNorm);
+    }
+    if (contactNorm && contactNorm !== emailNorm) {
+      await supabase.from('account_claims').delete().ilike('email', contactNorm);
+    }
+
+    const { error: upErr } = await supabase
+      .from('users')
+      .update({
+        email: placeholderEmail,
+        first_name: 'Deleted',
+        surname: 'User',
+        type: 'person',
+        dob: null,
+        contact_email: null,
+        mobile: '',
+        landline: null,
+        address: '',
+        bank_details: null,
+        company_name: null,
+        company_number: null,
+        company_contact_number: null,
+        company_principal_contact: null,
+        password_hash: null,
+        telegram_id: null,
+        reset_token: null,
+        reset_token_expires: null,
+        login_failed_count: 0,
+        locked_until: null,
+        account_status: 'pending_deletion',
+        deletion_requested_at: now.toISOString(),
+        deletion_scheduled_for: scheduled.toISOString(),
+        pii_deleted_at: now.toISOString()
+      })
+      .eq('id', req.userId);
+
+    if (upErr) {
+      console.error('Deletion: users update:', upErr);
+      return res.status(500).json({ error: 'Could not update account' });
+    }
+
+    const { error: delAuthErr } = await supabase.auth.admin.deleteUser(req.userId);
+    if (delAuthErr) {
+      console.error('Deletion: auth deleteUser:', delAuthErr);
+      return res.status(500).json({
+        error: 'Could not remove sign-in credentials. Try again or contact support.'
+      });
+    }
+
+    res.json({
+      ok: true,
+      deletionScheduledFor: scheduled.toISOString(),
+      retentionDays: ACCOUNT_DELETION_RETENTION_DAYS
+    });
+  } catch (err) {
+    console.error('request-deletion:', err);
+    res.status(500).json({ error: 'Request failed' });
+  }
+});
+
+/** Daily: permanently remove profile rows past retention (requires CRON_SECRET on Vercel Cron). */
+app.get('/api/cron/purge-accounts', async (req, res) => {
+  const secret = (process.env.CRON_SECRET || '').trim();
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!secret || token !== secret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const { data: rows, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('account_status', 'pending_deletion')
+      .lte('deletion_scheduled_for', new Date().toISOString());
+    if (error) {
+      console.error('purge-accounts select:', error);
+      return res.status(500).json({ error: 'Query failed' });
+    }
+    const ids = (rows || []).map((r) => r.id);
+    let purged = 0;
+    for (const id of ids) {
+      const { error: delErr } = await supabase.from('users').delete().eq('id', id);
+      if (delErr) console.error('purge delete', id, delErr);
+      else purged += 1;
+    }
+    res.json({ ok: true, purged, checked: ids.length });
+  } catch (e) {
+    console.error('purge-accounts:', e);
+    res.status(500).json({ error: 'Cron failed' });
   }
 });
 
