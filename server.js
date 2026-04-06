@@ -2159,6 +2159,12 @@ app.post('/api/account/request-deletion', authMiddleware, async (req, res) => {
         return res.status(400).json({ error: 'Invalid password' });
       }
       await supabaseAnon.auth.signOut().catch(() => {});
+    } else {
+      // No local password_hash and did not verify via Supabase (empty/short password, or missing anon client).
+      return res.status(400).json({
+        error:
+          'Enter your account password to confirm account deletion (at least 8 characters). If you only sign in with Google or Telegram, add a password in your profile first (Set email & password), then try again.'
+      });
     }
 
     const now = new Date();

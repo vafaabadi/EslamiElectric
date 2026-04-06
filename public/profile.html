@@ -251,7 +251,9 @@
         dangerTitle: 'Delete account',
         dangerBody:
           'This removes your sign-in immediately and strips personal details from your orders in our system. We keep amounts for our records. Your profile is permanently deleted after one year. This cannot be undone.',
-        labelDeletePassword: 'Password (required if you use email/password login)',
+        labelDeletePassword: 'Password (required to confirm deletion)',
+        deletePasswordRequired:
+          'Enter your password (at least 8 characters) to confirm deletion. If you only use Google or Telegram, add a password in “Set your email & password” above first.',
         labelDeleteConfirm: 'Type the phrase below to confirm',
         deletePhraseHint: 'Type exactly: DELETE MY ACCOUNT',
         btnDeleteAccount: 'Delete my account permanently',
@@ -569,7 +571,7 @@
         var delCf = document.getElementById('delete-confirm');
         if (delPw) {
           delPw.value = '';
-          delPw.required = !!me.hasPassword;
+          delPw.required = true;
         }
         if (delCf) delCf.value = '';
         var pwWrap = document.getElementById('delete-password-wrap');
@@ -741,11 +743,17 @@
         msgEl.className = 'text-sm text-red-600';
         return;
       }
-      var delPwEl = document.getElementById('delete-password');
-      if (delPwEl && delPwEl.required && !pw) {
-        msgEl.textContent = t.labelDeletePassword;
+      if (!pw) {
+        msgEl.textContent = t.deletePasswordRequired;
         msgEl.className = 'text-sm text-red-600';
         return;
+      }
+      if (!cachedMe || !cachedMe.hasPassword) {
+        if (pw.length < 8) {
+          msgEl.textContent = t.deletePasswordRequired;
+          msgEl.className = 'text-sm text-red-600';
+          return;
+        }
       }
       msgEl.textContent = '';
       msgEl.className = 'text-sm min-h-[1.25rem] text-slate-500';
