@@ -430,7 +430,16 @@
           accountMessage.textContent = t.accountError;
           return;
         }
-        const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+        // Implicit flow so confirmation emails redirect with #access_token=… — works in any browser/mail app.
+        // Default PKCE puts ?code= on the callback and requires the same browser’s code_verifier (often missing).
+        const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+          auth: {
+            flowType: 'implicit',
+            detectSessionInUrl: true,
+            persistSession: true,
+            storage: window.localStorage
+          }
+        });
         const email = body.email.trim().toLowerCase();
 
         // Prevent duplicate registrations for the same email (Supabase will reject anyway,

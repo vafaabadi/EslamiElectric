@@ -39,12 +39,14 @@
         networkHint: 'Check your network or ad blocker.',
         signInFailed: 'Could not complete sign-in.',
         authLinkExpired:
-          'This confirmation link has expired or was already used. Go to Log in and use “Forgot password?” or sign up again to get a new email.',
+          'This one-time link was already used or is invalid. Common causes: opening the link twice, or your mail app (e.g. Gmail) prefetching it once in the background before you clicked. Request a new activation email from Log in, then paste the fallback link from that email into your browser — do not reuse an old message.',
         authLinkInvalidPrefix: 'Link error:',
         sessionHintGeneric:
           'No valid sign-in session was found. If you used Google, open Log in on this same site and try again. If you opened an email link, use the latest message from your inbox.',
         pkceHint:
           'No session. Open Log in on this same site (same address) and try Google again — PKCE requires the same browser origin.',
+        pkceEmailLinkHint:
+          ' If you opened this link on another device or in the mail app, try the same browser you used to sign up, or request a new confirmation email from Log in.',
         tokenHelp:
           ' Confirm Supabase Auth redirect URLs include this site’s auth-callback URL (same host as the address bar) and that BASE_URL matches production. You can also try email/password login.',
         api404: ' The server may not be running this route on your host (e.g. static-only deploy).',
@@ -61,12 +63,14 @@
         networkHint: 'اتصال شبکه یا مسدودکننده تبلیغات را بررسی کنید.',
         signInFailed: 'ورود کامل نشد.',
         authLinkExpired:
-          'این لینک تأیید منقضی شده یا قبلاً استفاده شده است. به «ورود» بروید و با «فراموشی رمز؟» یا ثبت‌نام دوباره، ایمیل تازه بگیرید.',
+          'این لینک یک‌بار مصرف است و دیگر معتبر نیست؛ ممکن است برنامهٔ ایمیل (مثل Gmail) یک بار در پس‌زمینه آن را باز کرده باشد. از «ورود» ایمیل فعال‌سازی تازه بگیرید، سپس لینک متن «اگر دکمه کار نکرد» را کپی کنید و در مرورگر بچسبانید؛ دوباره روی همان ایمیل قدیمی نزنید.',
         authLinkInvalidPrefix: 'خطای لینک:',
         sessionHintGeneric:
           'جلسهٔ معتبر یافت نشد. اگر با Google وارد می‌شوید، از همین سایت دوباره تلاش کنید. اگر لینک ایمیل را باز کرده‌اید، جدیدترین پیام را استفاده کنید.',
         pkceHint:
           'جلسه‌ای یافت نشد. از همان آدرس سایت وارد شوید و دوباره با Google تلاش کنید — PKCE به همان مرورگر و آدرس نیاز دارد.',
+        pkceEmailLinkHint:
+          ' اگر لینک را در دستگاه یا برنامهٔ دیگری باز کرده‌اید، همان مرورگری را که با آن ثبت‌نام کرده‌اید امتحان کنید، یا از صفحهٔ ورود ایمیل تأیید تازه بگیرید.',
         tokenHelp:
           ' آدرس‌های بازگشت Supabase را برای همین سایت تنظیم کنید و BASE_URL را با محیط production یکسان کنید. می‌توانید ورود با ایمیل/رمز را امتحان کنید.',
         api404: ' ممکن است API روی این میزبان در دسترس نباشد (مثلاً فقط فایل‌های استاتیک).',
@@ -309,7 +313,17 @@
           accessToken = hashParams.get('access_token');
         }
 
-        if (!accessToken) {
+        // Do not use a stale localStorage session when the URL carried no auth params (e.g. empty #),
+        // or we may POST the wrong/expired token and show a generic "Something went wrong."
+        var hadAuthParams =
+          hashEarlyParams.has('access_token') ||
+          hashEarlyParams.has('refresh_token') ||
+          hashEarlyParams.has('token_hash') ||
+          searchEarly.has('code') ||
+          searchEarly.has('token_hash') ||
+          (searchEarly.has('token') && searchEarly.has('email'));
+
+        if (!accessToken && hadAuthParams) {
           try {
             const { data: sess } = await supabase.auth.getSession();
             if (sess && sess.session && sess.session.access_token) {
@@ -322,6 +336,14 @@
 
         if (!accessToken) {
           var hint = exchangeErrText || tr('sessionHintGeneric');
+          var exLow = (exchangeErrText || '').toLowerCase();
+          if (
+            exLow.indexOf('verifier') !== -1 ||
+            exLow.indexOf('code verifier') !== -1 ||
+            exLow.indexOf('pkce') !== -1
+          ) {
+            hint += tr('pkceEmailLinkHint');
+          }
           statusEl.textContent = tr('signInFailed');
           errorEl.textContent = hint;
           errorEl.classList.remove('hidden');
@@ -336,16 +358,26 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accessToken: accessToken })
         });
-        const data = await tokenRes.json().catch(function () {
-          return {};
-        });
+        const rawBody = await tokenRes.text();
+        var data = {};
+        try {
+          data = rawBody ? JSON.parse(rawBody) : {};
+        } catch (parseEx) {
+          data = {};
+        }
         if (tokenRes.ok && data.token) {
           localStorage.setItem('token', data.token);
           statusEl.textContent = tr('signedIn');
           window.location.replace(homePageHref());
         } else {
           statusEl.textContent = tr('somethingWrong');
-          var errMsg = data.error || '';
+          var errMsg = (data && data.error) ? String(data.error) : '';
+          if (!errMsg) {
+            errMsg =
+              'Request failed' +
+              (tokenRes.status ? ' (HTTP ' + tokenRes.status + ')' : '') +
+              (rawBody && rawBody.length < 400 ? ': ' + rawBody.slice(0, 400) : '');
+          }
           if (errMsg.indexOf('Invalid or expired token') !== -1) {
             errMsg += tr('tokenHelp');
           }
