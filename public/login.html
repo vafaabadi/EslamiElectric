@@ -91,12 +91,12 @@
           Log In
         </button>
       </form>
-    </div>
 
-    <p class="mt-4 text-center text-slate-600 text-sm">
-      <span id="no-account-label">Don't have an account?</span>
-      <a href="account.html" class="text-amber-600 font-medium hover:underline">Sign Up</a>
-    </p>
+      <p id="no-account-block" class="pt-4 mt-2 border-t border-slate-100 text-center text-slate-600 text-sm">
+        <span id="no-account-label">Don't have an account?</span>
+        <a href="account.html" id="link-signup-main" class="text-amber-600 font-medium hover:underline">Sign Up</a>
+      </p>
+    </div>
   </main>
 
   <footer class="bg-slate-800 text-slate-300 py-6 mt-auto">
@@ -130,6 +130,7 @@
         forgotPassword: 'Forgot password?',
         submitBtn: 'Log In with email',
         noAccountLabel: "Don't have an account?",
+        signUpLink: 'Sign Up',
         loginSuccess: 'Login successful! Redirecting...',
         loginError: 'Invalid email or password.',
         loginInvalidCredsHint: 'If you just activated your account, your password might not match. Use `Forgot password?` to set a new one.',
@@ -165,6 +166,7 @@
         forgotPassword: 'رمز عبور را فراموش کرده‌اید؟',
         submitBtn: 'ورود با ایمیل',
         noAccountLabel: 'حساب کاربری ندارید؟',
+        signUpLink: 'ایجاد حساب',
         loginSuccess: 'ورود موفق! در حال انتقال...',
         loginError: 'ایمیل یا رمز عبور اشتباه است.',
         loginInvalidCredsHint: 'اگر اخیراً حساب را فعال کرده‌اید، ممکن است رمز عبور شما متفاوت باشد. از `رمز عبور را فراموش کرده‌اید؟` برای تعیین رمز جدید استفاده کنید.',
@@ -456,11 +458,13 @@
       document.getElementById('link-forgot').textContent = t.forgotPassword;
       document.getElementById('submit-btn').textContent = t.submitBtn;
       document.getElementById('no-account-label').textContent = t.noAccountLabel;
+      var linkSignupMain = document.getElementById('link-signup-main');
+      if (linkSignupMain) linkSignupMain.textContent = t.signUpLink;
       document.getElementById('nav-signup').textContent = currentLang === 'fa' ? 'ایجاد حساب کاربری' : 'Sign Up';
       const token = localStorage.getItem('token');
       const navSignup = document.getElementById('nav-signup');
       if (navSignup) navSignup.classList.toggle('hidden', !!token);
-      const noAccountBlock = document.querySelector('main .mt-4.text-center.text-slate-600');
+      const noAccountBlock = document.getElementById('no-account-block');
       if (noAccountBlock) noAccountBlock.classList.toggle('hidden', !!token);
 
       document.getElementById('lang-en').className = currentLang === 'en'
