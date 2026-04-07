@@ -620,27 +620,53 @@ async function sendOrderReceiptEmail(order) {
     <p style="margin-top:1em; color:#64748b; font-size:0.875rem;">If you don't see this in your inbox, check your spam folder.</p>
     <p>— Eslami Electric</p>
   `;
-  await resend.emails.send({
-    from: resendFrom,
-    to: [order.customer_email],
-    subject: 'Your receipt – Order ' + (order.order_number || order.id),
-    html
-  });
-  console.log('Receipt email sent to', order.customer_email);
+  try {
+    await resend.emails.send({
+      from: resendFrom,
+      to: [order.customer_email],
+      subject: 'Your receipt – Order ' + (order.order_number || order.id),
+      html
+    });
+    console.log('Receipt email sent to', order.customer_email);
+  } catch (sendErr) {
+    console.error('Receipt email Resend error:', sendErr && sendErr.message ? sendErr.message : sendErr);
+    throw sendErr;
+  }
 }
 
 // Stripe webhook needs raw body for signature verification (must be before express.json())
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+
+/** Normalize body for stripe.webhooks.constructEvent (Buffer | string). Parsed JSON breaks signatures. */
+function rawBodyForStripeWebhook(req) {
+  const b = req.body;
+  if (Buffer.isBuffer(b)) return b;
+  if (typeof b === 'string') return Buffer.from(b, 'utf8');
+  if (b != null && typeof b === 'object') {
+    console.error(
+      'Stripe webhook: body was JSON-parsed before signature verification. Use raw body for POST /api/webhooks/stripe (check host middleware / Vercel config).'
+    );
+    return null;
+  }
+  return Buffer.alloc(0);
+}
+
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
   if (!stripe || !stripeWebhookSecret) {
+    console.error('Stripe webhook: STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET missing');
     return res.status(503).send('Webhook not configured');
   }
   const sig = req.headers['stripe-signature'];
   if (!sig) return res.status(400).send('Missing stripe-signature');
+  const rawBody = rawBodyForStripeWebhook(req);
+  if (rawBody === null) {
+    return res.status(400).send('Webhook requires raw JSON body for signature verification');
+  }
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, sig, stripeWebhookSecret);
   } catch (err) {
+    console.error('Stripe webhook signature error:', err && err.message ? err.message : err);
     return res.status(400).send('Webhook signature verification failed');
   }
   if (event.type !== 'checkout.session.completed') {
@@ -693,15 +719,21 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
   try {
     const { data: existingOrder } = await supabase
       .from('orders')
-      .select('id, status')
+      .select('id, status, customer_email')
       .eq('stripe_session_id', stripeSessionId)
       .single();
 
     let shouldTelegramNotify = false;
+    let shouldSendReceipt = false;
 
     if (existingOrder) {
-      // Only notify if the order isn't paid yet (prevents duplicate notifications on retries).
+      // Only notify / send receipt if the order wasn't already paid (avoids duplicate emails on webhook retries).
       shouldTelegramNotify = existingOrder.status !== 'paid';
+      shouldSendReceipt = existingOrder.status !== 'paid';
+      const mergedEmail =
+        (customerEmail && String(customerEmail).trim()) ||
+        (existingOrder.customer_email && String(existingOrder.customer_email).trim()) ||
+        null;
       const { error: updateError } = await supabase
         .from('orders')
         .update({
@@ -709,7 +741,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
           amount_total: amountTotal,
           currency,
           line_items: lineItems,
-          customer_email: customerEmail,
+          customer_email: mergedEmail,
           customer_name: customerName || null
         })
         .eq('stripe_session_id', stripeSessionId);
@@ -736,6 +768,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
         return res.status(500).send('Error recording order');
       }
       shouldTelegramNotify = true;
+      shouldSendReceipt = true;
     }
     // Send receipt email to customer (guest or logged-in) when we have their email
     const { data: orderForEmail } = await supabase
@@ -743,7 +776,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
       .select('id, order_number, customer_email, guest_access_token, customer_name, user_id, line_items, amount_total, currency, fulfillment_type, shipping_address')
       .eq('stripe_session_id', stripeSessionId)
       .single();
-    if (orderForEmail && orderForEmail.customer_email) {
+    if (orderForEmail && orderForEmail.customer_email && shouldSendReceipt) {
       sendOrderReceiptEmail(orderForEmail).catch((err) => console.error('Receipt email error:', err));
     }
     if (shouldTelegramNotify && orderForEmail) {
@@ -3637,7 +3670,7 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
     }
     const { data: order, error: findError } = await supabase
       .from('orders')
-      .select('id, status, order_number, guest_access_token, customer_name, fulfillment_type, shipping_address')
+      .select('id, status, order_number, guest_access_token, customer_name, customer_email, fulfillment_type, shipping_address')
       .eq('stripe_session_id', sessionId)
       .single();
     if (findError || !order) {
@@ -3646,6 +3679,10 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
     if (order.status === 'paid') {
       return res.json({ updated: false, status: 'paid' });
     }
+    const mergedEmail =
+      (customerEmail && String(customerEmail).trim()) ||
+      (order.customer_email && String(order.customer_email).trim()) ||
+      null;
     const { error: updateError } = await supabase
       .from('orders')
       .update({
@@ -3653,7 +3690,7 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
         amount_total: amountTotal,
         currency,
         line_items: lineItems,
-        customer_email: customerEmail
+        customer_email: mergedEmail
       })
       .eq('stripe_session_id', sessionId);
     if (updateError) {
@@ -3694,8 +3731,16 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
         `Tracking: ${trackLink}`
       ].filter(Boolean).join('\n')
     ).catch((err) => console.error('Telegram confirm-by-session notification error:', err));
-    // Receipt is sent only from the Stripe webhook so the customer gets exactly one email.
-    // If the webhook hasn't run yet (e.g. local dev), Stripe will still fire it and the receipt will be sent then.
+
+    const { data: orderForReceipt } = await supabase
+      .from('orders')
+      .select('id, order_number, customer_email, guest_access_token, customer_name, user_id, line_items, amount_total, currency, fulfillment_type, shipping_address')
+      .eq('stripe_session_id', sessionId)
+      .single();
+    if (orderForReceipt && orderForReceipt.customer_email) {
+      sendOrderReceiptEmail(orderForReceipt).catch((err) => console.error('Receipt email error (confirm-by-session):', err));
+    }
+
     res.json({ updated: true, status: 'paid' });
   } catch (err) {
     console.error('Confirm by session error:', err);
