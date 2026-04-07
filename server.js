@@ -727,14 +727,13 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: 
     let shouldSendReceipt = false;
 
     if (existingOrder) {
-      // Only notify / send receipt if the order wasn't already paid (avoids duplicate emails on webhook retries).
-      shouldTelegramNotify = existingOrder.status !== 'paid';
-      shouldSendReceipt = existingOrder.status !== 'paid';
       const mergedEmail =
         (customerEmail && String(customerEmail).trim()) ||
         (existingOrder.customer_email && String(existingOrder.customer_email).trim()) ||
         null;
-      const { error: updateError } = await supabase
+      // Only transition pending → paid; only notify if we actually updated (avoids duplicate with
+      // /api/orders/confirm-by-session and duplicate Stripe webhook deliveries).
+      const { data: updatedFromPending, error: updateError } = await supabase
         .from('orders')
         .update({
           status: 'paid',
@@ -744,11 +743,16 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: 
           customer_email: mergedEmail,
           customer_name: customerName || null
         })
-        .eq('stripe_session_id', stripeSessionId);
+        .eq('stripe_session_id', stripeSessionId)
+        .eq('status', 'pending')
+        .select('id');
       if (updateError) {
         console.error('Orders update error:', updateError);
         return res.status(500).send('Error updating order');
       }
+      const transitioned = Array.isArray(updatedFromPending) && updatedFromPending.length > 0;
+      shouldTelegramNotify = transitioned;
+      shouldSendReceipt = transitioned;
     } else {
       const fulfillmentFromMeta = (session.metadata && session.metadata.fulfillment) === 'collection' ? 'collection' : 'delivery';
       const { error } = await supabase.from('orders').insert({
@@ -3683,7 +3687,7 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
       (customerEmail && String(customerEmail).trim()) ||
       (order.customer_email && String(order.customer_email).trim()) ||
       null;
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from('orders')
       .update({
         status: 'paid',
@@ -3692,12 +3696,17 @@ app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
         line_items: lineItems,
         customer_email: mergedEmail
       })
-      .eq('stripe_session_id', sessionId);
+      .eq('stripe_session_id', sessionId)
+      .eq('status', 'pending')
+      .select('id');
     if (updateError) {
       console.error('Confirm order update error:', updateError);
       return res.status(500).json({ error: 'Failed to update order' });
     }
-    // If we had to mark the order as paid here (webhook missing), notify admins too.
+    if (!updatedRows || updatedRows.length === 0) {
+      return res.json({ updated: false, status: 'paid' });
+    }
+    // Only notify if this request won the race (pending → paid). Otherwise Stripe webhook already sent receipt/Telegram.
     const siteUrl = baseUrl.replace(/\/$/, '');
     const isGuest = !!order.guest_access_token;
     const trackLink = isGuest
