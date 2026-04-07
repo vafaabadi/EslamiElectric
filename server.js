@@ -76,6 +76,8 @@ const ACCOUNT_DELETION_RETENTION_DAYS = Math.max(
   parseInt(process.env.ACCOUNT_DELETION_RETENTION_DAYS || '365', 10) || 365
 );
 const DELETE_ACCOUNT_CONFIRM_PHRASE = 'DELETE MY ACCOUNT';
+/** Self-service delete on profile + POST /api/account/request-deletion. Off unless explicitly enabled. */
+const ACCOUNT_DELETION_ENABLED = process.env.ACCOUNT_DELETION_ENABLED === '1';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 /** Public site URL for Stripe redirects, emails, receipts (see config/environment.js). */
@@ -417,6 +419,53 @@ function isValidPhoneOrCompanyLine(v) {
 function isSyntheticTelegramAuthEmail(email) {
   const e = (email && String(email).trim().toLowerCase()) || '';
   return /^tg_\d+@/.test(e);
+}
+
+/**
+ * Telegram + Google are separate Supabase Auth users. Logged-in orders use orders.user_id, so a purchase
+ * as Telegram (synthetic auth email + contact inbox) does not appear under Google until we move rows here:
+ * same customer_email as this user's real inbox, previous owner is Telegram/synthetic.
+ */
+async function reassignOrdersFromTelegramAccountToMatchingInbox(currentUserId) {
+  try {
+    const { data: me } = await supabase
+      .from('users')
+      .select('email, contact_email')
+      .eq('id', currentUserId)
+      .maybeSingle();
+    if (!me) return;
+    const inboxEmails = new Set();
+    const ce = (me.contact_email || '').trim().toLowerCase();
+    const ae = (me.email || '').trim().toLowerCase();
+    if (ce && validationPatterns.email.test(ce)) inboxEmails.add(ce);
+    if (ae && validationPatterns.email.test(ae) && !isSyntheticTelegramAuthEmail(ae)) inboxEmails.add(ae);
+    if (inboxEmails.size === 0) return;
+
+    const { data: candidates, error: oErr } = await supabase
+      .from('orders')
+      .select('id, user_id, customer_email')
+      .in('customer_email', [...inboxEmails])
+      .neq('user_id', currentUserId);
+    if (oErr || !candidates || candidates.length === 0) return;
+
+    for (const o of candidates) {
+      const { data: owner } = await supabase
+        .from('users')
+        .select('email, telegram_id')
+        .eq('id', o.user_id)
+        .maybeSingle();
+      if (!owner) continue;
+      const synthetic = isSyntheticTelegramAuthEmail(owner.email);
+      const hasTelegramId = !!(owner.telegram_id && String(owner.telegram_id).trim());
+      if (!synthetic && !hasTelegramId) continue;
+      const { error: upErr } = await supabase.from('orders').update({ user_id: currentUserId }).eq('id', o.id);
+      if (!upErr) {
+        console.log('Reassigned order', o.id, 'from Telegram-linked account to user', currentUserId);
+      }
+    }
+  } catch (e) {
+    console.error('reassignOrdersFromTelegramAccountToMatchingInbox:', e);
+  }
 }
 
 /**
@@ -1194,6 +1243,30 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
         console.log('Attached', attachedRows.length, 'guest order(s) to user', userId);
       }
     }
+
+    const { data: profForAttach } = await supabase
+      .from('users')
+      .select('contact_email')
+      .eq('id', userId)
+      .maybeSingle();
+    const contactNormAttach = (profForAttach && profForAttach.contact_email)
+      ? String(profForAttach.contact_email).trim().toLowerCase()
+      : '';
+    if (contactNormAttach && validationPatterns.email.test(contactNormAttach) && contactNormAttach !== emailNorm) {
+      const { data: attachedByContact, error: attachContactErr } = await supabase
+        .from('orders')
+        .update({ user_id: userId })
+        .eq('customer_email', contactNormAttach)
+        .is('user_id', null)
+        .select('id');
+      if (attachContactErr) {
+        console.error('Attach guest orders (contact_email) error:', attachContactErr);
+      } else if (attachedByContact && attachedByContact.length) {
+        console.log('Attached', attachedByContact.length, 'guest order(s) by contact_email to user', userId);
+      }
+    }
+
+    await reassignOrdersFromTelegramAccountToMatchingInbox(userId);
 
     const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
 
@@ -2149,6 +2222,9 @@ app.get('/api/me', authMiddleware, async (req, res) => {
  * Later: cron removes public.users after ACCOUNT_DELETION_RETENTION_DAYS (orders retain amounts; user_id becomes null).
  */
 app.post('/api/account/request-deletion', authMiddleware, async (req, res) => {
+  if (!ACCOUNT_DELETION_ENABLED) {
+    return res.status(403).json({ error: 'Account deletion is temporarily unavailable.' });
+  }
   try {
     const body = req.body || {};
     const confirmPhrase = (body.confirmPhrase && String(body.confirmPhrase).trim()) || '';
@@ -3542,20 +3618,26 @@ app.post('/api/orders/guest-resume-checkout', async (req, res) => {
 // Get current user's orders (requires auth)
 app.get('/api/orders', authMiddleware, async (req, res) => {
   try {
-    // Idempotent: link any guest orders (same email, user_id null) to this account.
+    // Idempotent: link guest orders (user_id null) whose customer_email matches account or contact inbox.
     const { data: profile } = await supabase
       .from('users')
-      .select('email')
+      .select('email, contact_email')
       .eq('id', req.userId)
       .maybeSingle();
     const profileEmail = (profile && profile.email) ? String(profile.email).trim().toLowerCase() : '';
-    if (profileEmail) {
+    const contactEmail = (profile && profile.contact_email) ? String(profile.contact_email).trim().toLowerCase() : '';
+    const attachSet = new Set();
+    if (profileEmail && validationPatterns.email.test(profileEmail)) attachSet.add(profileEmail);
+    if (contactEmail && validationPatterns.email.test(contactEmail)) attachSet.add(contactEmail);
+    for (const em of attachSet) {
       await supabase
         .from('orders')
         .update({ user_id: req.userId })
-        .ilike('customer_email', profileEmail)
+        .eq('customer_email', em)
         .is('user_id', null);
     }
+
+    await reassignOrdersFromTelegramAccountToMatchingInbox(req.userId);
 
     const { data: orders, error } = await supabase
       .from('orders')

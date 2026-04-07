@@ -182,6 +182,8 @@
   <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/intlTelInput.min.js"></script>
   <script src="js/intl-phone.js"></script>
   <script>
+    /** Show delete-account block + wire button. Keep false unless server has ACCOUNT_DELETION_ENABLED=1. */
+    var PROFILE_DELETE_ACCOUNT_ENABLED = false;
     runWhenLocaleReady(function () {
     const translations = {
       en: {
@@ -417,16 +419,18 @@
       document.getElementById('label-company-contact').textContent = t.labelCompanyContact;
       document.getElementById('label-company-principal').textContent = t.labelCompanyPrincipal;
       document.getElementById('submit-btn').textContent = t.saveChanges;
-      var dt = document.getElementById('danger-title');
-      if (dt) dt.textContent = t.dangerTitle;
-      var dtx = document.getElementById('danger-text');
-      if (dtx) dtx.textContent = t.dangerBody;
-      var ldp = document.getElementById('label-delete-password');
-      if (ldp) ldp.textContent = t.labelDeletePassword;
-      var ldc = document.getElementById('label-delete-confirm');
-      if (ldc) ldc.textContent = t.labelDeleteConfirm + ' — ' + t.deletePhraseHint;
-      var bda = document.getElementById('btn-delete-account');
-      if (bda) bda.textContent = t.btnDeleteAccount;
+      if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+        var dt = document.getElementById('danger-title');
+        if (dt) dt.textContent = t.dangerTitle;
+        var dtx = document.getElementById('danger-text');
+        if (dtx) dtx.textContent = t.dangerBody;
+        var ldp = document.getElementById('label-delete-password');
+        if (ldp) ldp.textContent = t.labelDeletePassword;
+        var ldc = document.getElementById('label-delete-confirm');
+        if (ldc) ldc.textContent = t.labelDeleteConfirm + ' — ' + t.deletePhraseHint;
+        var bda = document.getElementById('btn-delete-account');
+        if (bda) bda.textContent = t.btnDeleteAccount;
+      }
 
       if (cachedMe) {
         const typeDisplay = document.getElementById('account-type-display');
@@ -565,20 +569,24 @@
         const me = await res.json();
         document.getElementById('profile-loading').classList.add('hidden');
         document.getElementById('profile-form').classList.remove('hidden');
-        document.getElementById('danger-zone').classList.remove('hidden');
-        fillForm(me);
-        var delPw = document.getElementById('delete-password');
-        var delCf = document.getElementById('delete-confirm');
-        if (delPw) {
-          delPw.value = '';
-          delPw.required = true;
+        if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+          document.getElementById('danger-zone').classList.remove('hidden');
         }
-        if (delCf) delCf.value = '';
-        var pwWrap = document.getElementById('delete-password-wrap');
-        if (pwWrap && me.hasPassword === false) {
-          pwWrap.classList.add('opacity-80');
-        } else if (pwWrap) {
-          pwWrap.classList.remove('opacity-80');
+        fillForm(me);
+        if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+          var delPw = document.getElementById('delete-password');
+          var delCf = document.getElementById('delete-confirm');
+          if (delPw) {
+            delPw.value = '';
+            delPw.required = true;
+          }
+          if (delCf) delCf.value = '';
+          var pwWrap = document.getElementById('delete-password-wrap');
+          if (pwWrap && me.hasPassword === false) {
+            pwWrap.classList.add('opacity-80');
+          } else if (pwWrap) {
+            pwWrap.classList.remove('opacity-80');
+          }
         }
       } catch (e) {
         document.getElementById('profile-loading').classList.add('hidden');
@@ -732,57 +740,59 @@
       }
     });
 
-    document.getElementById('btn-delete-account').addEventListener('click', async function () {
-      const t = translations[currentLang];
-      const token = localStorage.getItem('token');
-      const msgEl = document.getElementById('delete-message');
-      const phrase = (document.getElementById('delete-confirm') && document.getElementById('delete-confirm').value.trim()) || '';
-      const pw = (document.getElementById('delete-password') && document.getElementById('delete-password').value) || '';
-      if (phrase !== 'DELETE MY ACCOUNT') {
-        msgEl.textContent = t.deleteWrongPhrase;
-        msgEl.className = 'text-sm text-red-600';
-        return;
-      }
-      if (!pw) {
-        msgEl.textContent = t.deletePasswordRequired;
-        msgEl.className = 'text-sm text-red-600';
-        return;
-      }
-      if (!cachedMe || !cachedMe.hasPassword) {
-        if (pw.length < 8) {
+    if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+      document.getElementById('btn-delete-account').addEventListener('click', async function () {
+        const t = translations[currentLang];
+        const token = localStorage.getItem('token');
+        const msgEl = document.getElementById('delete-message');
+        const phrase = (document.getElementById('delete-confirm') && document.getElementById('delete-confirm').value.trim()) || '';
+        const pw = (document.getElementById('delete-password') && document.getElementById('delete-password').value) || '';
+        if (phrase !== 'DELETE MY ACCOUNT') {
+          msgEl.textContent = t.deleteWrongPhrase;
+          msgEl.className = 'text-sm text-red-600';
+          return;
+        }
+        if (!pw) {
           msgEl.textContent = t.deletePasswordRequired;
           msgEl.className = 'text-sm text-red-600';
           return;
         }
-      }
-      msgEl.textContent = '';
-      msgEl.className = 'text-sm min-h-[1.25rem] text-slate-500';
-      try {
-        const res = await fetch('/api/account/request-deletion', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ password: pw, confirmPhrase: phrase })
-        });
-        const data = await res.json().catch(function () {
-          return {};
-        });
-        if (!res.ok) {
-          msgEl.textContent = (data && data.error) ? String(data.error) : t.deleteError;
-          msgEl.className = 'text-sm text-red-600';
-          return;
+        if (!cachedMe || !cachedMe.hasPassword) {
+          if (pw.length < 8) {
+            msgEl.textContent = t.deletePasswordRequired;
+            msgEl.className = 'text-sm text-red-600';
+            return;
+          }
         }
-        msgEl.textContent = t.deleteSuccess;
-        msgEl.className = 'text-sm text-emerald-600';
-        localStorage.removeItem('token');
-        localStorage.removeItem('basket');
-        setTimeout(function () {
-          window.location.href = 'login.html';
-        }, 1600);
-      } catch (e) {
-        msgEl.textContent = t.deleteError;
-        msgEl.className = 'text-sm text-red-600';
-      }
-    });
+        msgEl.textContent = '';
+        msgEl.className = 'text-sm min-h-[1.25rem] text-slate-500';
+        try {
+          const res = await fetch('/api/account/request-deletion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ password: pw, confirmPhrase: phrase })
+          });
+          const data = await res.json().catch(function () {
+            return {};
+          });
+          if (!res.ok) {
+            msgEl.textContent = (data && data.error) ? String(data.error) : t.deleteError;
+            msgEl.className = 'text-sm text-red-600';
+            return;
+          }
+          msgEl.textContent = t.deleteSuccess;
+          msgEl.className = 'text-sm text-emerald-600';
+          localStorage.removeItem('token');
+          localStorage.removeItem('basket');
+          setTimeout(function () {
+            window.location.href = 'login.html';
+          }, 1600);
+        } catch (e) {
+          msgEl.textContent = t.deleteError;
+          msgEl.className = 'text-sm text-red-600';
+        }
+      });
+    }
 
     applyPageLanguage();
     (async function () {
