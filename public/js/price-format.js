@@ -31,23 +31,21 @@
   }
 
   /**
-   * Integer Toman for RTL: group from the right (…٬۰۰۰٬۰۰۰), Persian digits, then LTR isolate
-   * so separators stay between the correct digit triplets (Intl alone can confuse UAX #9 in RTL).
+   * Integer Toman: Persian digits + ٬ grouping + " تومان". No bidi chars — parent must use
+   * <span dir="ltr" class="tabular-nums"> in RTL pages so separators stay aligned.
    */
   function formatTomanRtl(tom) {
     var n = Math.max(0, Math.round(Number(tom) || 0));
-    var formatted = latinIntToPersianGrouped(String(n));
-    return '\u2066\u200E' + formatted + '\u2069' + ' تومان';
+    return latinIntToPersianGrouped(String(n)) + ' تومان';
   }
 
   /**
-   * Nonnegative integers for RTL (e.g. line quantities): Persian digits + thousands grouping,
-   * wrapped in LTR isolate so ٬ stays correct next to Persian text.
+   * Nonnegative integers: Persian digits + ٬ grouping. Pair with dir="ltr" on the container
+   * (e.g. basket qty input has dir="ltr").
    */
   function formatPersianIntegerRtl(n) {
     var x = Math.max(0, Math.round(Number(n) || 0));
-    var formatted = latinIntToPersianGrouped(String(x));
-    return '\u2066\u200E' + formatted + '\u2069';
+    return latinIntToPersianGrouped(String(x));
   }
 
   /** Display-only: catalog and basket prices are stored as USD numbers. */
@@ -65,7 +63,13 @@
     return formatPriceUSD((Number(cents) || 0) / 100);
   }
 
+  /** Use around any formatted price/qty string embedded in RTL HTML so ٬ and digits stay LTR. */
+  function ltrNumSpan(html) {
+    return '<span dir="ltr" class="tabular-nums">' + String(html) + '</span>';
+  }
+
   global.formatPriceUSD = formatPriceUSD;
   global.formatStripeUsdCents = formatStripeUsdCents;
   global.formatPersianIntegerRtl = formatPersianIntegerRtl;
+  global.ltrNumSpan = ltrNumSpan;
 })(typeof window !== 'undefined' ? window : this);

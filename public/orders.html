@@ -302,7 +302,7 @@
             <div class="flex-1 min-w-0">
               <p class="font-mono text-slate-700 text-sm">${escapeHtml(orderNum)}</p>
               <p class="text-slate-500 text-sm">${t.orderDate}: ${formatDate(order.created_at)}</p>
-              <p class="font-semibold text-slate-800 mt-0.5">${formatAmount(order.amount_total, order.currency)}</p>
+              <p class="font-semibold text-slate-800 mt-0.5">${ltrNumSpan(formatAmount(order.amount_total, order.currency))}</p>
               <p class="text-slate-600 text-sm mt-1 truncate" title="${itemsSummary}">${itemsSummary}</p>
             </div>
             <div class="flex items-center gap-2">
@@ -336,7 +336,12 @@
             const qty = item.quantity || 1;
             const amt = item.amount_total != null ? formatAmount(item.amount_total, order.currency) : '';
             const row = document.createElement('li');
-            row.textContent = `${lineName(item)} × ${qty}${amt ? ' — ' + amt : ''}`;
+            row.innerHTML =
+              escapeHtml(lineName(item)) +
+              ' ×<span dir="ltr" class="tabular-nums">' +
+              escapeHtml(String(qty)) +
+              '</span>' +
+              (amt ? ' — <span dir="ltr" class="tabular-nums">' + amt + '</span>' : '');
             itemsListEl.appendChild(row);
           });
         } else {

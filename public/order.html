@@ -274,6 +274,13 @@
         return (cur === 'usd' ? '$' : '') + n.toFixed(2);
       }
 
+      function escapeHtml(str) {
+        if (str == null) return '';
+        return String(str).replace(/[&<>"']/g, function (c) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
+        });
+      }
+
       function setResumeError(msg) {
         var el = document.getElementById('detail-resume-error');
         if (!el) return;
@@ -370,11 +377,18 @@
             }
             var li = document.createElement('p');
             li.className = 'text-slate-700';
-            li.textContent = name + ' × ' + qty + ' — ' + lineAmt;
+            var sp = typeof ltrNumSpan === 'function' ? ltrNumSpan : function (s) { return String(s); };
+            li.innerHTML =
+              escapeHtml(name) +
+              ' ×' +
+              sp(escapeHtml(String(qty))) +
+              ' — ' +
+              sp(lineAmt);
             itemsEl.appendChild(li);
           });
-          document.getElementById('detail-total').textContent =
-            (orderLang === 'fa' ? 'جمع: ' : 'Total: ') + formatAmount(order.amount_total, order.currency);
+          var spTotal = typeof ltrNumSpan === 'function' ? ltrNumSpan : function (s) { return String(s); };
+          document.getElementById('detail-total').innerHTML =
+            (orderLang === 'fa' ? 'جمع: ' : 'Total: ') + spTotal(formatAmount(order.amount_total, order.currency));
         };
         if (loc && typeof loc.ensureProductCatalog === 'function') {
           loc.ensureProductCatalog().then(finishItems).catch(function() { finishItems({}); });

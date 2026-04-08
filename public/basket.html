@@ -771,7 +771,7 @@
             </div>
             <div class="flex-grow min-w-0">
               <h3 class="font-semibold text-slate-800 text-sm sm:text-base break-words">${escapeHtml(name)}</h3>
-              <p class="text-slate-500 text-xs sm:text-sm">${formatPriceUSD(price)} ${escapeHtml(t.priceEach || 'each')}</p>
+              <p class="text-slate-500 text-xs sm:text-sm">${ltrNumSpan(formatPriceUSD(price))} ${escapeHtml(t.priceEach || 'each')}</p>
             </div>
           </div>
           <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
@@ -780,14 +780,14 @@
               <input type="text" inputmode="numeric" autocomplete="off" dir="ltr" lang="${currentLang === 'fa' ? 'fa' : 'en'}" class="basket-qty-input w-14 sm:w-16 text-center text-sm font-medium border-x border-slate-300 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset" value="${escapeHtml(qtyDisplay)}" data-index="${index}" aria-label="${escapeHtml(t.ariaQuantityInput || t.quantity || 'Quantity')}">
               <button type="button" class="btn-basket-plus min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium touch-manipulation" data-index="${index}" aria-label="${escapeHtml(t.ariaIncreaseQty || 'Increase quantity')}">+</button>
             </div>
-            <span class="font-semibold text-slate-900 basket-line-total">${formatPriceUSD(lineTotal)}</span>
+            <span class="font-semibold text-slate-900 basket-line-total">${ltrNumSpan(formatPriceUSD(lineTotal))}</span>
             <button type="button" class="btn-remove min-h-[44px] px-3 py-2 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 rounded touch-manipulation" data-index="${index}">${t.remove}</button>
           </div>
         `;
         listEl.appendChild(li);
       });
 
-      totalEl.textContent = formatPriceUSD(total);
+      totalEl.innerHTML = ltrNumSpan(formatPriceUSD(total));
 
       updateCheckoutButtonState();
 
