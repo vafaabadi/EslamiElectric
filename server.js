@@ -167,6 +167,23 @@ function getPublicBaseUrlForClient(req) {
   return resolvePublicBaseUrl();
 }
 
+/**
+ * Synthetic Supabase emails for Telegram users are tg_<id>@<domain>.
+ * If TELEGRAM_AUTH_EMAIL_DOMAIN is unset, use the Supabase project hostname from SUPABASE_URL
+ * (e.g. xxxxx.supabase.co) so the login widget can stay enabled when only bot + token are configured.
+ */
+function getTelegramAuthEmailDomain() {
+  const explicit = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
+  if (explicit) return explicit;
+  const url = process.env.SUPABASE_URL || '';
+  try {
+    const u = new URL(url);
+    return u.hostname || '';
+  } catch (e) {
+    return '';
+  }
+}
+
 /** Supabase URL + anon key + baseUrl: embedded only in HTML pages that need them (not via a separate JSON API). */
 function getPublicConfigForClient(req) {
   const url = process.env.SUPABASE_URL || '';
@@ -174,7 +191,7 @@ function getPublicConfigForClient(req) {
   const base = getPublicBaseUrlForClient(req);
   const telegramBotUsername = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
   const telegramLoginBotToken = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  const telegramAuthDomain = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
+  const telegramAuthDomain = getTelegramAuthEmailDomain();
   const telegramLoginEnabled = !!(telegramBotUsername && telegramLoginBotToken && telegramAuthDomain);
   /** Every hostname where Telegram Login Widget may run (must each be set in BotFather /setdomain). */
   const telegramLoginWidgetHostnames = telegramLoginEnabled
@@ -249,14 +266,17 @@ function collectTelegramLoginWidgetHostnames(req) {
 function logTelegramLoginStatus() {
   const u = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
   const tok = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  const dom = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
+  const dom = getTelegramAuthEmailDomain();
+  const explicitDom = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
   if (u && tok && dom) {
     const hosts = collectTelegramLoginWidgetHostnames(null);
+    const domNote = explicitDom ? '' : ' (TELEGRAM_AUTH_EMAIL_DOMAIN unset; using SUPABASE_URL hostname)';
     console.log(
       'Telegram login: enabled (bot ' +
         u +
         '; synthetic email @' +
         dom +
+        domNote +
         '). Widget allowed hostnames: ' +
         (hosts.length ? hosts.join(', ') : '(set TELEGRAM_LOGIN_WIDGET_DOMAIN or BASE_URL)') +
         ' — each must match BotFather /setdomain.'
@@ -265,7 +285,7 @@ function logTelegramLoginStatus() {
     const need = [];
     if (!u) need.push('TELEGRAM_LOGIN_BOT_USERNAME');
     if (!tok) need.push('TELEGRAM_LOGIN_BOT_TOKEN (or TELEGRAM_BOT_TOKEN)');
-    if (!dom) need.push('TELEGRAM_AUTH_EMAIL_DOMAIN');
+    if (!dom) need.push('TELEGRAM_AUTH_EMAIL_DOMAIN or a valid SUPABASE_URL (for default email domain)');
     console.log('Telegram login: disabled — set ' + need.join(', '));
   }
 }
@@ -1523,7 +1543,7 @@ app.post('/api/auth/telegram', apiAuthTelegramLimiter, async (req, res) => {
     if (!body) return;
     const telegramBotUsername = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
     const botToken = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
-    const emailDomain = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
+    const emailDomain = getTelegramAuthEmailDomain();
     if (!telegramBotUsername || !botToken || !emailDomain) {
       return res.status(503).json({ error: 'Telegram login is not configured' });
     }
