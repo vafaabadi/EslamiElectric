@@ -254,6 +254,7 @@
     }
 
     async function renderOrders(orders) {
+      const wrapLtr = typeof window.ltrNumSpan === 'function' ? window.ltrNumSpan : function (s) { return s; };
       const listEl = document.getElementById('orders-list');
       listEl.innerHTML = '';
       const t = translations[currentLang];
@@ -302,7 +303,7 @@
             <div class="flex-1 min-w-0">
               <p class="font-mono text-slate-700 text-sm">${escapeHtml(orderNum)}</p>
               <p class="text-slate-500 text-sm">${t.orderDate}: ${formatDate(order.created_at)}</p>
-              <p class="font-semibold text-slate-800 mt-0.5">${ltrNumSpan(formatAmount(order.amount_total, order.currency))}</p>
+              <p class="font-semibold text-slate-800 mt-0.5">${wrapLtr(formatAmount(order.amount_total, order.currency))}</p>
               <p class="text-slate-600 text-sm mt-1 truncate" title="${itemsSummary}">${itemsSummary}</p>
             </div>
             <div class="flex items-center gap-2">
