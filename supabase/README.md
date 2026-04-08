@@ -45,3 +45,12 @@ node scripts/migrate-users-to-supabase.js
 ```
 
 Then restart the server and use the app; new signups will go to Supabase.
+
+## 6. Row Level Security (RLS)
+
+- Migrations **`011_enable_rls_public_tables.sql`** enable RLS on `public.users`, `public.orders`, and `public.account_claims`.
+- **`013_rls_explicit_deny_anon_authenticated.sql`** adds policies so `anon` and `authenticated` (PostgREST) have **no** direct access to those tables. The app uses **`SUPABASE_SERVICE_ROLE_KEY` only on the server** (bypasses RLS for trusted operations).
+- Do **not** put the service role key in the browser; the frontend only needs **`SUPABASE_ANON_KEY`** for Supabase Auth (OAuth, magic links, password flows).
+- **Leaked password protection (HIBP)** is not a SQL migration; enable it per project:
+  - **Dashboard:** **Authentication** → **Providers** → **Email** (or **Password** / strength section) → enable **Leaked password protection** (Pro+ per [Supabase docs](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)).
+  - **CLI script (repo):** create a [personal access token](https://supabase.com/dashboard/account/tokens), add `SUPABASE_ACCESS_TOKEN` to local `.env` (never commit), then run `npm run supabase:auth-hibp` (PATCHes `password_hibp_enabled` via Management API for both default project refs).

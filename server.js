@@ -6,6 +6,46 @@ const {
   getDeploymentEnvironment
 } = require('./config/environment');
 const { injectSeoBundle, buildSitemapXml, buildRobotsTxt, normalizeRouteKey } = require('./lib/seo');
+const { securityHeadersMiddleware } = require('./lib/security-headers');
+const {
+  checkEmailLimiter,
+  apiLoginLimiter,
+  apiAuthTokenLimiter,
+  apiAuthTelegramLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter,
+  signupUsersLimiter,
+  apiAuthLinkEmailLimiter,
+  notifySignupLimiter,
+  accountDeletionLimiter,
+  patchMeLimiter,
+  checkoutSessionLimiter,
+  orderOpsLimiter,
+  claimAccountLimiter,
+  guestLookupLimiter
+} = require('./lib/rate-limits');
+const { parseBody, parseQuery } = require('./lib/req-validation');
+const {
+  checkEmailBodySchema,
+  loginBodySchema,
+  authTokenBodySchema,
+  telegramAuthBodySchema,
+  forgotPasswordBodySchema,
+  resetPasswordBodySchema,
+  linkEmailPasswordBodySchema,
+  signupUsersBodySchema
+} = require('./lib/schemas/auth');
+const {
+  notifySignupBodySchema,
+  accountDeletionBodySchema,
+  profilePatchBodySchema,
+  claimAccountBodySchema,
+  createCheckoutSessionBodySchema,
+  guestOrderTokenBodySchema,
+  resumeCheckoutBodySchema,
+  emptyJsonBodySchema,
+  guestLookupQuerySchema
+} = require('./lib/schemas/api');
 const crypto = require('crypto');
 const express = require('express');
 const compression = require('compression');
@@ -20,6 +60,11 @@ const https = require('https');
 const app = express();
 app.set('trust proxy', 1);
 app.use(compression());
+app.use(
+  securityHeadersMiddleware({
+    supabaseUrl: process.env.SUPABASE_URL || ''
+  })
+);
 
 /** Serve @vercel/speed-insights browser bundle for /js/speed-insights-init.js (ESM import). */
 const speedInsightsDist = path.join(__dirname, 'node_modules', '@vercel', 'speed-insights', 'dist');
@@ -1011,10 +1056,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Check whether a user email already exists in Supabase auth.
 // This lets the frontend show a friendly error before attempting signUp.
-app.post('/api/check-email', async (req, res) => {
+app.post('/api/check-email', checkEmailLimiter, async (req, res) => {
   try {
-    const body = req.body || {};
-    const email = (body.email && typeof body.email === 'string') ? body.email.trim().toLowerCase() : '';
+    const parsed = parseBody(checkEmailBodySchema, req, res);
+    if (!parsed) return;
+    const email = parsed.email.trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'email required' });
 
     // With this supabase-js version:
@@ -1330,12 +1376,11 @@ async function exchangeSupabaseAccessTokenForAppJwt(accessToken) {
   }
 }
 
-app.post('/api/auth/token', async (req, res) => {
+app.post('/api/auth/token', apiAuthTokenLimiter, async (req, res) => {
   try {
-    const { accessToken } = req.body || {};
-    if (!accessToken || typeof accessToken !== 'string') {
-      return res.status(400).json({ error: 'accessToken required' });
-    }
+    const parsed = parseBody(authTokenBodySchema, req, res);
+    if (!parsed) return;
+    const { accessToken } = parsed;
     const result = await exchangeSupabaseAccessTokenForAppJwt(accessToken);
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.json({ ok: true, token: result.token, user: result.user });
@@ -1472,9 +1517,10 @@ function mergeTelegramAuthMetadata(prevMeta, meta) {
 }
 
 /** Telegram Login Widget: verify hash, create or rotate-password sign-in, return app JWT. */
-app.post('/api/auth/telegram', async (req, res) => {
+app.post('/api/auth/telegram', apiAuthTelegramLimiter, async (req, res) => {
   try {
-    const body = req.body || {};
+    const body = parseBody(telegramAuthBodySchema, req, res);
+    if (!body) return;
     const telegramBotUsername = (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '').trim();
     const botToken = (process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
     const emailDomain = (process.env.TELEGRAM_AUTH_EMAIL_DOMAIN || '').trim().replace(/^@/, '');
@@ -1650,9 +1696,10 @@ app.post('/api/auth/telegram', async (req, res) => {
 
 // Signup notifications for the Supabase auth signUp flow (runs immediately after signUp request).
 // This avoids waiting for email confirmation / /api/auth/token to be called.
-app.post('/api/notify/signup', async (req, res) => {
+app.post('/api/notify/signup', notifySignupLimiter, async (req, res) => {
   try {
-    const body = req.body || {};
+    const body = parseBody(notifySignupBodySchema, req, res);
+    if (!body) return;
     const type = body.type || 'person';
     const skipEmail = !!body.skipEmail;
     const firstName = (body.firstName || '').trim();
@@ -1660,13 +1707,15 @@ app.post('/api/notify/signup', async (req, res) => {
     const email = (body.email || '').trim().toLowerCase();
     const dob = body.dob || null;
     const mobile = (body.mobile || '').trim() || null;
-    const landline = (body.landline || '').trim() || null;
-    const address = (body.address || '').trim() || null;
-    const bankDetails = (body.bankDetails || '').trim() || null;
-    const companyName = (body.companyName || '').trim() || null;
-    const companyNumber = (body.companyNumber || '').trim() || null;
-    const companyContactNumber = (body.companyContactNumber || '').trim() || null;
-    const companyPrincipalContact = (body.companyPrincipalContact || '').trim() || null;
+    const landline = body.landline != null ? String(body.landline).trim() || null : null;
+    const address = body.address != null ? String(body.address).trim() || null : null;
+    const bankDetails = body.bankDetails != null ? String(body.bankDetails).trim() || null : null;
+    const companyName = body.companyName != null ? String(body.companyName).trim() || null : null;
+    const companyNumber = body.companyNumber != null ? String(body.companyNumber).trim() || null : null;
+    const companyContactNumber =
+      body.companyContactNumber != null ? String(body.companyContactNumber).trim() || null : null;
+    const companyPrincipalContact =
+      body.companyPrincipalContact != null ? String(body.companyPrincipalContact).trim() || null : null;
 
     if (!email) return res.status(400).json({ error: 'email required' });
 
@@ -1912,8 +1961,10 @@ app.get('/api/locale-hint', async (req, res) => {
 });
 
 // Create user account
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', signupUsersLimiter, async (req, res) => {
   try {
+    const parsed = parseBody(signupUsersBodySchema, req, res);
+    if (!parsed) return;
     const {
       type,
       firstName,
@@ -1927,14 +1978,14 @@ app.post('/api/users', async (req, res) => {
       companyName,
       companyNumber,
       companyContactNumber,
-      companyPrincipalContact
-    } = req.body;
+      companyPrincipalContact,
+      password
+    } = parsed;
 
     if (!type || !['person', 'company'].includes(type)) {
       return res.status(400).json({ error: 'Invalid account type' });
     }
 
-    const password = req.body.password;
     if (!password || typeof password !== 'string') {
       return res.status(400).json({ error: 'Password is required' });
     }
@@ -2057,11 +2108,13 @@ async function recordFailedPasswordAttempt(emailNormalized) {
 }
 
 // Password login (Supabase Auth + optional legacy bcrypt in public.users). Enforces lockout on failures.
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', apiLoginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    const emailNormalized = (email && typeof email === 'string') ? email.trim().toLowerCase() : '';
-    if (!emailNormalized || !password || typeof password !== 'string') {
+    const parsed = parseBody(loginBodySchema, req, res);
+    if (!parsed) return;
+    const emailNormalized = parsed.email.trim().toLowerCase();
+    const password = parsed.password;
+    if (!emailNormalized) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
@@ -2221,12 +2274,13 @@ app.get('/api/me', authMiddleware, async (req, res) => {
  * Immediate: strip PII on linked orders, anonymize public.users, delete Supabase Auth user, mark pending_deletion.
  * Later: cron removes public.users after ACCOUNT_DELETION_RETENTION_DAYS (orders retain amounts; user_id becomes null).
  */
-app.post('/api/account/request-deletion', authMiddleware, async (req, res) => {
+app.post('/api/account/request-deletion', accountDeletionLimiter, authMiddleware, async (req, res) => {
   if (!ACCOUNT_DELETION_ENABLED) {
     return res.status(403).json({ error: 'Account deletion is temporarily unavailable.' });
   }
   try {
-    const body = req.body || {};
+    const body = parseBody(accountDeletionBodySchema, req, res);
+    if (!body) return;
     const confirmPhrase = (body.confirmPhrase && String(body.confirmPhrase).trim()) || '';
     const passwordPlain = body.password != null ? String(body.password) : '';
 
@@ -2390,11 +2444,12 @@ app.get('/api/cron/purge-accounts', async (req, res) => {
 });
 
 /** Telegram-only synthetic auth email → real email + password (same Supabase user id). */
-app.post('/api/auth/link-email-password', authMiddleware, async (req, res) => {
+app.post('/api/auth/link-email-password', apiAuthLinkEmailLimiter, authMiddleware, async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    const emailNormalized = (email && String(email).trim().toLowerCase()) || '';
-    const passwordPlain = password != null ? String(password) : '';
+    const parsed = parseBody(linkEmailPasswordBodySchema, req, res);
+    if (!parsed) return;
+    const emailNormalized = parsed.email.trim().toLowerCase();
+    const passwordPlain = parsed.password;
     if (!emailNormalized || !validationPatterns.email.test(emailNormalized)) {
       return res.status(400).json({ error: 'Valid email is required' });
     }
@@ -2484,12 +2539,10 @@ const PROFILE_PATCH_KEYS = [
   'companyPrincipalContact'
 ];
 
-app.patch('/api/me', authMiddleware, async (req, res) => {
+app.patch('/api/me', patchMeLimiter, authMiddleware, async (req, res) => {
   try {
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    if (body.email !== undefined) {
-      return res.status(400).json({ error: 'Email cannot be changed here' });
-    }
+    const body = parseBody(profilePatchBodySchema, req, res);
+    if (!body) return;
 
     const patch = {};
     for (const k of PROFILE_PATCH_KEYS) {
@@ -2636,10 +2689,11 @@ app.patch('/api/me', authMiddleware, async (req, res) => {
 });
 
 // Forgot password: request a reset link (emailed via Resend; do not expose reset URLs in JSON)
-app.post('/api/forgot-password', async (req, res) => {
+app.post('/api/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
-    const { email } = req.body || {};
-    const emailNormalized = (email && typeof email === 'string') ? email.trim().toLowerCase() : '';
+    const parsed = parseBody(forgotPasswordBodySchema, req, res);
+    if (!parsed) return;
+    const emailNormalized = parsed.email.trim().toLowerCase();
     if (!emailNormalized) {
       return res.status(400).json({ error: 'Email is required' });
     }
@@ -2767,9 +2821,11 @@ app.post('/api/forgot-password', async (req, res) => {
 });
 
 // Reset password: set new password using token
-app.post('/api/reset-password', async (req, res) => {
+app.post('/api/reset-password', resetPasswordLimiter, async (req, res) => {
   try {
-    const { token, newPassword, confirmPassword } = req.body || {};
+    const parsed = parseBody(resetPasswordBodySchema, req, res);
+    if (!parsed) return;
+    const { token, newPassword, confirmPassword } = parsed;
     if (!token || !newPassword) {
       return res.status(400).json({ error: 'Token and new password are required' });
     }
@@ -2851,9 +2907,11 @@ app.get('/api/claim-account/:token', async (req, res) => {
 });
 
 // Claim account: set password and create user, attach guest orders to new user
-app.post('/api/claim-account', async (req, res) => {
+app.post('/api/claim-account', claimAccountLimiter, async (req, res) => {
   try {
-    const { token, password, confirmPassword } = req.body || {};
+    const parsed = parseBody(claimAccountBodySchema, req, res);
+    if (!parsed) return;
+    const { token, password, confirmPassword } = parsed;
     if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     if (password !== confirmPassword) return res.status(400).json({ error: 'Passwords do not match' });
@@ -2993,7 +3051,7 @@ app.post('/api/claim-account', async (req, res) => {
 const ORDER_RESUME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Stripe Checkout: create session (priceId, amount in cents, or lineItems from basket)
-app.post('/api/create-checkout-session', async (req, res) => {
+app.post('/api/create-checkout-session', checkoutSessionLimiter, async (req, res) => {
   if (!stripe) {
     return res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY in .env' });
   }
@@ -3007,6 +3065,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
         userId = payload.userId;
       } catch (_) { /* optional auth */ }
     }
+    const parsed = parseBody(createCheckoutSessionBodySchema, req, res);
+    if (!parsed) return;
     const {
       priceId,
       amount,
@@ -3018,7 +3078,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
       locale,
       fulfillmentType: rawFulfillment,
       pendingOrderId: rawPendingOrderId
-    } = req.body || {};
+    } = parsed;
     const pendingOrderId = rawPendingOrderId != null ? String(rawPendingOrderId).trim() : '';
 
     if (userId) {
@@ -3404,7 +3464,7 @@ async function expireStripeCheckoutSessionIfPossible(sessionId) {
 }
 
 // Logged-in user: cancel a pending (unpaid) order
-app.post('/api/orders/:orderId/cancel', authMiddleware, async (req, res) => {
+app.post('/api/orders/:orderId/cancel', orderOpsLimiter, authMiddleware, async (req, res) => {
   const orderId = (req.params.orderId || '').trim();
   if (!ORDER_RESUME_UUID.test(orderId)) {
     return res.status(400).json({ error: 'Invalid order id' });
@@ -3444,8 +3504,10 @@ app.post('/api/orders/:orderId/cancel', authMiddleware, async (req, res) => {
 });
 
 // Guest: cancel pending order using guest_access_token (same as tracking link)
-app.post('/api/orders/guest-cancel', async (req, res) => {
-  const token = req.body && req.body.token ? String(req.body.token).trim() : '';
+app.post('/api/orders/guest-cancel', orderOpsLimiter, async (req, res) => {
+  const parsed = parseBody(guestOrderTokenBodySchema, req, res);
+  if (!parsed) return;
+  const token = String(parsed.token).trim();
   if (!token || token.length < 10) {
     return res.status(400).json({ error: 'Valid order token required' });
   }
@@ -3483,7 +3545,7 @@ app.post('/api/orders/guest-cancel', async (req, res) => {
 });
 
 // Logged-in user: resume pending order checkout
-app.post('/api/orders/:orderId/resume-checkout', authMiddleware, async (req, res) => {
+app.post('/api/orders/:orderId/resume-checkout', orderOpsLimiter, authMiddleware, async (req, res) => {
   if (!stripe) {
     return res.status(503).json({ error: 'Stripe is not configured' });
   }
@@ -3491,7 +3553,10 @@ app.post('/api/orders/:orderId/resume-checkout', authMiddleware, async (req, res
   if (!ORDER_RESUME_UUID.test(orderId)) {
     return res.status(400).json({ error: 'Invalid order id' });
   }
-  const localeSeg = req.body && (req.body.locale === 'fa' || req.body.locale === 'en') ? req.body.locale : 'en';
+  const bodyResume = parseBody(resumeCheckoutBodySchema, req, res, { allowEmptyBody: true });
+  if (!bodyResume) return;
+  const localeSeg =
+    bodyResume.locale === 'fa' || bodyResume.locale === 'en' ? bodyResume.locale : 'en';
   try {
     const checkout = await getCheckoutProfileStatus(req.userId);
     if (checkout.requiresCheckoutProfile && !checkout.complete) {
@@ -3578,15 +3643,18 @@ app.get('/api/orders/:orderId/basket-draft', authMiddleware, async (req, res) =>
 });
 
 // Guest: resume by guest_access_token (same token as order tracking link)
-app.post('/api/orders/guest-resume-checkout', async (req, res) => {
+app.post('/api/orders/guest-resume-checkout', orderOpsLimiter, async (req, res) => {
   if (!stripe) {
     return res.status(503).json({ error: 'Stripe is not configured' });
   }
-  const token = (req.body && req.body.token) ? String(req.body.token).trim() : '';
+  const parsedGuest = parseBody(guestOrderTokenBodySchema, req, res);
+  if (!parsedGuest) return;
+  const token = String(parsedGuest.token).trim();
   if (!token || token.length < 10) {
     return res.status(400).json({ error: 'Valid order token required' });
   }
-  const localeSeg = req.body && (req.body.locale === 'fa' || req.body.locale === 'en') ? req.body.locale : 'en';
+  const localeSeg =
+    parsedGuest.locale === 'fa' || parsedGuest.locale === 'en' ? parsedGuest.locale : 'en';
   try {
     const { data: order, error } = await supabase
       .from('orders')
@@ -3699,10 +3767,12 @@ app.get('/api/orders/guest/:token', async (req, res) => {
 });
 
 // Guest order lookup by email + order id or order number (for "Order Finder" page; no auth)
-app.get('/api/orders/guest-lookup', async (req, res) => {
+app.get('/api/orders/guest-lookup', guestLookupLimiter, async (req, res) => {
   try {
-    const email = (req.query.email || '').trim().toLowerCase();
-    const orderIdOrNumber = (req.query.order_id || '').trim();
+    const qLookup = parseQuery(guestLookupQuerySchema, req, res);
+    if (!qLookup) return;
+    const email = qLookup.email.trim().toLowerCase();
+    const orderIdOrNumber = qLookup.order_id.trim();
     if (!email || !orderIdOrNumber) {
       return res.status(400).json({ error: 'Email and order ID or order number are required' });
     }
@@ -3728,12 +3798,14 @@ app.get('/api/orders/guest-lookup', async (req, res) => {
 
 // Confirm payment and set order to paid using Stripe session (for success page; no auth)
 // Use when webhook did not run (e.g. local testing). Idempotent.
-app.post('/api/orders/confirm-by-session/:sessionId', async (req, res) => {
+app.post('/api/orders/confirm-by-session/:sessionId', orderOpsLimiter, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   if (!stripe) {
     return res.status(503).json({ error: 'Stripe not configured' });
   }
   try {
+    const parsedConfirm = parseBody(emptyJsonBodySchema, req, res, { allowEmptyBody: true });
+    if (!parsedConfirm) return;
     const sessionId = req.params.sessionId;
     if (!sessionId || !sessionId.startsWith('cs_')) {
       return res.status(400).json({ error: 'Invalid session ID' });

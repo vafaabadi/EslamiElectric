@@ -8,7 +8,8 @@
     "dev": "node server.js",
     "build": "tailwindcss -i ./src/tailwind-input.css -o ./public/css/tailwind.css --minify",
     "lighthouse": "node scripts/lighthouse-run.mjs",
-    "lighthouse:all": "node scripts/lighthouse-run.mjs --all"
+    "lighthouse:all": "node scripts/lighthouse-run.mjs --all",
+    "supabase:auth-hibp": "node scripts/enable-supabase-leaked-password-protection.mjs"
   },
   "keywords": [
     "lighting",
@@ -26,9 +27,11 @@
     "compression": "^1.8.1",
     "dotenv": "^17.3.1",
     "express": "^4.22.1",
+    "express-rate-limit": "^7.5.1",
     "jsonwebtoken": "^9.0.3",
     "resend": "^6.9.3",
-    "stripe": "^20.4.1"
+    "stripe": "^20.4.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "lighthouse": "^12.8.2",

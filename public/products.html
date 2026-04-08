@@ -340,7 +340,7 @@
       productsToShow.forEach((p, idx) => {
         const name = getProductDisplayName(p);
         const wattageHtml = p.wattage != null
-          ? `<p class="text-slate-500 text-sm mt-1">${p.wattage} ${t.wattage}</p>`
+          ? `<p class="text-slate-500 text-sm mt-1">${escapeHtml(String(p.wattage))} ${escapeHtml(t.wattage)}</p>`
           : '';
         const productId = p.id ? escapeHtml(p.id) : '';
         const catIdEscaped = escapeHtml(catId);

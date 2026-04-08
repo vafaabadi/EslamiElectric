@@ -314,7 +314,7 @@
           <div class="resume-row relative z-10 px-4 py-3 border-t-2 border-amber-400 bg-amber-50">
             <p class="text-sm font-medium text-amber-950 mb-2">${escapeHtml(t.paymentRequiredHint)}</p>
             <div class="flex flex-col sm:flex-row gap-2 sm:items-center sm:flex-wrap">
-              <a href="basket.html?editOrder=${encodeURIComponent(order.id)}" class="edit-pending-order-link w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg border-2 border-sky-500 bg-white text-sky-900 font-semibold text-sm hover:bg-sky-50 text-center inline-flex items-center justify-center" onclick="event.stopPropagation()">${escapeHtml(t.editOrderBeforePayment)}</a>
+              <a href="basket.html?editOrder=${encodeURIComponent(order.id)}" class="edit-pending-order-link w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg border-2 border-sky-500 bg-white text-sky-900 font-semibold text-sm hover:bg-sky-50 text-center inline-flex items-center justify-center">${escapeHtml(t.editOrderBeforePayment)}</a>
               <button type="button" class="resume-pay-btn w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg bg-amber-500 text-slate-900 font-semibold text-sm hover:bg-amber-400 shadow-sm" data-order-id="${escapeHtml(order.id)}">${escapeHtml(t.resumePayment)}</button>
               <button type="button" class="cancel-order-btn w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg border-2 border-slate-400 bg-white text-slate-800 font-semibold text-sm hover:bg-slate-50" data-order-id="${escapeHtml(order.id)}">${escapeHtml(t.cancelOrder)}</button>
             </div>
@@ -350,6 +350,19 @@
         listEl.appendChild(li);
       });
     }
+
+    (function bindEditOrderLinkStopPropagation() {
+      const list = document.getElementById('orders-list');
+      if (!list || list.dataset.editLinkBound) return;
+      list.dataset.editLinkBound = '1';
+      list.addEventListener(
+        'click',
+        function (ev) {
+          if (ev.target.closest('.edit-pending-order-link')) ev.stopPropagation();
+        },
+        true
+      );
+    })();
 
     (function bindResumeCheckoutOnce() {
       const list = document.getElementById('orders-list');
