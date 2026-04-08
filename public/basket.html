@@ -60,10 +60,6 @@
     <div id="basket-content" class="hidden space-y-4">
       <ul id="basket-list" class="space-y-3"></ul>
 
-      <div class="flex flex-wrap gap-2">
-        <a href="products.html" id="continue-shopping-link" class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 font-medium hover:bg-slate-50 transition-colors shadow-sm">Continue shopping</a>
-      </div>
-
       <div id="fulfillment-section" class="bg-white rounded-xl shadow-md p-6 space-y-4 border border-slate-200">
         <h3 id="fulfillment-title" class="font-semibold text-slate-800">Delivery or collection</h3>
         <p id="fulfillment-hint" class="text-sm text-slate-600">Choose how you would like to receive your order.</p>
@@ -146,17 +142,20 @@
         </div>
       </div>
 
-      <div class="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-end justify-end gap-4">
-        <div class="text-right">
-          <p id="total-label" class="text-slate-600 text-sm">Total</p>
-          <p id="basket-total" class="text-2xl font-bold text-slate-900">$0.00</p>
-        </div>
-        <div id="checkout-actions" class="flex flex-col items-end gap-2">
-          <p id="checkout-error" class="hidden text-sm text-red-600"></p>
-          <button type="button" id="btn-checkout" class="px-6 py-3 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-            <span id="btn-checkout-text">Proceed to checkout</span>
-            <span id="btn-checkout-loading" class="hidden">...</span>
-          </button>
+      <div class="mt-6 pt-4 border-t border-slate-200 flex flex-col-reverse gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <a href="products.html" id="continue-shopping-link" class="inline-flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 font-medium hover:bg-slate-50 transition-colors shadow-sm self-center sm:self-auto">Continue shopping</a>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-4 w-full sm:w-auto">
+          <div class="text-center sm:text-end">
+            <p id="total-label" class="text-slate-600 text-sm">Total</p>
+            <p id="basket-total" class="text-2xl font-bold text-slate-900">$0.00</p>
+          </div>
+          <div id="checkout-actions" class="flex flex-col items-stretch sm:items-end gap-2">
+            <p id="checkout-error" class="hidden text-sm text-red-600 text-center sm:text-end"></p>
+            <button type="button" id="btn-checkout" class="w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              <span id="btn-checkout-text">Proceed to checkout</span>
+              <span id="btn-checkout-loading" class="hidden">...</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
