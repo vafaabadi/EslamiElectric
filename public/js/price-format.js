@@ -1,4 +1,8 @@
 (function (global) {
+  var PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+  /** Arabic thousands separator (U+066C) — correct for Persian; avoids bidi misplacing ASCII comma. */
+  var PERSIAN_GROUP_SEP = '\u066C';
+
   function getRate() {
     var r = parseFloat(localStorage.getItem('usdToToman') || '42000', 10);
     return Number.isFinite(r) && r > 0 ? r : 42000;
@@ -9,22 +13,41 @@
     return localStorage.getItem('lang') === 'fa' ? 'toman' : 'usd';
   }
 
+  function latinIntToPersianGrouped(s) {
+    var t = String(s).replace(/\D/g, '');
+    if (!t) return PERSIAN_DIGITS[0];
+    var parts = [];
+    var rest = t;
+    while (rest.length > 3) {
+      parts.unshift(rest.slice(-3));
+      rest = rest.slice(0, -3);
+    }
+    if (rest) parts.unshift(rest);
+    return parts
+      .join(PERSIAN_GROUP_SEP)
+      .replace(/\d/g, function (d) {
+        return PERSIAN_DIGITS[parseInt(d, 10)];
+      });
+  }
+
   /**
-   * Format integer Toman for RTL pages: isolate the numeric part as LTR so thousands
-   * separators (٬) stay in the correct positions (UAX #9 / bidi).
+   * Integer Toman for RTL: group from the right (…٬۰۰۰٬۰۰۰), Persian digits, then LTR isolate
+   * so separators stay between the correct digit triplets (Intl alone can confuse UAX #9 in RTL).
    */
   function formatTomanRtl(tom) {
-    var n = Math.round(Number(tom) || 0);
-    var formatted;
-    try {
-      formatted = new Intl.NumberFormat('fa-IR', {
-        maximumFractionDigits: 0,
-        useGrouping: true
-      }).format(n);
-    } catch (e) {
-      formatted = String(n);
-    }
-    return '\u2066' + formatted + '\u2069' + ' تومان';
+    var n = Math.max(0, Math.round(Number(tom) || 0));
+    var formatted = latinIntToPersianGrouped(String(n));
+    return '\u2066\u200E' + formatted + '\u2069' + ' تومان';
+  }
+
+  /**
+   * Nonnegative integers for RTL (e.g. line quantities): Persian digits + thousands grouping,
+   * wrapped in LTR isolate so ٬ stays correct next to Persian text.
+   */
+  function formatPersianIntegerRtl(n) {
+    var x = Math.max(0, Math.round(Number(n) || 0));
+    var formatted = latinIntToPersianGrouped(String(x));
+    return '\u2066\u200E' + formatted + '\u2069';
   }
 
   /** Display-only: catalog and basket prices are stored as USD numbers. */
@@ -44,4 +67,5 @@
 
   global.formatPriceUSD = formatPriceUSD;
   global.formatStripeUsdCents = formatStripeUsdCents;
+  global.formatPersianIntegerRtl = formatPersianIntegerRtl;
 })(typeof window !== 'undefined' ? window : this);

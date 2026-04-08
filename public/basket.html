@@ -449,17 +449,13 @@
       return out;
     }
 
-    /** Display quantity in basket row: Persian digits for fa, Western for en. Storage stays a number. */
+    /** Display quantity in basket row: Persian digits + grouping for fa, Western for en. Storage stays a number. */
     function formatQtyDisplay(qty, lang) {
       var n = Math.floor(Number(qty) || 0);
       if (n < 1) n = 1;
       if (n > 9999) n = 9999;
-      if (lang === 'fa') {
-        try {
-          return new Intl.NumberFormat('fa-IR', { useGrouping: false, maximumFractionDigits: 0 }).format(n);
-        } catch (e) {
-          return String(n);
-        }
+      if (lang === 'fa' && typeof formatPersianIntegerRtl === 'function') {
+        return formatPersianIntegerRtl(n);
       }
       return String(n);
     }
