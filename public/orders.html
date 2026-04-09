@@ -44,6 +44,7 @@
 
   <main id="orders-page-main" class="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
     <h2 id="page-title" class="text-3xl font-bold text-slate-800 mb-6">My Orders</h2>
+    <p id="orders-resume-email-hint" class="hidden text-sm text-slate-600 mb-4 max-w-2xl" role="note"></p>
 
     <div id="orders-login-required" class="hidden bg-white rounded-xl shadow-md p-8 text-center text-slate-600">
       <p id="login-required-message" class="mb-4">Log in to view your orders.</p>
@@ -96,6 +97,8 @@
         statusCancelled: 'Cancelled',
         paymentRequiredHint: 'This order is waiting for payment.',
         resumePayment: 'Complete payment',
+        resumeEmailHint:
+          'Completing payment uses the email saved on My Profile. Update it there before paying if you need a different address.',
         editOrderBeforePayment: 'Edit before payment',
         resumeError: 'Could not open checkout. Please try again.',
         cancelOrder: 'Cancel order',
@@ -145,6 +148,8 @@
         statusCancelled: 'لغو شده',
         paymentRequiredHint: 'این سفارش هنوز پرداخت نشده است.',
         resumePayment: 'تکمیل پرداخت',
+        resumeEmailHint:
+          'برای پرداخت از همان ایمیلی استفاده می‌شود که در «پروفایل من» ذخیره شده است. اگر باید عوض شود، ابتدا آنجا را به‌روز کنید.',
         editOrderBeforePayment: 'ویرایش قبل از پرداخت',
         resumeError: 'باز کردن درگاه پرداخت ممکن نشد. دوباره تلاش کنید.',
         cancelOrder: 'لغو سفارش',
@@ -242,6 +247,8 @@
     }
 
     function showSection(id) {
+      const hintEl = document.getElementById('orders-resume-email-hint');
+      if (hintEl && id !== 'orders-list') hintEl.classList.add('hidden');
       ['orders-login-required', 'orders-loading', 'orders-empty', 'orders-list'].forEach(s => {
         const el = document.getElementById(s);
         if (el) el.classList.add('hidden');
@@ -360,6 +367,16 @@
         });
         listEl.appendChild(li);
       });
+      const hintAfter = document.getElementById('orders-resume-email-hint');
+      if (hintAfter) {
+        const hasPending = orders.some(isPendingOrder);
+        if (hasPending) {
+          hintAfter.textContent = t.resumeEmailHint;
+          hintAfter.classList.remove('hidden');
+        } else {
+          hintAfter.classList.add('hidden');
+        }
+      }
     }
 
     (function bindEditOrderLinkStopPropagation() {

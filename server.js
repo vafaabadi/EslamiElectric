@@ -486,6 +486,23 @@ function isSyntheticTelegramAuthEmail(email) {
   return /^tg_\d+@/.test(e);
 }
 
+/** Same rule as POST /api/checkout: contact_email wins over auth email (Telegram synthetic). */
+async function resolveLoggedInCheckoutEmail(userId) {
+  if (!userId || !supabase) return null;
+  const { data: prof } = await supabase
+    .from('users')
+    .select('email, contact_email')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!prof) return null;
+  const authEmail = (prof.email || '').trim().toLowerCase();
+  const contact = (prof.contact_email || '').trim().toLowerCase();
+  const contactOk = contact && validationPatterns.email.test(contact);
+  const authOk =
+    authEmail && validationPatterns.email.test(authEmail) && !isSyntheticTelegramAuthEmail(authEmail);
+  return contactOk ? contact : authOk ? authEmail : null;
+}
+
 /**
  * Telegram + Google are separate Supabase Auth users. Logged-in orders use orders.user_id, so a purchase
  * as Telegram (synthetic auth email + contact inbox) does not appear under Google until we move rows here:
@@ -3398,9 +3415,13 @@ function stripeLineItemsFromOrderRow(lineItems) {
 }
 
 /**
- * Reuse open Stripe Checkout URL, or create a new session and point the order at it (pending only).
+ * Guest: may reuse an open Stripe Checkout URL (same session). Logged-in: always create a new session
+ * (Stripe cannot change prefilled email on an existing session); customer_email comes from current profile.
  */
-async function resumePendingCheckoutForOrder(order, localeSeg) {
+async function resumePendingCheckoutForOrder(order, localeSeg, options = {}) {
+  const freshLoggedInEmail = options && Object.prototype.hasOwnProperty.call(options, 'freshLoggedInEmail')
+    ? options.freshLoggedInEmail
+    : undefined;
   if (!stripe) {
     const e = new Error('Stripe is not configured');
     e.code = 'NO_STRIPE';
@@ -3417,6 +3438,8 @@ async function resumePendingCheckoutForOrder(order, localeSeg) {
     e.code = 'NO_SESSION';
     throw e;
   }
+  const userId = order.user_id;
+
   try {
     const session = await stripe.checkout.sessions.retrieve(sid);
     if (session.status === 'complete' && session.payment_status === 'paid') {
@@ -3424,13 +3447,16 @@ async function resumePendingCheckoutForOrder(order, localeSeg) {
       e.code = 'ALREADY_PAID';
       throw e;
     }
-    if (session.status === 'open' && session.url) {
+    // Guest only: reuse open URL. Logged-in: always rebuild so customer_email matches current profile.
+    if (!userId && session.status === 'open' && session.url) {
       return { url: session.url, recreated: false };
     }
   } catch (e) {
     if (e.code === 'ALREADY_PAID') throw e;
     console.error('Resume checkout: retrieve session, will recreate if possible:', e && e.message);
   }
+
+  await expireStripeCheckoutSessionIfPossible(sid);
 
   const lineItems = stripeLineItemsFromOrderRow(order.line_items);
   if (lineItems.length === 0) {
@@ -3448,22 +3474,35 @@ async function resumePendingCheckoutForOrder(order, localeSeg) {
     cancel_url: cancelUrl,
     metadata: { order_id: order.id, fulfillment: fulfillmentType }
   };
-  if (order.user_id) sessionParams.client_reference_id = String(order.user_id);
-  if (order.customer_email) {
-    sessionParams.customer_email = String(order.customer_email).trim().toLowerCase();
+  if (userId) sessionParams.client_reference_id = String(userId);
+
+  let emailForSession = null;
+  if (userId) {
+    emailForSession =
+      freshLoggedInEmail != null && freshLoggedInEmail !== ''
+        ? freshLoggedInEmail
+        : order.customer_email
+          ? String(order.customer_email).trim().toLowerCase()
+          : null;
+  } else if (order.customer_email) {
+    emailForSession = String(order.customer_email).trim().toLowerCase();
+  }
+  if (emailForSession) {
+    sessionParams.customer_email = emailForSession;
   }
 
   const newSession = await stripe.checkout.sessions.create(sessionParams);
   const amountTotal = newSession.amount_total || 0;
   const currency = (newSession.currency || 'usd').toLowerCase();
-  const { error: upErr } = await supabase
-    .from('orders')
-    .update({
-      stripe_session_id: newSession.id,
-      amount_total: amountTotal,
-      currency
-    })
-    .eq('id', order.id);
+  const updatePayload = {
+    stripe_session_id: newSession.id,
+    amount_total: amountTotal,
+    currency
+  };
+  if (userId && freshLoggedInEmail != null && freshLoggedInEmail !== '') {
+    updatePayload.customer_email = freshLoggedInEmail;
+  }
+  const { error: upErr } = await supabase.from('orders').update(updatePayload).eq('id', order.id);
   if (upErr) {
     console.error('Resume checkout: update order failed', upErr);
     const e = new Error('Failed to attach new checkout session');
@@ -3598,7 +3637,8 @@ app.post('/api/orders/:orderId/resume-checkout', orderOpsLimiter, authMiddleware
     if (error || !order) {
       return res.status(404).json({ error: 'Order not found' });
     }
-    const result = await resumePendingCheckoutForOrder(order, localeSeg);
+    const freshLoggedInEmail = await resolveLoggedInCheckoutEmail(req.userId);
+    const result = await resumePendingCheckoutForOrder(order, localeSeg, { freshLoggedInEmail });
     res.json(result);
   } catch (err) {
     if (err.code === 'NOT_PENDING' || err.code === 'NO_LINE_ITEMS') {
