@@ -72,4 +72,6 @@
   global.formatStripeUsdCents = formatStripeUsdCents;
   global.formatPersianIntegerRtl = formatPersianIntegerRtl;
   global.ltrNumSpan = ltrNumSpan;
+  /** Stable name for inline scripts: always use `window.wrapLtrPrice` (never bare `ltrNumSpan`). */
+  global.wrapLtrPrice = ltrNumSpan;
 })(typeof window !== 'undefined' ? window : this);

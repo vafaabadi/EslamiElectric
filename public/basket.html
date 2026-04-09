@@ -172,7 +172,12 @@
   <script src="js/intl-phone.js"></script>
   <script>
     runWhenLocaleReady(function () {
-    const wrapLtr = typeof window.ltrNumSpan === 'function' ? window.ltrNumSpan : function (s) { return s; };
+    const wrapLtr =
+      typeof window.wrapLtrPrice === 'function'
+        ? window.wrapLtrPrice
+        : typeof window.ltrNumSpan === 'function'
+          ? window.ltrNumSpan
+          : function (s) { return s; };
     const BASKET_KEY = 'basket';
     const PENDING_ORDER_KEY = 'pendingCheckoutOrderId';
     const PENDING_ORDER_LABEL_KEY = 'pendingCheckoutOrderLabel';

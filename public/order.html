@@ -360,6 +360,12 @@
         var items = order.line_items || [];
         var loc = window.orderLineItemsLocale;
         var finishItems = function(byId) {
+          var wrapLtr =
+            typeof window.wrapLtrPrice === 'function'
+              ? window.wrapLtrPrice
+              : typeof window.ltrNumSpan === 'function'
+                ? window.ltrNumSpan
+                : function (s) { return String(s); };
           items.forEach(function(item) {
             var qty = item.quantity || 1;
             var name =
@@ -377,18 +383,17 @@
             }
             var li = document.createElement('p');
             li.className = 'text-slate-700';
-            var sp = typeof ltrNumSpan === 'function' ? ltrNumSpan : function (s) { return String(s); };
             li.innerHTML =
               escapeHtml(name) +
               ' ×' +
-              sp(escapeHtml(String(qty))) +
+              wrapLtr(escapeHtml(String(qty))) +
               ' — ' +
-              sp(lineAmt);
+              wrapLtr(lineAmt);
             itemsEl.appendChild(li);
           });
-          var spTotal = typeof ltrNumSpan === 'function' ? ltrNumSpan : function (s) { return String(s); };
           document.getElementById('detail-total').innerHTML =
-            (orderLang === 'fa' ? 'جمع: ' : 'Total: ') + spTotal(formatAmount(order.amount_total, order.currency));
+            (orderLang === 'fa' ? 'جمع: ' : 'Total: ') +
+            wrapLtr(formatAmount(order.amount_total, order.currency));
         };
         if (loc && typeof loc.ensureProductCatalog === 'function') {
           loc.ensureProductCatalog().then(finishItems).catch(function() { finishItems({}); });

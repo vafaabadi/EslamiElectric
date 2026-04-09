@@ -254,7 +254,12 @@
     }
 
     async function renderOrders(orders) {
-      const wrapLtr = typeof window.ltrNumSpan === 'function' ? window.ltrNumSpan : function (s) { return s; };
+      const wrapLtr =
+        typeof window.wrapLtrPrice === 'function'
+          ? window.wrapLtrPrice
+          : typeof window.ltrNumSpan === 'function'
+            ? window.ltrNumSpan
+            : function (s) { return s; };
       const listEl = document.getElementById('orders-list');
       listEl.innerHTML = '';
       const t = translations[currentLang];
