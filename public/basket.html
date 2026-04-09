@@ -772,7 +772,7 @@
             </div>
             <div class="flex-grow min-w-0">
               <h3 class="font-semibold text-slate-800 text-sm sm:text-base break-words">${escapeHtml(name)}</h3>
-              <p class="text-slate-500 text-xs sm:text-sm">${ltrNumSpan(formatPriceUSD(price))} ${escapeHtml(t.priceEach || 'each')}</p>
+              <p class="text-slate-500 text-xs sm:text-sm">${wrapLtr(formatPriceUSD(price))} ${escapeHtml(t.priceEach || 'each')}</p>
             </div>
           </div>
           <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
