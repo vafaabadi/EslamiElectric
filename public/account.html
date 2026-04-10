@@ -15,6 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
   <link rel="stylesheet" href="css/intl-phone.css">
+  <script src="js/form-feedback.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -121,10 +122,10 @@
         </div>
       </div>
 
-      <button id="submit-btn" type="submit" class="w-full bg-emerald-500 text-white font-semibold py-2 rounded hover:bg-emerald-600 transition-colors">
+      <button id="submit-btn" type="submit" class="w-full bg-emerald-500 text-white font-semibold py-2 rounded hover:bg-emerald-600 transition-[box-shadow,colors] duration-150">
         Sign Up
       </button>
-      <p id="account-message" class="text-sm mt-2"></p>
+      <p id="account-message" class="text-sm mt-2 whitespace-pre-line" role="status" aria-live="polite"></p>
     </form>
   </main>
 
@@ -169,6 +170,13 @@
         accountError: 'Failed to create user account. Please try again.',
         accountEmailTaken: 'Email already registered. Please log in.',
         accountMissingFields: 'Please fill in all required fields.',
+        requiredFirstName: 'Please enter your first name.',
+        requiredSurname: 'Please enter your surname.',
+        requiredMobile: 'Please enter your mobile number.',
+        requiredEmail: 'Please enter your email.',
+        requiredAddress: 'Please enter your address.',
+        requiredCompanyName: 'Please enter the company name.',
+        requiredCompanyNumber: 'Please enter the company number.',
         errorFirstName: 'First name must be 2-50 letters (English or Persian)',
         errorSurname: 'Surname must be 2-50 letters (English or Persian)',
         errorDob: 'Invalid date format (YYYY-MM-DD)',
@@ -215,6 +223,13 @@
         accountError: 'خطا در ایجاد حساب کاربری. لطفاً دوباره تلاش کنید.',
         accountEmailTaken: 'این ایمیل قبلاً ثبت شده است. لطفاً وارد شوید.',
         accountMissingFields: 'لطفاً تمام فیلدهای الزامی را پر کنید.',
+        requiredFirstName: 'لطفاً نام را وارد کنید.',
+        requiredSurname: 'لطفاً نام خانوادگی را وارد کنید.',
+        requiredMobile: 'لطفاً شماره موبایل را وارد کنید.',
+        requiredEmail: 'لطفاً ایمیل را وارد کنید.',
+        requiredAddress: 'لطفاً آدرس را وارد کنید.',
+        requiredCompanyName: 'لطفاً نام شرکت را وارد کنید.',
+        requiredCompanyNumber: 'لطفاً شماره ثبت شرکت را وارد کنید.',
         errorFirstName: 'نام باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
         errorSurname: 'نام خانوادگی باید ۲ تا ۵۰ حرف باشد (انگلیسی یا فارسی)',
         errorDob: 'فرمت تاریخ نامعتبر است (YYYY-MM-DD)',
@@ -264,6 +279,20 @@
     const companyFields = document.getElementById('company-fields');
     const accountMessage = document.getElementById('account-message');
     const accountSubmitBtn = document.getElementById('submit-btn');
+
+    function accountFormError(text, focusEl) {
+      accountMessage.className = 'text-sm mt-2 text-red-600 whitespace-pre-line';
+      accountMessage.textContent = text;
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(accountSubmitBtn, true);
+      }
+      if (typeof window.scrollFeedbackIntoView === 'function') {
+        window.scrollFeedbackIntoView(accountMessage);
+      }
+      if (focusEl && typeof window.focusFieldNoScroll === 'function') {
+        window.focusFieldNoScroll(focusEl);
+      }
+    }
 
     function applyPageLanguage() {
       const t = translations[currentLang];
@@ -318,6 +347,10 @@
     accountForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       accountMessage.textContent = '';
+      accountMessage.className = 'text-sm mt-2 text-slate-500 whitespace-pre-line';
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(accountSubmitBtn, false);
+      }
       const t = translations[currentLang];
 
       const type = accountType.value;
@@ -346,74 +379,92 @@
         companyPrincipalContact: document.getElementById('companyPrincipalContact').value.trim()
       };
 
-      if (!body.firstName || !body.surname || !body.mobile || !body.email || !body.address) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.accountMissingFields;
-        return;
+      var firstNameEl = document.getElementById('firstName');
+      var surnameEl = document.getElementById('surname');
+      var dobEl = document.getElementById('dob');
+      var mobileEl = document.getElementById('mobile');
+      var landlineEl = document.getElementById('landline');
+      var emailEl = document.getElementById('email');
+      var addressEl = document.getElementById('address');
+      var companyNameEl = document.getElementById('companyName');
+      var companyNumberEl = document.getElementById('companyNumber');
+      var passwordEl = document.getElementById('password');
+      var confirmPwEl = document.getElementById('confirmPassword');
+
+      var accErrs = [];
+      var accFirstFocus = null;
+      function accAddIssue(msg, el) {
+        if (!msg) return;
+        if (accErrs.indexOf(msg) === -1) accErrs.push(msg);
+        if (el && !accFirstFocus) accFirstFocus = el;
       }
 
-      if (!validationPatterns.name.test(body.firstName)) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorFirstName;
-        return;
+      if (!body.firstName) {
+        accAddIssue(t.requiredFirstName || t.accountMissingFields, firstNameEl);
+      } else if (!validationPatterns.name.test(body.firstName)) {
+        accAddIssue(t.errorFirstName, firstNameEl);
       }
-      if (!validationPatterns.name.test(body.surname)) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorSurname;
-        return;
+
+      if (!body.surname) {
+        accAddIssue(t.requiredSurname || t.accountMissingFields, surnameEl);
+      } else if (!validationPatterns.name.test(body.surname)) {
+        accAddIssue(t.errorSurname, surnameEl);
       }
+
       if (body.dob && !validationPatterns.dob.test(body.dob)) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorDob;
-        return;
+        accAddIssue(t.errorDob, dobEl);
       }
-      var mobileDetail = getIntlPhoneValidationDetail(document.getElementById('mobile'));
+
+      var mobileDetail = getIntlPhoneValidationDetail(mobileEl);
       if (!mobileDetail.ok) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = phoneErrMsg(mobileDetail, t);
-        return;
+        accAddIssue(phoneErrMsg(mobileDetail, t) || t.requiredMobile || t.errorMobile, mobileEl);
       }
-      var landDetail = getIntlPhoneValidationDetail(document.getElementById('landline'), { optionalEmpty: true });
+
+      var landDetail = getIntlPhoneValidationDetail(landlineEl, { optionalEmpty: true });
       if (!landDetail.ok) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = phoneErrMsg(landDetail, t) || t.errorLandline;
-        return;
+        accAddIssue(phoneErrMsg(landDetail, t) || t.errorLandline, landlineEl);
       }
+
       if (type === 'company') {
         var ccEl = document.getElementById('companyContactNumber');
         if (ccEl && ccEl.value.trim()) {
           var ccDetail = getIntlPhoneValidationDetail(ccEl);
           if (!ccDetail.ok) {
-            accountMessage.className = 'text-sm mt-2 text-red-600';
-            accountMessage.textContent = phoneErrMsg(ccDetail, t);
-            return;
+            accAddIssue(phoneErrMsg(ccDetail, t), ccEl);
           }
         }
       }
-      if (!validationPatterns.email.test(body.email)) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorEmail;
-        return;
-      }
-      if (!validationPatterns.address.test(body.address)) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorAddress;
-        return;
+
+      if (!body.email) {
+        accAddIssue(t.requiredEmail || t.accountMissingFields, emailEl);
+      } else if (!validationPatterns.email.test(body.email)) {
+        accAddIssue(t.errorEmail, emailEl);
       }
 
-      if (type === 'company' && (!body.companyName || !body.companyNumber)) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.accountMissingFields;
-        return;
+      if (!body.address) {
+        accAddIssue(t.requiredAddress || t.accountMissingFields, addressEl);
+      } else if (!validationPatterns.address.test(body.address)) {
+        accAddIssue(t.errorAddress, addressEl);
       }
+
+      if (type === 'company') {
+        if (!body.companyName) {
+          accAddIssue(t.requiredCompanyName || t.accountMissingFields, companyNameEl);
+        }
+        if (!body.companyNumber) {
+          accAddIssue(t.requiredCompanyNumber || t.accountMissingFields, companyNumberEl);
+        }
+      }
+
       if (!body.password || body.password.length < 8) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorPasswordShort;
-        return;
+        accAddIssue(t.errorPasswordShort, passwordEl);
       }
       if (body.password !== body.confirmPassword) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.errorPasswordMismatch;
+        accAddIssue(t.errorPasswordMismatch, confirmPwEl);
+      }
+
+      if (accErrs.length) {
+        accountFormError(accErrs.join('\n'), accFirstFocus || undefined);
         return;
       }
 
@@ -426,8 +477,7 @@
         }
         const config = readServerPublicConfig();
         if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
-          accountMessage.className = 'text-sm mt-2 text-red-600';
-          accountMessage.textContent = t.accountError;
+          accountFormError(t.accountError);
           return;
         }
         // Implicit flow so confirmation emails redirect with #access_token=… — works in any browser/mail app.
@@ -452,8 +502,7 @@
           });
           const checkData = await checkRes.json().catch(function() { return {}; });
           if (checkRes.ok && checkData && checkData.exists) {
-            accountMessage.className = 'text-sm mt-2 text-red-600';
-            accountMessage.textContent = t.accountEmailTaken;
+            accountFormError(t.accountEmailTaken);
             return;
           }
         } catch (e) {
@@ -487,13 +536,12 @@
           }
         });
         if (signUpError) {
-          accountMessage.className = 'text-sm mt-2 text-red-600';
           var errMsg = signUpError.message || t.accountError;
           const msg = signUpError.message ? String(signUpError.message).toLowerCase() : '';
           if (msg.indexOf('already registered') !== -1 || msg.indexOf('user already registered') !== -1) {
             errMsg = t.accountEmailTaken;
           }
-          accountMessage.textContent = errMsg;
+          accountFormError(errMsg);
           return;
         }
 
@@ -537,16 +585,21 @@
         accountForm.reset();
         accountType.value = 'person';
         updateAccountTypeVisibility();
-        accountMessage.className = 'text-sm mt-2 text-emerald-600';
+        accountMessage.className = 'text-sm mt-2 text-emerald-600 whitespace-pre-line';
         accountMessage.textContent = authData.user && !authData.session
           ? (currentLang === 'fa' ? 'حساب ایجاد شد. لطفاً ایمیل خود را برای تأیید بررسی کنید.' : "Account created. Please check your email to confirm your account.")
           : t.accountSuccess;
+        if (typeof window.setPrimaryButtonError === 'function') {
+          window.setPrimaryButtonError(accountSubmitBtn, false);
+        }
+        if (typeof window.scrollFeedbackIntoView === 'function') {
+          window.scrollFeedbackIntoView(accountMessage);
+        }
         if (hasAppToken) {
           setTimeout(function() { window.location.href = 'index.html'; }, 1200);
         }
       } catch (err) {
-        accountMessage.className = 'text-sm mt-2 text-red-600';
-        accountMessage.textContent = t.accountError;
+        accountFormError(t.accountError);
       } finally {
         accountSubmitBtn.disabled = false;
       }

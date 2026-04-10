@@ -12,6 +12,7 @@
   <script src="js/order-line-items.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="js/site-footer-i18n.js"></script>
+  <script src="js/form-feedback.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -412,6 +413,9 @@
           if (msg) {
             errEl.textContent = msg;
             errEl.classList.remove('hidden');
+            if (typeof window.scrollFeedbackIntoView === 'function') {
+              window.scrollFeedbackIntoView(errEl);
+            }
           } else {
             errEl.textContent = '';
             errEl.classList.add('hidden');
@@ -477,6 +481,9 @@
           if (msg) {
             errEl.textContent = msg;
             errEl.classList.remove('hidden');
+            if (typeof window.scrollFeedbackIntoView === 'function') {
+              window.scrollFeedbackIntoView(errEl);
+            }
           } else {
             errEl.textContent = '';
             errEl.classList.add('hidden');

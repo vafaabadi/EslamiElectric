@@ -24,6 +24,7 @@
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="js/site-footer-i18n.js"></script>
+  <script src="js/form-feedback.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
@@ -72,7 +73,7 @@
         <div class="flex-1 h-px bg-slate-200"></div>
       </div>
 
-      <p id="login-message" class="text-sm min-h-[1.25rem] text-center"></p>
+      <p id="login-message" class="text-sm min-h-[1.25rem] text-center" role="status" aria-live="polite"></p>
 
       <form id="login-form" class="space-y-4">
         <div>
@@ -87,7 +88,7 @@
           <input type="password" id="password" required autocomplete="current-password" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
 
-        <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-colors">
+        <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-[box-shadow,colors] duration-150">
           Log In
         </button>
       </form>
@@ -191,6 +192,21 @@
     const loginForm = document.getElementById('login-form');
     const loginMessage = document.getElementById('login-message');
     const submitBtn = document.getElementById('submit-btn');
+
+    function loginScrollToMessage() {
+      if (typeof window.scrollFeedbackIntoView === 'function') {
+        window.scrollFeedbackIntoView(loginMessage);
+      }
+    }
+
+    function loginEmailError(text) {
+      loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
+      loginMessage.textContent = text;
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(submitBtn, true);
+      }
+      loginScrollToMessage();
+    }
 
     function readServerPublicConfig() {
       const el = document.getElementById('server-public-config');
@@ -336,6 +352,7 @@
           if (!res.ok) {
             loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
             loginMessage.textContent = data.error || t.telegramFailed;
+            loginScrollToMessage();
             return;
           }
           localStorage.setItem(LAST_AUTH_KEY, 'telegram');
@@ -349,6 +366,7 @@
         } catch (e) {
           loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
           loginMessage.textContent = t.telegramFailed;
+          loginScrollToMessage();
         }
       };
       const s = document.createElement('script');
@@ -391,6 +409,7 @@
       if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
         loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
         loginMessage.textContent = getOAuthConfigErrorMessage();
+        loginScrollToMessage();
         return;
       }
       try {
@@ -399,6 +418,7 @@
         if (!window.supabase || typeof window.supabase.createClient !== 'function') {
           loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
           loginMessage.textContent = t.oauthFailed;
+          loginScrollToMessage();
           return;
         }
         const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
@@ -421,6 +441,7 @@
         if (!origin) {
           loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
           loginMessage.textContent = t.oauthFailed;
+          loginScrollToMessage();
           return;
         }
         var redirectTo = origin + (loc ? loc + 'auth-callback.html' : '/auth-callback.html');
@@ -434,11 +455,13 @@
         if (error) {
           loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
           loginMessage.textContent = error.message || t.oauthFailed;
+          loginScrollToMessage();
         }
       } catch (e) {
         console.error('startGoogleOAuth:', e);
         loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
         loginMessage.textContent = t.oauthFailed;
+        loginScrollToMessage();
       }
     }
 
@@ -487,14 +510,16 @@
       e.preventDefault();
       loginMessage.textContent = '';
       loginMessage.className = 'text-sm min-h-[1.25rem] text-center';
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(submitBtn, false);
+      }
       const t = translations[currentLang];
 
       const email = document.getElementById('email').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
 
       if (!email || !password) {
-        loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
-        loginMessage.textContent = t.loginError;
+        loginEmailError(t.loginError);
         return;
       }
 
@@ -510,22 +535,24 @@
         });
         const data = await loginRes.json().catch(() => ({}));
         if (!loginRes.ok) {
-          loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
           const msg = (data && data.error) ? String(data.error) : t.loginFailed;
           if (loginRes.status === 401 && msg.toLowerCase().includes('invalid')) {
-            loginMessage.textContent = msg + ' ' + t.loginInvalidCredsHint;
+            loginEmailError(msg + ' ' + t.loginInvalidCredsHint);
           } else {
-            loginMessage.textContent = msg;
+            loginEmailError(msg);
           }
           return;
         }
         if (data.token) localStorage.setItem('token', data.token);
+        if (typeof window.setPrimaryButtonError === 'function') {
+          window.setPrimaryButtonError(submitBtn, false);
+        }
         loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-emerald-600';
         loginMessage.textContent = t.loginSuccess;
+        loginScrollToMessage();
         setTimeout(() => { window.location.href = homePageHref(); }, 800);
       } catch (err) {
-        loginMessage.className = 'text-sm min-h-[1.25rem] text-center text-red-600';
-        loginMessage.textContent = t.loginFailed;
+        loginEmailError(t.loginFailed);
       } finally {
         submitBtn.disabled = false;
       }

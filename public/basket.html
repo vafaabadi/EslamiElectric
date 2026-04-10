@@ -150,8 +150,8 @@
             <p id="basket-total" class="text-2xl font-bold text-slate-900">$0.00</p>
           </div>
           <div id="checkout-actions" class="flex flex-col items-stretch sm:items-end gap-2">
-            <p id="checkout-error" class="hidden text-sm text-red-600 text-center sm:text-end"></p>
-            <button type="button" id="btn-checkout" class="w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            <p id="checkout-error" class="hidden text-sm text-red-600 text-center sm:text-end whitespace-pre-line" role="alert" aria-live="polite"></p>
+            <button type="button" id="btn-checkout" class="w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-[box-shadow,colors] duration-150 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
               <span id="btn-checkout-text">Proceed to checkout</span>
               <span id="btn-checkout-loading" class="hidden">...</span>
             </button>
@@ -170,6 +170,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/intlTelInput.min.js"></script>
   <script src="js/intl-phone.js"></script>
+  <script src="js/form-feedback.js"></script>
   <script>
     runWhenLocaleReady(function () {
     const wrapLtr =
@@ -214,6 +215,8 @@
         guestEmailPlaceholder: 'you@example.com',
         guestStreetPlaceholder: 'Street, building, floor',
         guestDetailsRequired: 'Please fill in name, email and address for guest checkout.',
+        guestNameRequired: 'Please enter your name.',
+        guestEmailRequired: 'Please enter your email.',
         fulfillmentTitle: 'Delivery or collection',
         fulfillmentHint: 'Choose how you would like to receive your order.',
         deliveryOption: 'Delivery',
@@ -227,6 +230,9 @@
         guestDetailsRequiredCollection: 'Please enter name and email.',
         guestEmailInvalid: 'Enter a valid email address (for example name@example.com).',
         guestNameInvalid: 'Enter your full name (at least 2 characters).',
+        deliveryAddressMissing: 'Please enter your delivery address.',
+        deliveryAddressTooShort:
+          'That address is too short. Enter your full street address (building, street, area) — at least a few characters.',
         regSectionTitle: 'Delivery address',
         regSectionHint: 'Required when you choose delivery.',
         regDeliveryRequired: 'Please enter your delivery address for delivery orders.',
@@ -292,6 +298,8 @@
         guestEmailPlaceholder: 'نمونه@example.com',
         guestStreetPlaceholder: 'خیابان، پلاک، طبقه',
         guestDetailsRequired: 'برای خرید مهمان نام، ایمیل و آدرس را وارد کنید.',
+        guestNameRequired: 'لطفاً نام خود را وارد کنید.',
+        guestEmailRequired: 'لطفاً ایمیل را وارد کنید.',
         fulfillmentTitle: 'ارسال یا تحویل حضوری',
         fulfillmentHint: 'نحوه دریافت سفارش را انتخاب کنید.',
         deliveryOption: 'ارسال به آدرس',
@@ -305,6 +313,9 @@
         guestDetailsRequiredCollection: 'نام و ایمیل را وارد کنید.',
         guestEmailInvalid: 'ایمیل معتبر وارد کنید (مثلاً name@example.com).',
         guestNameInvalid: 'نام کامل را وارد کنید (حداقل ۲ نویسه).',
+        deliveryAddressMissing: 'لطفاً آدرس ارسال را وارد کنید.',
+        deliveryAddressTooShort:
+          'آدرس واردشده خیلی کوتاه است. آدرس کامل خیابان، پلاک و محل را وارد کنید (حداقل چند نویسه).',
         regSectionTitle: 'آدرس ارسال',
         regSectionHint: 'در صورت انتخاب ارسال الزامی است.',
         regDeliveryRequired: 'برای ارسال، آدرس تحویل را وارد کنید.',
@@ -507,6 +518,25 @@
         btnCheckout.setAttribute('title', tr.profileCheckoutWhy || tr.profileCheckoutGate || '');
       } else {
         btnCheckout.removeAttribute('title');
+      }
+    }
+
+    function showCheckoutValidationError(errEl, btnCheckout, message, focusEl) {
+      errEl.textContent = message;
+      errEl.classList.remove('hidden');
+      const btnText = document.getElementById('btn-checkout-text');
+      const btnLoading = document.getElementById('btn-checkout-loading');
+      if (btnText) btnText.classList.remove('hidden');
+      if (btnLoading) btnLoading.classList.add('hidden');
+      updateCheckoutButtonState();
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(btnCheckout, true);
+      }
+      if (typeof window.scrollFeedbackIntoView === 'function') {
+        window.scrollFeedbackIntoView(errEl);
+      }
+      if (focusEl && typeof window.focusFieldNoScroll === 'function') {
+        window.focusFieldNoScroll(focusEl);
       }
     }
 
@@ -882,6 +912,9 @@
 
       errEl.classList.add('hidden');
       errEl.textContent = '';
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(btnCheckout, false);
+      }
       btnCheckout.disabled = true;
       btnText.classList.add('hidden');
       btnLoading.classList.remove('hidden');
@@ -913,53 +946,45 @@
           const guestAddress = document.getElementById('guest-address') && document.getElementById('guest-address').value.trim();
           const guestCity = document.getElementById('guest-city') && document.getElementById('guest-city').value.trim();
           const guestPostal = document.getElementById('guest-postal') && document.getElementById('guest-postal').value.trim();
-          if (!guestName || !guestEmail) {
-            errEl.textContent = fulfillment === 'collection'
-              ? (t.guestDetailsRequiredCollection || t.guestDetailsRequired)
-              : (t.guestDetailsRequiredDelivery || t.guestDetailsRequired);
-            errEl.classList.remove('hidden');
-            btnText.classList.remove('hidden');
-            btnLoading.classList.add('hidden');
-            updateCheckoutButtonState();
-            return;
+          const guestAddrEl = document.getElementById('guest-address');
+          var guestErrMsgs = [];
+          var guestFirstFocus = null;
+          function guestAddIssue(msg, el) {
+            if (!msg) return;
+            if (guestErrMsgs.indexOf(msg) === -1) guestErrMsgs.push(msg);
+            if (el && !guestFirstFocus) guestFirstFocus = el;
           }
-          if (guestName.length < 2) {
-            errEl.textContent = t.guestNameInvalid || t.guestDetailsRequired;
-            errEl.classList.remove('hidden');
-            if (guestNameEl) guestNameEl.focus();
-            btnText.classList.remove('hidden');
-            btnLoading.classList.add('hidden');
-            updateCheckoutButtonState();
-            return;
+          if (!guestName) {
+            guestAddIssue(t.guestNameRequired || t.guestDetailsRequired, guestNameEl || undefined);
+          } else if (guestName.length < 2) {
+            guestAddIssue(t.guestNameInvalid || t.guestDetailsRequired, guestNameEl || undefined);
           }
-          if (!GUEST_EMAIL_RE.test(guestEmail.toLowerCase())) {
-            errEl.textContent = t.guestEmailInvalid || t.guestDetailsRequired;
-            errEl.classList.remove('hidden');
-            if (guestEmailEl) guestEmailEl.focus();
-            btnText.classList.remove('hidden');
-            btnLoading.classList.add('hidden');
-            updateCheckoutButtonState();
-            return;
+          if (!guestEmail) {
+            guestAddIssue(t.guestEmailRequired || t.guestDetailsRequired, guestEmailEl || undefined);
+          } else if (!GUEST_EMAIL_RE.test(guestEmail.toLowerCase())) {
+            guestAddIssue(t.guestEmailInvalid || t.guestDetailsRequired, guestEmailEl || undefined);
           }
           if (guestPhoneEl && guestPhone) {
             var phoneDetail = getIntlPhoneValidationDetail(guestPhoneEl, { optionalEmpty: true });
             if (!phoneDetail.ok) {
               var phoneKey = intlPhoneMessageKey(phoneDetail.code);
-              errEl.textContent = t[phoneKey] || t.phoneErrorInvalid;
-              errEl.classList.remove('hidden');
-              guestPhoneEl.focus();
-              btnText.classList.remove('hidden');
-              btnLoading.classList.add('hidden');
-              updateCheckoutButtonState();
-              return;
+              guestAddIssue(t[phoneKey] || t.phoneErrorInvalid, guestPhoneEl);
             }
           }
-          if (fulfillment === 'delivery' && (!guestAddress || guestAddress.length < 5)) {
-            errEl.textContent = t.guestDetailsRequiredDelivery || t.guestDetailsRequired;
-            errEl.classList.remove('hidden');
-            btnText.classList.remove('hidden');
-            btnLoading.classList.add('hidden');
-            updateCheckoutButtonState();
+          if (fulfillment === 'delivery') {
+            if (!guestAddress) {
+              guestAddIssue(t.deliveryAddressMissing || t.guestDetailsRequiredDelivery, guestAddrEl || undefined);
+            } else if (guestAddress.length < 5) {
+              guestAddIssue(t.deliveryAddressTooShort || t.guestDetailsRequiredDelivery, guestAddrEl || undefined);
+            }
+          }
+          if (guestErrMsgs.length) {
+            showCheckoutValidationError(
+              errEl,
+              btnCheckout,
+              guestErrMsgs.join('\n'),
+              guestFirstFocus || undefined
+            );
             return;
           }
           body.guestEmail = guestEmail;
@@ -975,16 +1000,27 @@
             if (guestExtra) body.shippingAddress.additional_info = guestExtra;
           }
         } else if (fulfillment === 'delivery') {
-          const regAddress = document.getElementById('reg-address') && document.getElementById('reg-address').value.trim();
+          const regAddrEl = document.getElementById('reg-address');
+          const regAddress = regAddrEl && regAddrEl.value.trim();
           const regCity = document.getElementById('reg-city') && document.getElementById('reg-city').value.trim();
           const regPostal = document.getElementById('reg-postal') && document.getElementById('reg-postal').value.trim();
           const regExtra = document.getElementById('reg-additional-info') && document.getElementById('reg-additional-info').value.trim();
-          if (!regAddress || regAddress.length < 5) {
-            errEl.textContent = t.regDeliveryRequired || t.checkoutError;
-            errEl.classList.remove('hidden');
-            btnText.classList.remove('hidden');
-            btnLoading.classList.add('hidden');
-            updateCheckoutButtonState();
+          if (!regAddress) {
+            showCheckoutValidationError(
+              errEl,
+              btnCheckout,
+              t.deliveryAddressMissing || t.regDeliveryRequired || t.checkoutError,
+              regAddrEl || undefined
+            );
+            return;
+          }
+          if (regAddress.length < 5) {
+            showCheckoutValidationError(
+              errEl,
+              btnCheckout,
+              t.deliveryAddressTooShort || t.regDeliveryRequired || t.checkoutError,
+              regAddrEl || undefined
+            );
             return;
           }
           body.shippingAddress = {
@@ -1014,22 +1050,16 @@
             var extra = profileMissingPlainText(data.missing, t);
             if (extra) errMsg = errMsg + ' ' + extra;
           }
-          errEl.textContent = errMsg;
-          errEl.classList.remove('hidden');
-          btnText.classList.remove('hidden');
-          btnLoading.classList.add('hidden');
-          updateCheckoutButtonState();
+          showCheckoutValidationError(errEl, btnCheckout, errMsg);
           return;
         }
         if (data.url) {
           window.location.href = data.url;
           return;
         }
-        errEl.textContent = t.checkoutError;
-        errEl.classList.remove('hidden');
+        showCheckoutValidationError(errEl, btnCheckout, t.checkoutError);
       } catch (e) {
-        errEl.textContent = t.checkoutError;
-        errEl.classList.remove('hidden');
+        showCheckoutValidationError(errEl, btnCheckout, t.checkoutError);
       }
       btnText.classList.remove('hidden');
       btnLoading.classList.add('hidden');

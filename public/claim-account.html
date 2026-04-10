@@ -11,6 +11,7 @@
   <script src="js/price-format.js"></script>
   <script src="js/locale-init.js"></script>
   <script src="js/site-footer-i18n.js"></script>
+  <script src="js/form-feedback.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -49,10 +50,10 @@
         <label id="label-confirm" for="confirmPassword" class="block text-sm font-medium text-slate-700 mb-1">Confirm password *</label>
         <input type="password" id="confirmPassword" required minlength="8" autocomplete="new-password" class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
       </div>
-      <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-colors">
+      <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-[box-shadow,colors] duration-150">
         <span id="submit-text">Set password & claim account</span>
       </button>
-      <p id="claim-message" class="text-sm mt-2"></p>
+      <p id="claim-message" class="text-sm mt-2" role="status" aria-live="polite"></p>
     </form>
 
     <p class="mt-6 text-center text-slate-600 text-sm">
@@ -113,6 +114,17 @@
     const invalidMsg = document.getElementById('invalid-msg');
     const emailMasked = document.getElementById('email-masked');
     const submitBtn = document.getElementById('submit-btn');
+
+    function claimFeedback(isError, text) {
+      claimMessage.className = isError ? 'text-sm mt-2 text-red-600' : 'text-sm mt-2 text-emerald-600';
+      claimMessage.textContent = text;
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(submitBtn, !!isError);
+      }
+      if (typeof window.scrollFeedbackIntoView === 'function') {
+        window.scrollFeedbackIntoView(claimMessage);
+      }
+    }
 
     function applyPageLanguage() {
       const t = translations[currentLang];
@@ -176,18 +188,20 @@
     claimForm.addEventListener('submit', async function (e) {
       e.preventDefault();
       claimMessage.textContent = '';
+      claimMessage.className = 'text-sm mt-2';
+      if (typeof window.setPrimaryButtonError === 'function') {
+        window.setPrimaryButtonError(submitBtn, false);
+      }
       const t = translations[currentLang];
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
 
       if (password.length < 8) {
-        claimMessage.className = 'text-sm mt-2 text-red-600';
-        claimMessage.textContent = t.errorPasswordShort;
+        claimFeedback(true, t.errorPasswordShort);
         return;
       }
       if (password !== confirmPassword) {
-        claimMessage.className = 'text-sm mt-2 text-red-600';
-        claimMessage.textContent = t.errorPasswordMismatch;
+        claimFeedback(true, t.errorPasswordMismatch);
         return;
       }
 
@@ -201,21 +215,18 @@
         const data = await res.json().catch(function () { return {}; });
 
         if (!res.ok) {
-          claimMessage.className = 'text-sm mt-2 text-red-600';
-          claimMessage.textContent = data.error || t.errorFailed;
+          claimFeedback(true, data.error || t.errorFailed);
           return;
         }
         if (data.token) {
           localStorage.setItem('token', data.token);
         }
-        claimMessage.className = 'text-sm mt-2 text-emerald-600';
-        claimMessage.textContent = t.successMessage;
+        claimFeedback(false, t.successMessage);
         setTimeout(function () {
           window.location.href = 'orders.html';
         }, 1500);
       } catch (err) {
-        claimMessage.className = 'text-sm mt-2 text-red-600';
-        claimMessage.textContent = t.errorFailed;
+        claimFeedback(true, t.errorFailed);
       } finally {
         submitBtn.disabled = false;
       }

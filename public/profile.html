@@ -13,6 +13,7 @@
   <script src="js/site-footer-i18n.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
   <link rel="stylesheet" href="css/intl-phone.css">
+  <script src="js/form-feedback.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col overflow-x-hidden">
   <header class="bg-slate-800 text-white shadow-md">
@@ -150,8 +151,8 @@
         </div>
       </div>
 
-      <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-colors">Save changes</button>
-      <p id="profile-message" class="text-sm mt-2"></p>
+      <button id="submit-btn" type="submit" class="w-full bg-amber-500 text-slate-900 font-semibold py-2 rounded hover:bg-amber-400 transition-[box-shadow,colors] duration-150">Save changes</button>
+      <p id="profile-message" class="text-sm mt-2" role="status" aria-live="polite"></p>
     </form>
 
     <div id="danger-zone" class="hidden max-w-xl w-full mx-auto mt-8">
@@ -595,32 +596,49 @@
       }
     }
 
+    function profileSaveError(msg, text, focusEl) {
+      msg.textContent = text;
+      msg.className = 'text-sm mt-2 text-red-600';
+      var submitBtn = document.getElementById('submit-btn');
+      if (typeof window.setPrimaryButtonError === 'function' && submitBtn) {
+        window.setPrimaryButtonError(submitBtn, true);
+      }
+      if (typeof window.scrollFeedbackIntoView === 'function') {
+        window.scrollFeedbackIntoView(msg);
+      }
+      if (focusEl && typeof window.focusFieldNoScroll === 'function') {
+        window.focusFieldNoScroll(focusEl);
+      }
+    }
+
     document.getElementById('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('profile-message');
+      const submitBtn = document.getElementById('submit-btn');
       const t = translations[currentLang];
       const token = localStorage.getItem('token');
       if (!token) return;
       msg.textContent = '';
       msg.className = 'text-sm mt-2 text-slate-500';
-      var mobileDetail = getIntlPhoneValidationDetail(document.getElementById('mobile'));
+      if (typeof window.setPrimaryButtonError === 'function' && submitBtn) {
+        window.setPrimaryButtonError(submitBtn, false);
+      }
+      var mobileEl = document.getElementById('mobile');
+      var mobileDetail = getIntlPhoneValidationDetail(mobileEl);
       if (!mobileDetail.ok) {
-        msg.textContent = phoneErrMsg(mobileDetail, t);
-        msg.className = 'text-sm mt-2 text-red-600';
+        profileSaveError(msg, phoneErrMsg(mobileDetail, t), mobileEl || undefined);
         return;
       }
       var landEl = document.getElementById('landline');
       var landDetail = getIntlPhoneValidationDetail(landEl, { optionalEmpty: true });
       if (!landDetail.ok) {
-        msg.textContent = phoneErrMsg(landDetail, t) || t.errorLandline;
-        msg.className = 'text-sm mt-2 text-red-600';
+        profileSaveError(msg, phoneErrMsg(landDetail, t) || t.errorLandline, landEl || undefined);
         return;
       }
-      var contactEmailVal = document.getElementById('contactEmail').value.trim();
+      var contactEmailEl = document.getElementById('contactEmail');
+      var contactEmailVal = contactEmailEl && contactEmailEl.value.trim();
       if (!contactEmailVal) {
-        msg.textContent = t.errorContactEmail;
-        msg.className = 'text-sm mt-2 text-red-600';
-        document.getElementById('contactEmail').focus();
+        profileSaveError(msg, t.errorContactEmail, contactEmailEl || undefined);
         return;
       }
       var meType = document.getElementById('company-fields').classList.contains('hidden') ? 'person' : 'company';
@@ -629,8 +647,7 @@
         if (ccEl && ccEl.value.trim()) {
           var ccDetail = getIntlPhoneValidationDetail(ccEl);
           if (!ccDetail.ok) {
-            msg.textContent = phoneErrMsg(ccDetail, t);
-            msg.className = 'text-sm mt-2 text-red-600';
+            profileSaveError(msg, phoneErrMsg(ccDetail, t), ccEl);
             return;
           }
         }
@@ -653,16 +670,20 @@
         }
         if (!res.ok) {
           const errText = (data && data.error) ? String(data.error) : t.saveError;
-          msg.textContent = errText;
-          msg.className = 'text-sm mt-2 text-red-600';
+          profileSaveError(msg, errText);
           return;
         }
         msg.textContent = t.saved;
         msg.className = 'text-sm mt-2 text-emerald-600';
+        if (typeof window.setPrimaryButtonError === 'function' && submitBtn) {
+          window.setPrimaryButtonError(submitBtn, false);
+        }
+        if (typeof window.scrollFeedbackIntoView === 'function') {
+          window.scrollFeedbackIntoView(msg);
+        }
         fillForm(data);
       } catch (err) {
-        msg.textContent = t.saveError;
-        msg.className = 'text-sm mt-2 text-red-600';
+        profileSaveError(msg, t.saveError);
       }
     });
 
@@ -697,16 +718,19 @@
       if (!email) {
         msgEl.textContent = t.linkEmailError;
         msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+        if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
         return;
       }
       if (p1.length < 8) {
         msgEl.textContent = t.linkEmailShort;
         msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+        if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
         return;
       }
       if (p1 !== p2) {
         msgEl.textContent = t.linkEmailMismatch;
         msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+        if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
         return;
       }
       try {
@@ -724,10 +748,12 @@
         if (!res.ok) {
           msgEl.textContent = (data && data.error) ? String(data.error) : t.linkEmailError;
           msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+          if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
           return;
         }
         msgEl.textContent = t.linkEmailSuccess;
         msgEl.className = 'text-sm min-h-[1.25rem] text-emerald-600';
+        if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
         document.getElementById('linkPassword').value = '';
         document.getElementById('linkPassword2').value = '';
         const meRes = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } });
@@ -737,6 +763,7 @@
       } catch (e) {
         msgEl.textContent = t.linkEmailError;
         msgEl.className = 'text-sm min-h-[1.25rem] text-red-600';
+        if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
       }
     });
 
@@ -750,17 +777,20 @@
         if (phrase !== 'DELETE MY ACCOUNT') {
           msgEl.textContent = t.deleteWrongPhrase;
           msgEl.className = 'text-sm text-red-600';
+          if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
           return;
         }
         if (!pw) {
           msgEl.textContent = t.deletePasswordRequired;
           msgEl.className = 'text-sm text-red-600';
+          if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
           return;
         }
         if (!cachedMe || !cachedMe.hasPassword) {
           if (pw.length < 8) {
             msgEl.textContent = t.deletePasswordRequired;
             msgEl.className = 'text-sm text-red-600';
+            if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
             return;
           }
         }
@@ -778,6 +808,7 @@
           if (!res.ok) {
             msgEl.textContent = (data && data.error) ? String(data.error) : t.deleteError;
             msgEl.className = 'text-sm text-red-600';
+            if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
             return;
           }
           msgEl.textContent = t.deleteSuccess;
@@ -790,6 +821,7 @@
         } catch (e) {
           msgEl.textContent = t.deleteError;
           msgEl.className = 'text-sm text-red-600';
+          if (typeof window.scrollFeedbackIntoView === 'function') window.scrollFeedbackIntoView(msgEl);
         }
       });
     }
