@@ -1,4 +1,7 @@
 runWhenLocaleReady(function () {
+    /** Must not read undeclared global — profile.html has no inline flag unless server injects it. */
+    var PROFILE_DELETE_ACCOUNT_ENABLED =
+      typeof window !== 'undefined' && window.PROFILE_DELETE_ACCOUNT_ENABLED === true;
     const translations = {
       en: {
         siteTitle: 'Eslami Electric',

@@ -1013,6 +1013,12 @@ function serveLocalePage(locale, subPath, req, res) {
         return res.status(500).send('Error loading page');
       }
       let body = HTML_WITH_PUBLIC_CONFIG.has(htmlFile) ? injectPublicConfig(data, req) : data;
+      if (htmlFile === 'profile.html' && ACCOUNT_DELETION_ENABLED) {
+        body = body.replace(
+          /<head(\s[^>]*)?>/i,
+          '<head$1><script>window.PROFILE_DELETE_ACCOUNT_ENABLED=true</script>\n'
+        );
+      }
       const baseUrl = getPublicBaseUrlForClient(req);
       const routeKey = normalizeRouteKey(seg);
       body = injectSeoBundle(body, {
