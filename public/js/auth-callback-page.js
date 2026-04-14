@@ -1,0 +1,370 @@
+runWhenLocaleReady(function () {
+    var T = {
+      en: {
+        pageTitle: 'Confirming… - Eslami Electric',
+        confirming: 'Confirming your email…',
+        returnLogin: 'Return to log in.',
+        configMissing: 'Configuration missing.',
+        supabaseFail: 'Supabase client failed to load.',
+        networkHint: 'Check your network or ad blocker.',
+        signInFailed: 'Could not complete sign-in.',
+        authLinkExpired:
+          'This one-time link was already used or is invalid. Common causes: opening the link twice, or your mail app (e.g. Gmail) prefetching it once in the background before you clicked. Request a new activation email from Log in, then paste the fallback link from that email into your browser — do not reuse an old message.',
+        authLinkInvalidPrefix: 'Link error:',
+        sessionHintGeneric:
+          'No valid sign-in session was found. If you used Google, open Log in on this same site and try again. If you opened an email link, use the latest message from your inbox.',
+        pkceHint:
+          'No session. Open Log in on this same site (same address) and try Google again — PKCE requires the same browser origin.',
+        pkceEmailLinkHint:
+          ' If you opened this link on another device or in the mail app, try the same browser you used to sign up, or request a new confirmation email from Log in.',
+        tokenHelp:
+          ' Confirm Supabase Auth redirect URLs include this site’s auth-callback URL (same host as the address bar) and that BASE_URL matches production. You can also try email/password login.',
+        api404: ' The server may not be running this route on your host (e.g. static-only deploy).',
+        signedIn: 'Signed in. Taking you to the home page…',
+        somethingWrong: 'Something went wrong.',
+        fatalGeneric: 'Something went wrong.'
+      },
+      fa: {
+        pageTitle: 'در حال تأیید… - الکتریکی اسلامی',
+        confirming: 'در حال تأیید ایمیل شما…',
+        returnLogin: 'بازگشت به صفحه ورود.',
+        configMissing: 'پیکربندی یافت نشد.',
+        supabaseFail: 'بارگذاری کلاینت Supabase ناموفق بود.',
+        networkHint: 'اتصال شبکه یا مسدودکننده تبلیغات را بررسی کنید.',
+        signInFailed: 'ورود کامل نشد.',
+        authLinkExpired:
+          'این لینک یک‌بار مصرف است و دیگر معتبر نیست؛ ممکن است برنامهٔ ایمیل (مثل Gmail) یک بار در پس‌زمینه آن را باز کرده باشد. از «ورود» ایمیل فعال‌سازی تازه بگیرید، سپس لینک متن «اگر دکمه کار نکرد» را کپی کنید و در مرورگر بچسبانید؛ دوباره روی همان ایمیل قدیمی نزنید.',
+        authLinkInvalidPrefix: 'خطای لینک:',
+        sessionHintGeneric:
+          'جلسهٔ معتبر یافت نشد. اگر با Google وارد می‌شوید، از همین سایت دوباره تلاش کنید. اگر لینک ایمیل را باز کرده‌اید، جدیدترین پیام را استفاده کنید.',
+        pkceHint:
+          'جلسه‌ای یافت نشد. از همان آدرس سایت وارد شوید و دوباره با Google تلاش کنید — PKCE به همان مرورگر و آدرس نیاز دارد.',
+        pkceEmailLinkHint:
+          ' اگر لینک را در دستگاه یا برنامهٔ دیگری باز کرده‌اید، همان مرورگری را که با آن ثبت‌نام کرده‌اید امتحان کنید، یا از صفحهٔ ورود ایمیل تأیید تازه بگیرید.',
+        tokenHelp:
+          ' آدرس‌های بازگشت Supabase را برای همین سایت تنظیم کنید و BASE_URL را با محیط production یکسان کنید. می‌توانید ورود با ایمیل/رمز را امتحان کنید.',
+        api404: ' ممکن است API روی این میزبان در دسترس نباشد (مثلاً فقط فایل‌های استاتیک).',
+        signedIn: 'وارد شدید. در حال انتقال به صفحه اصلی…',
+        somethingWrong: 'خطایی رخ داد.',
+        fatalGeneric: 'خطایی رخ داد.'
+      }
+    };
+    var currentLang = localStorage.getItem('lang') || 'en';
+    function tr(k) {
+      return (T[currentLang] && T[currentLang][k]) || T.en[k] || '';
+    }
+    function applyChrome() {
+      document.title = tr('pageTitle');
+      document.documentElement.lang = currentLang === 'fa' ? 'fa' : 'en';
+      document.body.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+      if (typeof applyFooterI18n === 'function') applyFooterI18n();
+    }
+    applyChrome();
+
+    (async function () {
+      const statusEl = document.getElementById('status');
+      const errorEl = document.getElementById('error');
+
+      function showFatal(msgKey, detail) {
+        statusEl.textContent = tr(msgKey) + ' ' + tr('returnLogin');
+        if (detail) {
+          errorEl.textContent = detail;
+          errorEl.classList.remove('hidden');
+        }
+        console.error('auth-callback:', msgKey, detail || '');
+      }
+
+      function readServerPublicConfig() {
+        const el = document.getElementById('server-public-config');
+        if (!el || !el.textContent) return null;
+        try {
+          return JSON.parse(el.textContent);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function localePathPrefix() {
+        const p = window.location.pathname || '';
+        if (p.indexOf('/fa/') === 0) return '/fa/';
+        if (p.indexOf('/en/') === 0) return '/en/';
+        return '';
+      }
+
+      function loginPageHref() {
+        const loc = localePathPrefix();
+        return loc ? loc + 'login.html' : '/en/login.html';
+      }
+
+      function homePageHref() {
+        const loc = localePathPrefix();
+        if (loc) return loc;
+        return localStorage.getItem('lang') === 'fa' ? '/fa/' : '/en/';
+      }
+
+      try {
+        statusEl.textContent = tr('confirming');
+
+        /** Supabase redirects here with #error=…&error_code=…&error_description=… (e.g. otp_expired). Handle before config so we never show "Configuration missing" for a simple expired link. */
+        function readAuthErrorFromUrl() {
+          const hash = new URLSearchParams(window.location.hash.slice(1));
+          const search = new URLSearchParams(window.location.search);
+          var err = hash.get('error') || search.get('error');
+          var errCode = hash.get('error_code') || search.get('error_code');
+          var errDesc = hash.get('error_description') || search.get('error_description');
+          if (errDesc) {
+            try {
+              errDesc = decodeURIComponent(errDesc.replace(/\+/g, ' '));
+            } catch (e) {
+              errDesc = errDesc.replace(/\+/g, ' ');
+            }
+          }
+          if (err || errCode || errDesc) {
+            return { error: err, error_code: errCode, error_description: errDesc };
+          }
+          return null;
+        }
+
+        var authUrlErr = readAuthErrorFromUrl();
+        if (authUrlErr && (authUrlErr.error || authUrlErr.error_code || authUrlErr.error_description)) {
+          var code = (authUrlErr.error_code || '').toLowerCase();
+          var desc = (authUrlErr.error_description || '').toLowerCase();
+          var friendly =
+            code === 'otp_expired' || desc.indexOf('expired') !== -1
+              ? tr('authLinkExpired')
+              : authUrlErr.error_description
+                ? tr('authLinkInvalidPrefix') + ' ' + authUrlErr.error_description
+                : authUrlErr.error_code || authUrlErr.error || tr('sessionHintGeneric');
+          statusEl.textContent = tr('signInFailed');
+          errorEl.textContent = friendly;
+          errorEl.classList.remove('hidden');
+          setTimeout(function () {
+            window.location.href = loginPageHref();
+          }, 8000);
+          return;
+        }
+
+        const config = readServerPublicConfig();
+        if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
+          showFatal('configMissing', '');
+          setTimeout(function () {
+            window.location.href = loginPageHref();
+          }, 3000);
+          return;
+        }
+
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+          showFatal('supabaseFail', tr('networkHint'));
+          return;
+        }
+
+        // Email confirmation often returns #access_token=… (implicit). A PKCE-only client rejects that URL and
+        // initialize() fails; OAuth redirect uses ?code= on the query string (PKCE). Pick flow before createClient.
+        var hashEarly = window.location.hash.slice(1);
+        var searchEarly = new URLSearchParams(window.location.search);
+        var hashEarlyParams = new URLSearchParams(hashEarly);
+        var hasImplicitHashTokens =
+          hashEarlyParams.has('access_token') || hashEarlyParams.has('refresh_token');
+        var hasOAuthPkceCode = !!searchEarly.get('code');
+        var useImplicitFlow = hasImplicitHashTokens && !hasOAuthPkceCode;
+
+        const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+          auth: {
+            flowType: useImplicitFlow ? 'implicit' : 'pkce',
+            detectSessionInUrl: true,
+            persistSession: true,
+            storage: window.localStorage
+          }
+        });
+        if (supabase.auth && typeof supabase.auth.initialize === 'function') {
+          try {
+            await supabase.auth.initialize();
+          } catch (initErr) {
+            console.warn('auth.initialize:', initErr);
+          }
+        }
+
+        let accessToken = null;
+        let exchangeErrText = '';
+        // Use snapshots: initialize() may strip the hash from the URL; re-reading would lose access_token.
+        const q = searchEarly;
+        const hashParams = hashEarlyParams;
+
+        function mapOtpType(typeRaw) {
+          var t = (typeRaw || '').toLowerCase().trim();
+          if (t === 'signup' || t === 'email' || t === 'recovery' || t === 'magiclink' || t === 'invite' || t === 'email_change') {
+            return t;
+          }
+          return 'signup';
+        }
+
+        // Email confirmation links often use token_hash + type (no PKCE verifier in this browser).
+        var tokenHash = q.get('token_hash') || hashParams.get('token_hash');
+        var typeParam = (q.get('type') || hashParams.get('type') || '').trim();
+        if (tokenHash && typeParam) {
+          try {
+            var otpRes = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: mapOtpType(typeParam)
+            });
+            if (otpRes.error) {
+              exchangeErrText = otpRes.error.message || String(otpRes.error);
+            } else if (otpRes.data && otpRes.data.session && otpRes.data.session.access_token) {
+              accessToken = otpRes.data.session.access_token;
+            }
+          } catch (otpEx) {
+            exchangeErrText = otpEx && otpEx.message ? otpEx.message : String(otpEx);
+            console.error('verifyOtp:', otpEx);
+          }
+        }
+
+        // Some templates use ?token= + &email= + &type= instead of token_hash.
+        if (!accessToken) {
+          var otpEmail = q.get('email') || hashParams.get('email');
+          var otpToken = q.get('token') || hashParams.get('token');
+          if (otpEmail && otpToken && typeParam) {
+            try {
+              var otpRes2 = await supabase.auth.verifyOtp({
+                email: otpEmail,
+                token: otpToken,
+                type: mapOtpType(typeParam)
+              });
+              if (otpRes2.error) {
+                exchangeErrText = otpRes2.error.message || String(otpRes2.error);
+              } else if (otpRes2.data && otpRes2.data.session && otpRes2.data.session.access_token) {
+                accessToken = otpRes2.data.session.access_token;
+              }
+            } catch (otpEx2) {
+              exchangeErrText = otpEx2 && otpEx2.message ? otpEx2.message : String(otpEx2);
+              console.error('verifyOtp email/token:', otpEx2);
+            }
+          }
+        }
+
+        // OAuth uses PKCE (code_verifier in localStorage). Email "confirm" links use ?code= without a verifier;
+        // exchange with PKCE client throws AuthPKCECodeVerifierMissingError — retry with implicit flow client.
+        var authCode = q.get('code') || hashParams.get('code');
+        if (!accessToken && authCode) {
+          try {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
+            if (error) {
+              exchangeErrText = error.message || String(error);
+              var msg = (error.message || '').toLowerCase();
+              var verifierMissing =
+                msg.indexOf('verifier') !== -1 ||
+                msg.indexOf('code verifier') !== -1 ||
+                error.name === 'AuthPKCECodeVerifierMissingError';
+              if (verifierMissing) {
+                const supabaseImplicit = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+                  auth: {
+                    flowType: 'implicit',
+                    detectSessionInUrl: false,
+                    persistSession: true,
+                    storage: window.localStorage
+                  }
+                });
+                const resImp = await supabaseImplicit.auth.exchangeCodeForSession(authCode);
+                if (resImp.error) {
+                  exchangeErrText = resImp.error.message || String(resImp.error);
+                } else if (resImp.data && resImp.data.session && resImp.data.session.access_token) {
+                  accessToken = resImp.data.session.access_token;
+                }
+              }
+            } else if (data && data.session && data.session.access_token) {
+              accessToken = data.session.access_token;
+            }
+          } catch (ex) {
+            exchangeErrText = ex && ex.message ? ex.message : String(ex);
+            console.error('exchangeCodeForSession:', ex);
+          }
+        }
+
+        if (!accessToken) {
+          accessToken = hashParams.get('access_token');
+        }
+
+        // Do not use a stale localStorage session when the URL carried no auth params (e.g. empty #),
+        // or we may POST the wrong/expired token and show a generic "Something went wrong."
+        var hadAuthParams =
+          hashEarlyParams.has('access_token') ||
+          hashEarlyParams.has('refresh_token') ||
+          hashEarlyParams.has('token_hash') ||
+          searchEarly.has('code') ||
+          searchEarly.has('token_hash') ||
+          (searchEarly.has('token') && searchEarly.has('email'));
+
+        if (!accessToken && hadAuthParams) {
+          try {
+            const { data: sess } = await supabase.auth.getSession();
+            if (sess && sess.session && sess.session.access_token) {
+              accessToken = sess.session.access_token;
+            }
+          } catch (sessErr) {
+            console.error('getSession:', sessErr);
+          }
+        }
+
+        if (!accessToken) {
+          var hint = exchangeErrText || tr('sessionHintGeneric');
+          var exLow = (exchangeErrText || '').toLowerCase();
+          if (
+            exLow.indexOf('verifier') !== -1 ||
+            exLow.indexOf('code verifier') !== -1 ||
+            exLow.indexOf('pkce') !== -1
+          ) {
+            hint += tr('pkceEmailLinkHint');
+          }
+          statusEl.textContent = tr('signInFailed');
+          errorEl.textContent = hint;
+          errorEl.classList.remove('hidden');
+          setTimeout(function () {
+            window.location.href = loginPageHref();
+          }, 8000);
+          return;
+        }
+
+        const tokenRes = await fetch('/api/auth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: accessToken })
+        });
+        const rawBody = await tokenRes.text();
+        var data = {};
+        try {
+          data = rawBody ? JSON.parse(rawBody) : {};
+        } catch (parseEx) {
+          data = {};
+        }
+        if (tokenRes.ok && data.token) {
+          localStorage.setItem('token', data.token);
+          statusEl.textContent = tr('signedIn');
+          window.location.replace(homePageHref());
+        } else {
+          statusEl.textContent = tr('somethingWrong');
+          var errMsg = (data && data.error) ? String(data.error) : '';
+          if (!errMsg) {
+            errMsg =
+              'Request failed' +
+              (tokenRes.status ? ' (HTTP ' + tokenRes.status + ')' : '') +
+              (rawBody && rawBody.length < 400 ? ': ' + rawBody.slice(0, 400) : '');
+          }
+          if (errMsg.indexOf('Invalid or expired token') !== -1) {
+            errMsg += tr('tokenHelp');
+          }
+          if (!tokenRes.ok && tokenRes.status === 404) {
+            errMsg = (errMsg || 'API not found.') + tr('api404');
+          }
+          errorEl.textContent = errMsg;
+          errorEl.classList.remove('hidden');
+          setTimeout(function () {
+            window.location.href = loginPageHref();
+          }, 6000);
+        }
+      } catch (e) {
+        showFatal('fatalGeneric', (e && e.message) || String(e));
+        setTimeout(function () {
+          window.location.href = loginPageHref();
+        }, 6000);
+      }
+    })();
+    });
