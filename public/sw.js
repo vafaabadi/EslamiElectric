@@ -4,7 +4,7 @@
  * Eslami Electric — offline cache (Zahedan / spotty connections).
  * Bump CACHE_VERSION when you change precache URLs or need a full refresh.
  */
-var CACHE_VERSION = 'eslami-v13';
+var CACHE_VERSION = 'eslami-v14';
 var PRECACHE = [
   '/',
   '/offline.html',
@@ -82,6 +82,10 @@ self.addEventListener('fetch', function (event) {
   var url = new URL(req.url);
 
   if (req.method !== 'GET') {
+    return;
+  }
+  /** Avoid Cache.put on chrome-extension: etc. — throws "Request scheme unsupported". */
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return;
   }
 

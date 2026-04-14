@@ -1,7 +1,8 @@
 runWhenLocaleReady(function () {
-    /** Must not read undeclared global — profile.html has no inline flag unless server injects it. */
-    var PROFILE_DELETE_ACCOUNT_ENABLED =
-      typeof window !== 'undefined' && window.PROFILE_DELETE_ACCOUNT_ENABLED === true;
+    /** Always use window.* — bare PROFILE_DELETE_ACCOUNT_ENABLED throws ReferenceError if undeclared (breaks whole page). */
+    function profileDeleteEnabled() {
+      return typeof window !== 'undefined' && window.PROFILE_DELETE_ACCOUNT_ENABLED === true;
+    }
     const translations = {
       en: {
         siteTitle: 'Eslami Electric',
@@ -236,7 +237,7 @@ runWhenLocaleReady(function () {
       document.getElementById('label-company-contact').textContent = t.labelCompanyContact;
       document.getElementById('label-company-principal').textContent = t.labelCompanyPrincipal;
       document.getElementById('submit-btn').textContent = t.saveChanges;
-      if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+      if (profileDeleteEnabled()) {
         var dt = document.getElementById('danger-title');
         if (dt) dt.textContent = t.dangerTitle;
         var dtx = document.getElementById('danger-text');
@@ -400,11 +401,11 @@ runWhenLocaleReady(function () {
         const me = await res.json();
         document.getElementById('profile-loading').classList.add('hidden');
         document.getElementById('profile-form').classList.remove('hidden');
-        if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+        if (profileDeleteEnabled()) {
           document.getElementById('danger-zone').classList.remove('hidden');
         }
         fillForm(me);
-        if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+        if (profileDeleteEnabled()) {
           var delPw = document.getElementById('delete-password');
           var delCf = document.getElementById('delete-confirm');
           if (delPw) {
@@ -597,7 +598,7 @@ runWhenLocaleReady(function () {
       }
     });
 
-    if (PROFILE_DELETE_ACCOUNT_ENABLED) {
+    if (profileDeleteEnabled()) {
       document.getElementById('btn-delete-account').addEventListener('click', async function () {
         const t = translations[currentLang];
         const token = localStorage.getItem('token');
