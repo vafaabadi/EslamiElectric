@@ -63,7 +63,14 @@
 
   async function getInitialCountryIso2() {
     try {
-      var r = await fetch('/api/locale-hint');
+      var ctrl = new AbortController();
+      var tid = setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (e) {}
+      }, 5000);
+      var r = await fetch('/api/locale-hint', { signal: ctrl.signal });
+      clearTimeout(tid);
       var d = await r.json();
       return countryToIso2(d.country || 'US');
     } catch (e) {

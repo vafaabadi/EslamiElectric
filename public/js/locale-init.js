@@ -31,8 +31,17 @@
     return;
   }
 
-  fetch('/api/locale-hint')
+  /** Abort so a hung /api/locale-hint never blocks finish() — without this, runWhenLocaleReady never runs (profile, basket, etc. stay on loading forever). */
+  var ctrl = new AbortController();
+  var hintTimeout = setTimeout(function () {
+    try {
+      ctrl.abort();
+    } catch (e) {}
+  }, 8000);
+
+  fetch('/api/locale-hint', { signal: ctrl.signal })
     .then(function (r) {
+      clearTimeout(hintTimeout);
       return r.json();
     })
     .then(function (d) {
@@ -45,6 +54,7 @@
       finish();
     })
     .catch(function () {
+      clearTimeout(hintTimeout);
       if (!localStorage.getItem('usdToToman')) {
         localStorage.setItem('usdToToman', '42000');
       }

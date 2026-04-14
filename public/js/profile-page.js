@@ -365,7 +365,21 @@ runWhenLocaleReady(function () {
       }
 
       try {
-        const res = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } });
+        const ctrl = new AbortController();
+        const meTimeout = setTimeout(function () {
+          try {
+            ctrl.abort();
+          } catch (e) {}
+        }, 20000);
+        let res;
+        try {
+          res = await fetch('/api/me', {
+            headers: { Authorization: 'Bearer ' + token },
+            signal: ctrl.signal
+          });
+        } finally {
+          clearTimeout(meTimeout);
+        }
         if (res.status === 401) {
           localStorage.removeItem('token');
           document.getElementById('profile-loading').classList.add('hidden');
@@ -640,13 +654,21 @@ runWhenLocaleReady(function () {
     }
 
     applyPageLanguage();
-    (async function () {
+    /** Load profile immediately; do not block on intl-tel (it awaits /api/locale-hint — if that hangs, profile never loaded). */
+    void loadProfile();
+    void (async function () {
       try {
         await initIntlPhoneInputs('#mobile, #landline, #companyContactNumber');
         applyPhonePlaceholders();
+        if (cachedMe) {
+          setIntlPhoneNumber(document.getElementById('mobile'), cachedMe.mobile || '');
+          setIntlPhoneNumber(document.getElementById('landline'), cachedMe.landline || '');
+          if (cachedMe.type === 'company') {
+            setIntlPhoneNumber(document.getElementById('companyContactNumber'), cachedMe.companyContactNumber || '');
+          }
+        }
       } catch (e) {
         console.error(e);
       }
-      loadProfile();
     })();
     });
