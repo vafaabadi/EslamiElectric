@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Local web app showcasing electrical lighting products",
   "engines": {
-    "node": "^20.17.0 || >=22.9.0"
+    "node": ">=20.17.0"
   },
   "main": "server.js",
   "scripts": {
