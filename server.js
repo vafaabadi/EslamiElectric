@@ -96,6 +96,21 @@ const PORT = process.env.PORT || 3000;
 
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
 
+/** Cached categories.json for SEO + sitemap (invalidates on file mtime change). */
+let categoriesJsonCache = { mtimeMs: 0, data: null };
+function readCategoriesJson() {
+  try {
+    const st = fs.statSync(CATEGORIES_FILE);
+    if (!categoriesJsonCache.data || st.mtimeMs !== categoriesJsonCache.mtimeMs) {
+      categoriesJsonCache.data = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8'));
+      categoriesJsonCache.mtimeMs = st.mtimeMs;
+    }
+    return categoriesJsonCache.data;
+  } catch (e) {
+    return { categories: [] };
+  }
+}
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const jwtSecret = process.env.JWT_SECRET;
@@ -358,7 +373,14 @@ function serveHtmlWithPublicConfig(req, res, relativePath) {
     const injected = injectAnalyticsScript(
       injectSpeedInsightsScript(
         injectServiceWorker(
-          injectPwa(injectSeoBundle(injectPublicConfig(data, req), { baseUrl, locale: 'en', routeKey }))
+          injectPwa(
+            injectSeoBundle(injectPublicConfig(data, req), {
+              baseUrl,
+              locale: 'en',
+              routeKey,
+              categories: readCategoriesJson()
+            })
+          )
         )
       )
     );
@@ -993,7 +1015,13 @@ function serveLocalePage(locale, subPath, req, res) {
       let body = HTML_WITH_PUBLIC_CONFIG.has(htmlFile) ? injectPublicConfig(data, req) : data;
       const baseUrl = getPublicBaseUrlForClient(req);
       const routeKey = normalizeRouteKey(seg);
-      body = injectSeoBundle(body, { baseUrl, locale, routeKey });
+      body = injectSeoBundle(body, {
+        baseUrl,
+        locale,
+        routeKey,
+        categories: readCategoriesJson(),
+        requestPathAndQuery: req.originalUrl || req.url
+      });
       body = injectAnalyticsScript(
         injectSpeedInsightsScript(injectServiceWorker(injectPwa(body)))
       );
@@ -1020,7 +1048,12 @@ function serveLocalePage(locale, subPath, req, res) {
   fs.readFile(indexPath, 'utf8', (err, data) => {
     if (err) return res.status(404).send('Not found');
     const baseUrl = getPublicBaseUrlForClient(req);
-    let body = injectSeoBundle(injectPublicConfig(data, req), { baseUrl, locale, routeKey: '' });
+    let body = injectSeoBundle(injectPublicConfig(data, req), {
+      baseUrl,
+      locale,
+      routeKey: '',
+      categories: readCategoriesJson()
+    });
     body = injectAnalyticsScript(
       injectSpeedInsightsScript(injectServiceWorker(injectPwa(body)))
     );
@@ -1086,10 +1119,24 @@ app.get('/robots.txt', (req, res) => {
 app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
   res.setHeader('Cache-Control', 'public, max-age=86400');
-  res.send(buildSitemapXml(getPublicBaseUrlForClient(req)));
+  res.send(buildSitemapXml(getPublicBaseUrlForClient(req), readCategoriesJson()));
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+  express.static(path.join(__dirname, 'public'), {
+    etag: true,
+    maxAge: process.env.NODE_ENV === 'development' ? 0 : '7d',
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+        return;
+      }
+      if (/\.(css|js|mjs|png|jpe?g|gif|svg|webp|ico|woff2?|json)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+      }
+    }
+  })
+);
 
 // Check whether a user email already exists in Supabase auth.
 // This lets the frontend show a friendly error before attempting signUp.
