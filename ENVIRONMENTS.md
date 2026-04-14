@@ -50,7 +50,7 @@ Apply **database migrations / SQL** to **both** projects when you change schema 
 
 Use a **different** `JWT_SECRET` for Production than for Preview/local (each environment’s Vercel variables / `.env` should have its own long random secret).
 
-**This repo’s staging project (Supabase):** name `eslami-electric-staging`, ref `zaehkfrskgpgfefqkjbg`, URL `https://zaehkfrskgpgfefqkjbg.supabase.co`. Migrations from `supabase/migrations/` (including `001_create_users_table.sql`) are applied there. Copy **Project URL**, **anon**, **service_role**, and **JWT signing secret** from **Project Settings → API** into local `.env` and Vercel **Preview** only.
+**Staging project (Supabase):** create a project (e.g. `yourapp-staging`), note its **project ref** from the dashboard URL and **Project URL** (`https://YOUR_PROJECT_REF.supabase.co`). Apply migrations from `supabase/migrations/` there first. Copy **Project URL**, **anon**, **service_role**, and **JWT signing secret** from **Project Settings → API** into local `.env` and Vercel **Preview** only.
 
 **Production** stays on your existing Supabase project (separate ref and keys in Vercel **Production**). If that database was set up manually, it does not need to be recreated—just keep using it and ensure schema matches when you add new migrations (apply the same SQL to production when you ship changes).
 

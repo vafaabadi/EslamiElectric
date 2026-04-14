@@ -2,6 +2,8 @@ node_modules/
 lighthouse-reports/
 .env
 .env.local
+# Local user export for one-off migration — never commit real customer data
+users.json
 .env.*.local
 # Supabase CLI local link state (optional); migrations stay in repo
 .supabase/

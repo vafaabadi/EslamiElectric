@@ -1,0 +1,19 @@
+[
+  {
+    "id": "example-id",
+    "type": "person",
+    "firstName": "Example",
+    "surname": "User",
+    "dob": "1990-01-01",
+    "mobile": "+10000000000",
+    "landline": null,
+    "email": "example@example.com",
+    "bankDetails": null,
+    "address": "Example Street, City, Postcode, Country",
+    "companyName": null,
+    "companyNumber": null,
+    "companyContactNumber": null,
+    "companyPrincipalContact": null,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
+]

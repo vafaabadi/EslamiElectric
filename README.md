@@ -40,7 +40,7 @@ A local web app showcasing electrical lighting products with bilingual support (
 cursor-my-web-app/
 ├── server.js           # Express backend
 ├── categories.json     # Product categories and items
-├── users.json          # User accounts storage
+├── users.example.json  # Sample shape for one-off migration (copy to users.json locally; users.json is gitignored)
 ├── package.json        # Project dependencies
 ├── README.md           # This file
 └── public/
@@ -48,6 +48,12 @@ cursor-my-web-app/
     ├── products.html   # Products page with category filter
     └── account.html    # User account creation page
 ```
+
+## Open-source / public repo
+
+- **Never commit** `.env` — only `.env.example` (placeholders) belongs in git.
+- **`users.json`** is gitignored; use **`users.example.json`** as a template for `scripts/migrate-users-to-supabase.js`.
+- If this repo was ever public with real data in `users.json`, remove the file from **git history** (e.g. [GitHub docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)) and treat any exposed rows as a data incident.
 
 ## Cursor: Vercel MCP (optional)
 

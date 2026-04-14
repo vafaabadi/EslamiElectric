@@ -1,5 +1,6 @@
 /**
  * One-off script: copy existing users from users.json into Supabase.
+ * Copy users.example.json → users.json and edit (or export your data). users.json is gitignored — do not commit.
  * Run after creating the users table and setting .env:
  *   node scripts/migrate-users-to-supabase.js
  */

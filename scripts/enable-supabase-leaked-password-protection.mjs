@@ -13,8 +13,8 @@
  *   SUPABASE_ACCESS_TOKEN=sbp_xxx node scripts/enable-supabase-leaked-password-protection.mjs
  * Or add SUPABASE_ACCESS_TOKEN to .env (local only; never commit).
  *
- * Optional:
- *   SUPABASE_HIBP_PROJECT_REFS=ref1,ref2   (default: staging + production refs from this repo)
+ * Required (comma-separated Supabase project refs):
+ *   SUPABASE_HIBP_PROJECT_REFS=ref1,ref2
  */
 
 import dotenv from 'dotenv';
@@ -30,8 +30,7 @@ const TOKEN =
   process.env.SUPABASE_ACCESS_TOKEN ||
   process.env.SUPABASE_MANAGEMENT_TOKEN ||
   '';
-const DEFAULT_REFS = 'zaehkfrskgpgfefqkjbg,xtjbyszbmrklqzbsgdgx';
-const REFS = (process.env.SUPABASE_HIBP_PROJECT_REFS || DEFAULT_REFS)
+const REFS = (process.env.SUPABASE_HIBP_PROJECT_REFS || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -75,6 +74,13 @@ async function main() {
         'Create a personal access token: https://supabase.com/dashboard/account/tokens\n' +
         'Then run:\n' +
         '  SUPABASE_ACCESS_TOKEN=sbp_xxx node scripts/enable-supabase-leaked-password-protection.mjs'
+    );
+    process.exit(1);
+  }
+
+  if (REFS.length === 0) {
+    console.error(
+      'Set SUPABASE_HIBP_PROJECT_REFS in .env to a comma-separated list of Supabase project refs (from Project Settings → General).'
     );
     process.exit(1);
   }
