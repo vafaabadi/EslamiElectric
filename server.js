@@ -458,22 +458,29 @@ app.use((req, res, next) => {
   const host = (req.hostname || req.get('host') || '').toLowerCase().split(':')[0];
   if (host === 'eslamielectric.ir' || host.endsWith('.eslamielectric.ir')) {
     const target = 'https://www.eslamielectric.com/fa/';
-    return res.redirect(302, target);
+    return res.redirect(301, target);
   }
   next();
 });
 
-// Apex → www: matches Telegram Login Widget domain (BotFather /setdomain) and one canonical URL.
-// Use 302 for pages so POST is not preserved (308 would keep POST and break HTML routes that only define GET).
-// Use 308 only for /api/* so POST (e.g. /api/webhooks/stripe) still works if something hits the apex host.
+// Apex → canonical URLs on www (BotFather /setdomain, single public origin).
+// Use 308 for /api/* so POST bodies/method are preserved. Use 301 for HTML so Google consolidates to www.
+// Root on apex goes directly to /en/ in one hop (avoids apex→www→/en/ chains).
 app.use((req, res, next) => {
   const host = (req.hostname || req.get('host') || '').toLowerCase().split(':')[0];
   if (host === 'eslamielectric.com') {
     const pathAndQuery = req.originalUrl || req.url || '/';
-    const target = 'https://www.eslamielectric.com' + pathAndQuery;
     const pathOnly = pathAndQuery.split('?')[0] || '/';
+    const qs = pathAndQuery.includes('?') ? pathAndQuery.slice(pathAndQuery.indexOf('?')) : '';
     const isApi = pathOnly === '/api' || pathOnly.startsWith('/api/');
-    return res.redirect(isApi ? 308 : 302, target);
+    if (isApi) {
+      return res.redirect(308, 'https://www.eslamielectric.com' + pathAndQuery);
+    }
+    const isRoot = pathOnly === '/' || pathOnly === '';
+    if (isRoot) {
+      return res.redirect(301, 'https://www.eslamielectric.com/en/' + qs);
+    }
+    return res.redirect(301, 'https://www.eslamielectric.com' + pathAndQuery);
   }
   next();
 });
@@ -988,7 +995,7 @@ app.use(express.json());
 
 // Root redirect to English locale (GET). Some clients wrongly POST to / (bots, misconfigured webhooks).
 app.get('/', (req, res) => {
-  res.redirect(302, '/en/');
+  res.redirect(301, '/en/');
 });
 app.post('/', (req, res) => {
   res.redirect(303, '/en/');
@@ -1000,6 +1007,12 @@ function serveLocalePage(locale, subPath, req, res) {
   const baseTag = '<base href="' + base + '">';
   const langScript = '<script>(function(){var p=location.pathname;var l=p.indexOf("/fa")===0?"fa":"en";localStorage.setItem("lang",l);document.addEventListener("DOMContentLoaded",function(){var rest=p.replace(/^\\/en\\/?|^\\/fa\\/?/i,"")||"index";var enEl=document.getElementById("lang-en");var faEl=document.getElementById("lang-fa");if(enEl){enEl.addEventListener("click",function(){if(l==="fa"){localStorage.setItem("lang","en");localStorage.setItem("localePref","user");location.href="/en/"+(rest==="index"?"":rest);}});}if(faEl){faEl.addEventListener("click",function(){if(l==="en"){localStorage.setItem("lang","fa");localStorage.setItem("localePref","user");location.href="/fa/"+(rest==="index"?"":rest);}});}});})();</script>';
   const inject = baseTag + '\n  ' + langScript + '\n  ';
+  const tail = (subPath || '').replace(/^\/+|\/+$/g, '');
+  const tailLc = tail.toLowerCase();
+  if (tailLc === 'index.html' || tailLc === 'index') {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    return res.redirect(301, '/' + locale + '/' + q);
+  }
   let seg = (subPath || '').replace(/^\/+|\/+$/g, '').split('/')[0] || '';
   if (seg.endsWith('.html')) {
     seg = seg.slice(0, -'.html'.length);
@@ -1087,11 +1100,11 @@ LOCALE_PREFIXES.forEach((locale) => {
  */
 app.get('/login.html', (req, res) => {
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  res.redirect(302, '/en/login.html' + qs);
+  res.redirect(301, '/en/login' + qs);
 });
 app.post('/login.html', (req, res) => {
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  res.redirect(303, '/en/login.html' + qs);
+  res.redirect(303, '/en/login' + qs);
 });
 
 for (const name of HTML_WITH_PUBLIC_CONFIG) {
