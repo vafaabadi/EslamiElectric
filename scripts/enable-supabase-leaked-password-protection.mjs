@@ -2,7 +2,7 @@
 /**
  * Enables Have I Been Pwned (HIBP) leaked-password checks on one or more Supabase projects
  * via the Management API: PATCH /v1/projects/{ref}/config/auth { "password_hibp_enabled": true }
- *
+ * asdfasfasdasdasfasfasfasfasfasfasf!!!!!!!!!!!!!!!!!!!!!!!
  * Requires a personal access token (not the anon or service_role DB keys):
  *   https://supabase.com/dashboard/account/tokens
  * Scopes: needs permission to update project auth config (auth_config_write / project admin).
