@@ -1,0 +1,102 @@
+# Snyk: dependency & supply-chain issues (SCA). Set repo secret SNYK_TOKEN (snyk.io → Account → Auth).
+# OWASP ZAP Baseline: dynamic scan (DAST) against a running app — not the same as CodeQL/npm audit.
+#
+# Fork PRs skip jobs that need secrets (same pattern as E2E).
+
+name: Security (Snyk + ZAP)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: security-sz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  snyk:
+    name: Snyk (dependencies)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Snyk test
+        if: env.SNYK_TOKEN != ''
+        uses: snyk/actions/node@v1
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Skip Snyk (no SNYK_TOKEN)
+        if: env.SNYK_TOKEN == ''
+        run: echo "::notice::Add repository secret SNYK_TOKEN to enable Snyk — https://docs.snyk.io/snyk-api-info/authentication-for-api"
+
+  zap:
+    name: OWASP ZAP (baseline)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start server for ZAP
+        env:
+          CI: true
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          node server.js &
+          echo $! > "${RUNNER_TEMP}/app.pid"
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null "http://127.0.0.1:3000/en/"; then
+              echo "Server ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Server did not become ready on :3000"
+          exit 1
+
+      # ZAP runs in Docker; use default bridge host IP so the container can reach the runner's Node server (see server.js listen 0.0.0.0).
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: 'http://172.17.0.1:3000/en/'
+          allow_issue_writing: false
+          fail_action: false
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/app.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/app.pid")" 2>/dev/null || true
+          fi
