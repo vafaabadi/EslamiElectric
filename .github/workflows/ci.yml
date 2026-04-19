@@ -2,6 +2,8 @@
 # Configure repository secrets (Settings → Secrets and variables → Actions) so the app can boot in CI:
 #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
 # (same values as a working local .env — use a dev/test Supabase project if you prefer.)
+#
+# Security job: dependency audit only (no secrets). Enable Dependabot + CodeQL in repo Settings for more coverage.
 
 name: CI
 
@@ -15,6 +17,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    name: Security (npm audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fail CI on high/critical CVEs in the lockfile; moderate/low still reported but do not fail the job.
+      - name: npm audit
+        run: npm audit --audit-level=high
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
