@@ -4,6 +4,7 @@
 # (same values as a working local .env — use a dev/test Supabase project if you prefer.)
 #
 # Security job: npm audit only (no secrets). Snyk + OWASP ZAP: see security-snyk-zap.yml. Dependabot + CodeQL: repo Settings.
+# Security job: dependency audit only (no secrets). Enable Dependabot + CodeQL in repo Settings for more coverage.
 
 name: CI
 
