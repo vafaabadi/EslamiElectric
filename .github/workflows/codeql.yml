@@ -1,5 +1,12 @@
 # CodeQL static analysis for JavaScript and TypeScript.
-# Results appear under Security → Code scanning alerts (after merge to default branch on private repos, or immediately on public).
+#
+# To show results under Security → Code scanning alerts:
+#   Repo → Settings → Code security and analysis → Code scanning → set up / enable.
+# Private org repos may need GitHub Advanced Security. See:
+#   https://docs.github.com/en/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning
+#
+# upload is "never" until Code Scanning is enabled (otherwise analyze fails trying to upload SARIF).
+# After you enable Code scanning, remove the `upload: never` line below (default uploads to GitHub).
 
 name: CodeQL
 
@@ -10,6 +17,11 @@ on:
     # Weekly — catches new queries / baseline drift even with low commit volume
     - cron: '24 5 * * 1'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
 
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
@@ -46,3 +58,5 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:${{ matrix.language }}'
+          # Remove this line after enabling Code scanning in repo Settings (see file comment at top).
+          upload: never
