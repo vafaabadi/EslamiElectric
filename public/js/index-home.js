@@ -30,7 +30,10 @@ runWhenLocaleReady(function () {
         quantity: 'Qty',
         homeMoreHint: 'Showing 6 of {total} products. More are available in the full catalog.',
         viewAllProducts: 'View all products',
-        viewAllProductsAria: 'View all products in the catalog'
+        viewAllProductsAria: 'View all products in the catalog',
+        homeIntroTitle: 'Electrical shop in Zahedan',
+        homeIntroText:
+          'Eslami Electric is a local electrical store serving Zahedan and Sistan and Baluchestan with cables, lighting, sockets, and building supplies. Shop online for delivery or browse our catalog — trusted service for homes and businesses.'
       },
       fa: {
         siteTitle: 'الکتریکی‌ اسلامی',
@@ -56,7 +59,10 @@ runWhenLocaleReady(function () {
         quantity: 'تعداد',
         homeMoreHint: '۶ مورد از {total} محصول اینجا نمایش داده می‌شود؛ بقیهٔ کالاها را در صفحهٔ محصولات ببینید.',
         viewAllProducts: 'مشاهدهٔ همهٔ محصولات',
-        viewAllProductsAria: 'رفتن به صفحهٔ کامل محصولات'
+        viewAllProductsAria: 'رفتن به صفحهٔ کامل محصولات',
+        homeIntroTitle: 'فروشگاه لوازم برق در زاهدان',
+        homeIntroText:
+          'الکتریکی اسلامی فروشگاه و فروش آنلاین لوازم برق در زاهدان و سیستان و بلوچستان است؛ کابل، روشنایی، کلید و پریز و تجهیزات ساختمانی. خدمات مطمئن برای منازل و کسب‌وکارها.'
       }
     };
 
@@ -122,6 +128,10 @@ runWhenLocaleReady(function () {
 
       document.getElementById('site-title').textContent = t.siteTitle;
       document.getElementById('site-subtitle').textContent = t.siteSubtitle;
+      const homeIntroTitle = document.getElementById('home-intro-title');
+      const homeIntroText = document.getElementById('home-intro-text');
+      if (homeIntroTitle && t.homeIntroTitle) homeIntroTitle.textContent = t.homeIntroTitle;
+      if (homeIntroText && t.homeIntroText) homeIntroText.textContent = t.homeIntroText;
       loading.textContent = t.loading;
       document.getElementById('contact-title').textContent = t.contactTitle;
       document.getElementById('address-label').textContent = t.addressLabel;
