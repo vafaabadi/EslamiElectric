@@ -1,6 +1,7 @@
 # Runs on every push to any branch and on pull requests.
 # Configure repository secrets (Settings → Secrets and variables → Actions) so the app can boot in CI:
 #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
+#   E2E_TEST_USER_EMAIL, E2E_TEST_USER_PASSWORD (for Playwright email/password login; optional, tests skip if unset)
 # (same values as a working local .env — use a dev/test Supabase project if you prefer.)
 #
 # Security job: npm audit only (no secrets). Snyk + OWASP ZAP: see security-snyk-zap.yml. Dependabot + CodeQL: repo Settings.
@@ -70,6 +71,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
         run: npm run test:e2e
 
       - name: Upload Playwright report (on failure)
