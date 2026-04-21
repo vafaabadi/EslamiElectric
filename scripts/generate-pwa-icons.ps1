@@ -1,7 +1,7 @@
 Add-Type -AssemblyName System.Drawing
 $dir = Join-Path $PSScriptRoot "..\public\icons" | Resolve-Path
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
-
+# dummy to trigger redeployment
 function Save-LightningIcon([int]$size, [string]$outPath) {
   $bmp = New-Object System.Drawing.Bitmap $size, $size
   $g = [System.Drawing.Graphics]::FromImage($bmp)
