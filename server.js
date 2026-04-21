@@ -1013,6 +1013,14 @@ function serveLocalePage(locale, subPath, req, res) {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     return res.redirect(301, '/' + locale + '/' + q);
   }
+  const rawFirstSeg = (subPath || '').replace(/^\/+|\/+$/g, '').split('/')[0] || '';
+  if (/\.html$/i.test(rawFirstSeg)) {
+    const bareSeg = rawFirstSeg.replace(/\.html$/i, '');
+    if (PATH_TO_HTML[bareSeg]) {
+      const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      return res.redirect(301, '/' + locale + '/' + bareSeg + q);
+    }
+  }
   let seg = (subPath || '').replace(/^\/+|\/+$/g, '').split('/')[0] || '';
   if (seg.endsWith('.html')) {
     seg = seg.slice(0, -'.html'.length);
