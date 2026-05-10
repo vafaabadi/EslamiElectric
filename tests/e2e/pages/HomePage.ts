@@ -56,4 +56,19 @@ export class HomePage extends BasePage {
     await this.expectContactSectionVisible(locale);
     await expect(this.page.locator('[data-i18n="footer-copyright"]')).toBeVisible();
   }
+
+  /** First product card on the home grid (six-item sample). */
+  async addFirstHomeProductToBasket(times = 1) {
+    await this.expectHomeFeedReady();
+    const btn = this.page.locator('#product-grid .btn-add-to-basket').first();
+    await expect(btn).toBeVisible({ timeout: 20_000 });
+    for (let i = 0; i < times; i++) {
+      await btn.click();
+    }
+  }
+
+  async typeProductSearch(query: string) {
+    await this.expectHomeFeedReady();
+    await this.page.locator('#product-search').fill(query);
+  }
 }

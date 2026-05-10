@@ -24,5 +24,3 @@ test.describe('Smoke: products page', () => {
     await products.expectFullyLoaded();
   });
 });
-
-// aasdasdasdadadssdasdadsasdasd

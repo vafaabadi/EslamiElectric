@@ -68,4 +68,40 @@ export class ProductsPage extends BasePage {
     await SiteLayout.expectFooterI18n(this.page);
     await this.expectProductAreaReady();
   }
+
+  firstAddToBasketButton() {
+    return this.page.locator('.btn-add-to-basket').first();
+  }
+
+  async addFirstProductToBasket(times = 1) {
+    await this.expectProductAreaReady();
+    const btn = this.firstAddToBasketButton();
+    await expect(btn).toBeVisible({ timeout: 20_000 });
+    for (let i = 0; i < times; i++) {
+      await btn.click();
+    }
+  }
+
+  async openCategoryTab(index: number) {
+    const tab = this.page.locator('#category-tabs button').nth(index);
+    if (await tab.isVisible().catch(() => false)) {
+      await tab.click();
+    }
+  }
+
+  async setSortMode(mode: 'default' | 'price_asc' | 'price_desc' | 'name_asc') {
+    const sel = this.page.locator('#product-sort');
+    if (await sel.isVisible().catch(() => false)) {
+      await sel.selectOption(mode);
+    }
+  }
+
+  async bumpFirstCardQuantityThenAdd() {
+    await this.expectProductAreaReady();
+    const card = this.page.locator('article[data-product-id]').first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.locator('.btn-qty-plus').click();
+    await card.locator('.btn-qty-plus').click();
+    await card.locator('.btn-add-to-basket').click();
+  }
 }
