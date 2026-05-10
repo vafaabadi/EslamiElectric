@@ -31,6 +31,10 @@ const useWebServer =
  * E2E tests for the Express app.
  * Real site: set PLAYWRIGHT_BASE_URL in `.env` (loaded above). No local webServer.
  * Local app: leave PLAYWRIGHT_BASE_URL unset → :3000 + auto-start server (needs `.env` for Supabase/JWT).
+ *
+ * Coverage: `public/js` is loaded as many individual scripts (not one webpack bundle), so V8 coverage
+ * tools rarely map execution back to repo files reliably. This suite targets broad **flow coverage**
+ * (auth, catalog, basket, checkout, orders, validation). For Istanbul-style line %, instrument a bundle or server code separately.
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({

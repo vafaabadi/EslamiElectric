@@ -37,6 +37,46 @@ export class BasketPage extends BasePage {
     await SiteLayout.expectSiteBrandInHeader(this.page, locale);
     await SiteLayout.expectFooterI18n(this.page);
   }
+
+  async expectNonEmptyBasket() {
+    await expect(this.page.locator('#basket-content')).toBeVisible({ timeout: 20_000 });
+    await expect(this.page.locator('#basket-list > li').first()).toBeVisible();
+  }
+
+  async chooseFulfillment(mode: 'delivery' | 'collection') {
+    await this.page.locator(`input[name="fulfillment"][value="${mode}"]`).check();
+  }
+
+  async fillGuestContactAndAddress(opts: { name: string; email: string; address?: string }) {
+    await this.page.locator('#guest-name').fill(opts.name);
+    await this.page.locator('#guest-email').fill(opts.email);
+    if (opts.address) {
+      await this.page.locator('#guest-address').fill(opts.address);
+    }
+  }
+
+  async fillRegisteredDeliveryAddress(line1: string) {
+    await this.page.locator('#reg-address').fill(line1);
+  }
+
+  async clickProceedToCheckout() {
+    await this.page.locator('#btn-checkout').click();
+  }
+
+  async clickRemoveFirstLine() {
+    const btn = this.page.locator('.btn-remove').first();
+    await btn.click({ force: true });
+  }
+
+  async incrementFirstLineQuantity() {
+    const btn = this.page.locator('.btn-basket-plus').first();
+    await btn.click({ force: true });
+  }
+
+  async decrementFirstLineQuantity() {
+    const btn = this.page.locator('.btn-basket-minus').first();
+    await btn.click({ force: true });
+  }
 }
 
 export class OrdersPage extends BasePage {
@@ -65,6 +105,26 @@ export class OrdersPage extends BasePage {
     }
     await expect(this.page.locator('#orders-loading')).toBeHidden({ timeout: 30_000 });
     await expect(this.page.locator('#orders-login-required')).toBeVisible();
+    await SiteLayout.expectSiteBrandInHeader(this.page, locale);
+    await SiteLayout.expectFooterI18n(this.page);
+  }
+
+  async expectLoadedWhenAuthenticated(locale: SiteLocale = 'en') {
+    if (locale === 'en') {
+      await expect(this.page).toHaveTitle(/My Orders/i);
+      await expect(this.page.locator('#page-title')).toHaveText(/My Orders/);
+    } else {
+      await expect(this.page).toHaveTitle(/سفارشات من|My Orders/i);
+      await expect(this.page.locator('#page-title')).toHaveText(/سفارشات من/);
+    }
+    await expect(this.page.locator('#orders-loading')).toBeHidden({ timeout: 35_000 });
+    await expect(this.page.locator('#orders-login-required')).toBeHidden();
+    await expect
+      .poll(async () => {
+        if (await this.page.locator('#orders-empty').isVisible()) return true;
+        return (await this.page.locator('#orders-list > li').count()) > 0;
+      })
+      .toBeTruthy();
     await SiteLayout.expectSiteBrandInHeader(this.page, locale);
     await SiteLayout.expectFooterI18n(this.page);
   }
@@ -158,6 +218,21 @@ export class ProfilePage extends BasePage {
     }
     await expect(this.page.locator('#profile-loading')).toBeHidden({ timeout: 30_000 });
     await expect(this.page.locator('#profile-redirect')).toBeVisible();
+    await SiteLayout.expectSiteBrandInHeader(this.page, locale);
+    await SiteLayout.expectFooterI18n(this.page);
+  }
+
+  async expectLoadedWhenAuthenticated(locale: SiteLocale = 'en') {
+    if (locale === 'en') {
+      await expect(this.page).toHaveTitle(/My Profile/i);
+      await expect(this.page.locator('#page-title')).toHaveText(/My Profile/);
+    } else {
+      await expect(this.page).toHaveTitle(/پروفایل من|My Profile/i);
+      await expect(this.page.locator('#page-title')).toHaveText(/پروفایل من/);
+    }
+    await expect(this.page.locator('#profile-loading')).toBeHidden({ timeout: 35_000 });
+    await expect(this.page.locator('#profile-redirect')).toBeHidden();
+    await expect(this.page.locator('#profile-form')).toBeVisible();
     await SiteLayout.expectSiteBrandInHeader(this.page, locale);
     await SiteLayout.expectFooterI18n(this.page);
   }
