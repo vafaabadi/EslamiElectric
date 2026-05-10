@@ -1,0 +1,42 @@
+# Dependabot keeps npm dependencies and GitHub Actions pinned to safe versions.
+# PRs are opened weekly; reviewers can merge or dismiss them.
+# See: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+
+updates:
+  # ── npm / Node.js dependencies ───────────────────────────────────────────
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '07:00'
+      timezone: 'Europe/London'
+    open-pull-requests-limit: 10
+    labels:
+      - 'dependencies'
+      - 'security'
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      # Bundle minor/patch updates for non-breaking bumps into one PR
+      minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '07:00'
+      timezone: 'Europe/London'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+    commit-message:
+      prefix: 'chore(ci)'

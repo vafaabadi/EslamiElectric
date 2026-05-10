@@ -868,6 +868,11 @@ runWhenLocaleReady(function () {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
+          if (res.status === 401 && data.code === 'SESSION_EXPIRED') {
+            localStorage.removeItem('token');
+            window.location.href = 'login.html';
+            return;
+          }
           if (res.status === 403 && data.code === 'PROFILE_INCOMPLETE') {
             void loadCheckoutProfileGate();
           }

@@ -6,7 +6,10 @@
 #   • Active probing generates real traffic and can trigger rate limits or alerts
 #   • Results are noisy; review them manually rather than blocking PRs
 #
-# Findings are uploaded as a workflow artifact (zap-full-report).
+# Findings are:
+#   • Uploaded as a workflow artifact (zap-full-report-<run>) — HTML + JSON
+#   • Pushed to GitHub Security → Code Scanning via SARIF (if Code Scanning is enabled)
+#
 # Set fail_action: true below if you want the job to fail on any alert.
 
 name: Security (ZAP Full Scan – Nightly)
@@ -25,6 +28,9 @@ jobs:
     name: OWASP ZAP (full active scan)
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: read
+      security-events: write   # needed for SARIF upload to Code Scanning
 
     steps:
       - name: Checkout
@@ -66,6 +72,24 @@ jobs:
           target: 'http://172.17.0.1:3000/en/'
           allow_issue_writing: false
           fail_action: false
+
+      - name: Upload ZAP SARIF to GitHub Security
+        if: always() && hashFiles('report_sarif.json') != ''
+        continue-on-error: true   # graceful if Code Scanning is not yet enabled
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: report_sarif.json
+          category: zap-full
+
+      - name: Upload ZAP full report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-full-report-${{ github.run_number }}
+          path: |
+            report_html.html
+            report_json.json
+          if-no-files-found: ignore
 
       - name: Stop server
         if: always()
