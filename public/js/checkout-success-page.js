@@ -5,7 +5,7 @@ runWhenLocaleReady(function () {
         successTitle: 'Payment successful',
         successThanks: 'Thank you for your order.',
         guestOrderLabel: 'Order number:',
-        guestOrderHint: 'Save this link to track your order (we’ll also email you a receipt):',
+        guestOrderHint: 'Save this link to track your order (we'll also email you a receipt):',
         myOrders: 'My Orders',
         trackOrder: 'Track this order',
         backHome: 'Back to Home',

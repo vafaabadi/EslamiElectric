@@ -146,6 +146,8 @@ const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 // Locale path prefix: /en/ and /fa/. Map path segment to HTML file in public/
 const LOCALE_PREFIXES = ['en', 'fa'];
+/** UUID v4 (order ids, Coinbase metadata, resume flows). */
+const ORDER_RESUME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PATH_TO_HTML = {
   '': 'index.html',
   'index': 'index.html',
@@ -3158,8 +3160,6 @@ app.post('/api/claim-account', claimAccountLimiter, async (req, res) => {
     res.status(500).json({ error: 'Failed to claim account' });
   }
 });
-
-const ORDER_RESUME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Stripe Checkout: create session (priceId, amount in cents, or lineItems from basket)
 app.post('/api/create-checkout-session', checkoutSessionLimiter, async (req, res) => {
