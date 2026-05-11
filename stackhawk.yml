@@ -10,7 +10,7 @@
 # (basket, checkout, orders, account) that anonymous scanners cannot reach.
 
 app:
-  applicationId: ${APP_ID}          # replace with your StackHawk applicationId
+  applicationId: ${9421abb2-f377-49fa-bd82-dd59bb6c4f22}          # replace with your StackHawk applicationId
   env: CI
   host: http://localhost:3000
 
