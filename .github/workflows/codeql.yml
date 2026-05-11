@@ -4,8 +4,11 @@
 #   Repo → Settings → Code security and analysis → Code scanning → Enable.
 #   Free for public repos. Private repos require GitHub Advanced Security.
 #
-# Until Code Scanning is enabled the analyze step runs and produces results
-# locally but the SARIF upload is skipped (continue-on-error keeps CI green).
+# This repo is private. GitHub Code Scanning (SARIF upload) requires GitHub
+# Advanced Security, which is a paid feature for private repos. CodeQL still
+# runs the full analysis — findings are visible in the job log — but results
+# cannot be pushed to the GitHub Security tab without that plan upgrade.
+# upload: never prevents the action from trying (and failing) to upload.
 
 name: CodeQL
 
@@ -53,10 +56,8 @@ jobs:
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4
 
-      # continue-on-error: true keeps CI green if Code Scanning is not yet enabled
-      # in repo Settings. Remove it after enabling Code Scanning.
       - name: Perform CodeQL Analysis
-        continue-on-error: true
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:${{ matrix.language }}'
+          upload: never
