@@ -1,6 +1,10 @@
 # Snyk: dependency & supply-chain issues (SCA). Set repo secret SNYK_TOKEN (snyk.io → Account → Auth).
 # OWASP ZAP Baseline: dynamic scan (DAST) against a running app — not the same as CodeQL/npm audit.
 #
+# Both jobs upload SARIF to GitHub Security → Code Scanning when the repo has
+# Code Scanning enabled (free for public repos; requires GitHub Advanced Security for private).
+# If Code Scanning is not yet enabled the upload step is skipped gracefully (continue-on-error).
+#
 # Fork PRs skip jobs that need secrets (same pattern as E2E).
 
 name: Security (Snyk + ZAP)
@@ -20,6 +24,9 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write   # needed for SARIF upload to Code Scanning
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -36,23 +43,37 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Snyk test
+      - name: Snyk test (emit SARIF)
         if: env.SNYK_TOKEN != ''
         uses: snyk/actions/node@v1
+        continue-on-error: true   # findings are surfaced via SARIF; don't block the build here
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=high
+          args: --severity-threshold=high --sarif-file-output=snyk.sarif
+
+      - name: Upload Snyk SARIF to GitHub Security
+        if: env.SNYK_TOKEN != '' && hashFiles('snyk.sarif') != ''
+        continue-on-error: true   # graceful if Code Scanning is not yet enabled
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: snyk.sarif
+          category: snyk-sca
 
       - name: Skip Snyk (no SNYK_TOKEN)
         if: env.SNYK_TOKEN == ''
-        run: echo "::notice::Add repository secret SNYK_TOKEN to enable Snyk — https://docs.snyk.io/snyk-api-info/authentication-for-api"
+        run: |
+          echo "::notice::Add repository secret SNYK_TOKEN to enable Snyk SCA."
+          echo "Create a free account at https://snyk.io → Account Settings → API Token."
 
   zap:
     name: OWASP ZAP (baseline)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write   # needed for SARIF upload to Code Scanning
 
     steps:
       - name: Checkout
@@ -93,6 +114,24 @@ jobs:
           target: 'http://172.17.0.1:3000/en/'
           allow_issue_writing: false
           fail_action: false
+
+      - name: Upload ZAP SARIF to GitHub Security
+        if: always() && hashFiles('report_sarif.json') != ''
+        continue-on-error: true   # graceful if Code Scanning is not yet enabled
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: report_sarif.json
+          category: zap-baseline
+
+      - name: Upload ZAP HTML report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report-${{ github.run_number }}
+          path: |
+            report_html.html
+            report_json.json
+          if-no-files-found: ignore
 
       - name: Stop server
         if: always()

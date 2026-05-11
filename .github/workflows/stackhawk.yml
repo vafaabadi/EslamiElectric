@@ -1,0 +1,90 @@
+# StackHawk authenticated DAST — scans your running app including pages that
+# require login (basket, checkout, orders, account), which passive scanners
+# like OWASP ZAP cannot reach.
+#
+# Runs on pushes to main and can be triggered manually.
+# PRs are skipped — active scanning against a PR preview is too slow for CI.
+#
+# Setup (one-time):
+#   1. https://app.stackhawk.com → create a free account → create an Application.
+#   2. Copy the applicationId into stackhawk.yml: app.applicationId field.
+#   3. Generate an API key (StackHawk → Settings → API Keys).
+#   4. Add these GitHub Actions secrets:
+#        HAWKS_API_KEY           — StackHawk API key
+#        E2E_TEST_USER_EMAIL     — existing test-user email (same secret used by Playwright)
+#        E2E_TEST_USER_PASSWORD  — existing test-user password
+
+name: StackHawk (authenticated DAST)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: stackhawk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hawkscan:
+    name: HawkScan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start server
+        env:
+          CI: true
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          node server.js &
+          echo $! > "${RUNNER_TEMP}/app.pid"
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null "http://localhost:3000/en/"; then
+              echo "Server ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Server did not become ready on :3000"; exit 1
+
+      - name: Run HawkScan
+        if: env.HAWKS_API_KEY != ''
+        uses: stackhawk/hawkscan-action@v2.2.2
+        env:
+          HAWKS_API_KEY: ${{ secrets.HAWKS_API_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+        with:
+          apiKey: ${{ secrets.HAWKS_API_KEY }}
+          configurationFiles: stackhawk.yml
+
+      - name: Skip HawkScan (no HAWKS_API_KEY)
+        if: env.HAWKS_API_KEY == ''
+        env:
+          HAWKS_API_KEY: ${{ secrets.HAWKS_API_KEY }}
+        run: |
+          echo "::notice::Add HAWKS_API_KEY secret to enable StackHawk authenticated DAST."
+          echo "Sign up free at https://app.stackhawk.com"
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/app.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/app.pid")" 2>/dev/null || true
+          fi

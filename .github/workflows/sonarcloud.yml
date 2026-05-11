@@ -1,0 +1,68 @@
+# SonarCloud SAST — static analysis for bugs, code smells, and security vulnerabilities.
+#
+# ── One-time setup (~5 minutes) ──────────────────────────────────────────────
+#   1. Go to https://sonarcloud.io → Log in with GitHub → import EslamiElectric.
+#   2. IMPORTANT — disable Automatic Analysis:
+#        SonarCloud project → Administration → Analysis Method
+#        → switch to "CI-based analysis" (turn Automatic Analysis OFF).
+#        Without this step the scan fails with exit code 3.
+#   3. SonarCloud: My Account → Security → Generate token.
+#   4. GitHub: Settings → Secrets → Actions → add secret SONAR_TOKEN.
+#   5. Confirm sonar-project.properties projectKey + organization match SonarCloud.
+#
+# ── Results ──────────────────────────────────────────────────────────────────
+#   • SonarCloud dashboard  — detailed issues, security hotspots, coverage trends
+#   • GitHub PR decorations — inline comments on changed lines
+
+name: SonarCloud (SAST)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: sonar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sonarcloud:
+    name: SonarCloud analysis
+    # Skip forks — SONAR_TOKEN is not available on fork PRs
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read   # needed for PR decoration
+
+    steps:
+      - name: Checkout (full history for blame & new-code detection)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Uses the current recommended action (sonarcloud-github-action delegates to this internally).
+      # continue-on-error: true lets the build stay green while you complete the one-time
+      # setup above (disable Automatic Analysis + add SONAR_TOKEN).  Remove it once the
+      # scan is passing consistently.
+      - name: SonarCloud Scan
+        continue-on-error: true
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.host.url=https://sonarcloud.io

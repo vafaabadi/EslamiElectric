@@ -3174,7 +3174,9 @@ app.post('/api/create-checkout-session', checkoutSessionLimiter, async (req, res
       try {
         const payload = jwt.verify(token, jwtSecret);
         userId = payload.userId;
-      } catch (_) { /* optional auth */ }
+      } catch (_) {
+        return res.status(401).json({ error: 'Session expired. Please log in again.', code: 'SESSION_EXPIRED' });
+      }
     }
     const parsed = parseBody(createCheckoutSessionBodySchema, req, res);
     if (!parsed) return;

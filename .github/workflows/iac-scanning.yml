@@ -1,0 +1,54 @@
+# Checkov scans GitHub Actions workflow YAML files for security misconfigurations:
+#   • Unpinned actions (uses: foo/bar@main instead of a commit SHA)
+#   • Overly broad permissions (write-all, contents: write on untrusted inputs)
+#   • Missing timeouts, missing concurrency guards, etc.
+#
+# Results are uploaded to GitHub Security → Code Scanning as SARIF so findings
+# appear alongside CodeQL and ZAP alerts in one place.
+# The upload step is continue-on-error so it degrades gracefully if Code Scanning
+# is not yet enabled for the repository.
+
+name: IaC Scanning (Checkov)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: checkov-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checkov:
+    name: Checkov (GitHub Actions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write   # needed for SARIF upload to Code Scanning
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Checkov scan
+        id: checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .github/workflows
+          framework: github_actions
+          # Soft-fail: surface findings without breaking the build.
+          # Change to false once the backlog of findings is cleared.
+          soft_fail: true
+          output_format: sarif
+          output_file_path: checkov.sarif
+          quiet: true
+
+      - name: Upload Checkov SARIF to GitHub Security
+        if: always() && hashFiles('checkov.sarif') != ''
+        continue-on-error: true   # graceful if Code Scanning is not yet enabled
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: checkov.sarif
+          category: checkov-iac

@@ -1,12 +1,14 @@
 # CodeQL static analysis for JavaScript and TypeScript.
 #
-# To show results under Security → Code scanning alerts:
-#   Repo → Settings → Code security and analysis → Code scanning → set up / enable.
-# Private org repos may need GitHub Advanced Security. See:
-#   https://docs.github.com/en/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning
+# ── One-time setup to see results in GitHub Security tab ─────────────────────
+#   Repo → Settings → Code security and analysis → Code scanning → Enable.
+#   Free for public repos. Private repos require GitHub Advanced Security.
 #
-# upload is "never" until Code Scanning is enabled (otherwise analyze fails trying to upload SARIF).
-# After you enable Code scanning, remove the `upload: never` line below (default uploads to GitHub).
+# This repo is private. GitHub Code Scanning (SARIF upload) requires GitHub
+# Advanced Security, which is a paid feature for private repos. CodeQL still
+# runs the full analysis — findings are visible in the job log — but results
+# cannot be pushed to the GitHub Security tab without that plan upgrade.
+# upload: never prevents the action from trying (and failing) to upload.
 
 name: CodeQL
 
@@ -58,5 +60,4 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:${{ matrix.language }}'
-          # Remove this line after enabling Code scanning in repo Settings (see file comment at top).
           upload: never
