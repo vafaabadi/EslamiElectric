@@ -2,8 +2,12 @@
 # require login (basket, checkout, orders, account), which passive scanners
 # like OWASP ZAP cannot reach.
 #
-# Runs on pushes to main and can be triggered manually.
-# PRs are skipped — active scanning against a PR preview is too slow for CI.
+# DISABLED from automatic runs until setup is complete (manual-only via workflow_dispatch).
+# To re-enable on every push to main, restore:
+#   on:
+#     push:
+#       branches: [main]
+#     workflow_dispatch:
 #
 # Setup (one-time):
 #   1. https://app.stackhawk.com → create a free account → create an Application.
@@ -17,9 +21,7 @@
 name: StackHawk (authenticated DAST)
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:   # manual only until HAWKS_API_KEY + applicationId are configured
 
 concurrency:
   group: stackhawk-${{ github.ref }}

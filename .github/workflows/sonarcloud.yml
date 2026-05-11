@@ -16,12 +16,21 @@
 
 name: SonarCloud (SAST)
 
+# DISABLED from automatic runs until setup is complete (manual-only via workflow_dispatch).
+# To re-enable, restore:
+#   on:
+#     push:
+#       branches: [main]
+#     pull_request:
+#       types: [opened, synchronize, reopened]
+#     workflow_dispatch:
+#
+# One-time setup still required:
+#   • SonarCloud project → Administration → Analysis Method → disable Automatic Analysis
+#   • Add SONAR_TOKEN secret to GitHub repo
+
 on:
-  push:
-    branches: [main]
-  pull_request:
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
+  workflow_dispatch:   # manual only until Automatic Analysis is disabled in SonarCloud
 
 concurrency:
   group: sonar-${{ github.ref }}
@@ -59,7 +68,7 @@ jobs:
       # scan is passing consistently.
       - name: SonarCloud Scan
         continue-on-error: true
-        uses: SonarSource/sonarqube-scan-action@v5.0.0
+        uses: SonarSource/sonarqube-scan-action@v6.0.0   # v5 had CVE-2025-59844 + CVE-2025-58178
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
