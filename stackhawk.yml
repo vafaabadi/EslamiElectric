@@ -1,0 +1,44 @@
+# StackHawk configuration — authenticated DAST for CI/CD.
+#
+# Setup (one-time, ~10 minutes):
+#   1. Sign up free at https://app.stackhawk.com (free tier covers one app).
+#   2. Create an Application → copy the applicationId below.
+#   3. Generate an API key (StackHawk → Settings → API Keys).
+#   4. Add HAWKS_API_KEY as a GitHub Actions secret.
+#
+# Unlike OWASP ZAP, StackHawk can log in to your app and scan authenticated pages
+# (basket, checkout, orders, account) that anonymous scanners cannot reach.
+
+app:
+  applicationId: ${APP_ID}          # replace with your StackHawk applicationId
+  env: CI
+  host: http://localhost:3000
+
+  # ── Crawl scope ─────────────────────────────────────────────────────────────
+  # Limit to paths we own; skip Stripe/Supabase redirect URLs.
+  antiCsrfParam: _csrf
+
+  # ── Authentication ──────────────────────────────────────────────────────────
+  # StackHawk logs in once, then reuses the session for every probe.
+  # Uses your existing E2E_TEST_USER_EMAIL / E2E_TEST_USER_PASSWORD secrets.
+  authentication:
+    loggedInIndicator: "account"         # text present in a logged-in response
+    loggedOutIndicator: "login"          # text present when NOT logged in
+    autoFindForm: true
+    loginPath: /en/login
+    usernameField: email
+    passwordField: password
+    username: ${E2E_TEST_USER_EMAIL}
+    password: ${E2E_TEST_USER_PASSWORD}
+    type: form
+
+  # ── Paths to scan ───────────────────────────────────────────────────────────
+  paths:
+    - /en/
+    - /en/basket
+    - /en/orders
+    - /en/account
+    - /en/login
+    - /en/register
+    - /fa/
+    - /fa/basket
