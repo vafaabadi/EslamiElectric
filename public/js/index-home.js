@@ -38,7 +38,9 @@ runWhenLocaleReady(function () {
         homeIntroText:
           'Eslami Electric is a local electrical store serving Zahedan and Sistan and Baluchestan with cables, lighting, sockets, and building supplies. Shop online for delivery or browse our catalog — trusted service for homes and businesses.',
         mapHeading: '📍 Find Us',
-        mapLinkText: 'Open in Maps →'
+        mapLinkText: 'Open in Maps →',
+        mapAddress: 'Azadi Avenue, Zahedan, Sistan and Baluchestan, Iran',
+        mapHours: 'Sat–Thu: 9:00 AM – 9:00 PM'
       },
       fa: {
         siteTitle: 'الکتریکی‌ اسلامی',
@@ -72,7 +74,9 @@ runWhenLocaleReady(function () {
         homeIntroText:
           'الکتریکی اسلامی فروشگاه و فروش آنلاین لوازم برق در زاهدان و سیستان و بلوچستان است؛ کابل، روشنایی، کلید و پریز و تجهیزات ساختمانی. خدمات مطمئن برای منازل و کسب‌وکارها.',
         mapHeading: '📍 موقعیت ما',
-        mapLinkText: '← مشاهده در نقشه'
+        mapLinkText: '← مشاهده در نقشه',
+        mapAddress: 'بلوار آزادی، زاهدان، سیستان و بلوچستان، ایران',
+        mapHours: 'شنبه تا پنج‌شنبه: ۹ صبح – ۹ شب'
       }
     };
 
@@ -186,8 +190,12 @@ runWhenLocaleReady(function () {
 
       const mapHeadingEl = document.getElementById('map-heading');
       const mapLinkLabelEl = document.getElementById('map-link-label');
+      const mapAddressEl = document.getElementById('map-address');
+      const mapHoursEl = document.getElementById('map-hours');
       if (mapHeadingEl && t.mapHeading) mapHeadingEl.textContent = t.mapHeading;
       if (mapLinkLabelEl && t.mapLinkText) mapLinkLabelEl.textContent = t.mapLinkText;
+      if (mapAddressEl && t.mapAddress) mapAddressEl.textContent = t.mapAddress;
+      if (mapHoursEl && t.mapHours) mapHoursEl.textContent = t.mapHours;
 
       if (typeof applyFooterI18n === 'function') applyFooterI18n();
       renderProducts();
