@@ -185,9 +185,9 @@ runWhenLocaleReady(function () {
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
 
       const mapHeadingEl = document.getElementById('map-heading');
-      const mapLinkEl = document.getElementById('map-link');
+      const mapLinkLabelEl = document.getElementById('map-link-label');
       if (mapHeadingEl && t.mapHeading) mapHeadingEl.textContent = t.mapHeading;
-      if (mapLinkEl && t.mapLinkText) mapLinkEl.textContent = t.mapLinkText;
+      if (mapLinkLabelEl && t.mapLinkText) mapLinkLabelEl.textContent = t.mapLinkText;
 
       if (typeof applyFooterI18n === 'function') applyFooterI18n();
       renderProducts();

@@ -50,8 +50,8 @@ test.describe('Map location – English locale', () => {
     await expect(page.locator('#map-heading')).toContainText('Find Us');
   });
 
-  test('#map-iframe is present in the DOM', async ({ page }) => {
-    await expect(page.locator('#map-iframe')).toBeAttached();
+  test('#map-view-card is visible in the DOM', async ({ page }) => {
+    await expect(page.locator('#map-view-card')).toBeVisible();
   });
 
   test('#map-link has correct href containing coordinates', async ({ page }) => {
