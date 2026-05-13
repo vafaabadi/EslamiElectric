@@ -54,6 +54,24 @@ test.describe('Map location – English locale', () => {
     await expect(page.locator('#map-view-card')).toBeVisible();
   });
 
+  test('#map-view-card shows shop name "Eslami Electric"', async ({ page }) => {
+    await expect(page.locator('#map-view-card')).toContainText('Eslami Electric');
+  });
+
+  test('#map-address shows English address hints on /en/', async ({ page }) => {
+    const address = page.locator('#map-address');
+    await expect(address).toBeVisible();
+    await expect(address).toContainText('Zahedan');
+    await expect(address).toContainText('Iran');
+  });
+
+  test('#map-hours shows English hours hints on /en/', async ({ page }) => {
+    const hours = page.locator('#map-hours');
+    await expect(hours).toBeVisible();
+    await expect(hours).toContainText('Sat');
+    await expect(hours).toContainText('9:00');
+  });
+
   test('#map-link has correct href containing coordinates', async ({ page }) => {
     const href = await page.locator('#map-link').getAttribute('href');
     expect(href).toContain('29.495104');
@@ -74,6 +92,20 @@ test.describe('Map location – Persian locale', () => {
 
   test('#map-heading contains "موقعیت ما" on /fa/', async ({ page }) => {
     await expect(page.locator('#map-heading')).toContainText('موقعیت ما');
+  });
+
+  test('#map-address shows Persian address fragments on /fa/', async ({ page }) => {
+    const address = page.locator('#map-address');
+    await expect(address).toBeVisible();
+    await expect(address).toContainText('زاهدان');
+    await expect(address).toContainText('آزادی');
+  });
+
+  test('#map-hours shows Persian hours fragments on /fa/', async ({ page }) => {
+    const hours = page.locator('#map-hours');
+    await expect(hours).toBeVisible();
+    await expect(hours).toContainText('شنبه');
+    await expect(hours).toContainText('صبح');
   });
 });
 
@@ -98,5 +130,8 @@ test.describe('Map location – locale switch EN → FA', () => {
 
     // Verify Persian heading
     await expect(page.locator('#map-heading')).toContainText('موقعیت ما');
+
+    await expect(page.locator('#map-address')).toContainText('زاهدان');
+    await expect(page.locator('#map-hours')).toContainText('شنبه');
   });
 });
