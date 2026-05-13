@@ -17,6 +17,9 @@ runWhenLocaleReady(function () {
         mobileLabel: 'Mobile',
         landlineLabel: 'Landline',
         socialLabel: 'Social Media',
+        hoursLabel: '🕐 Opening Hours',
+        hoursWeekdays: 'Saturday – Thursday: 9:00 AM – 9:00 PM',
+        hoursFriday: 'Friday: Closed',
         navProducts: 'Products',
         navBasket: 'Basket',
         navOrders: 'My Orders',
@@ -46,6 +49,9 @@ runWhenLocaleReady(function () {
         mobileLabel: 'موبایل',
         landlineLabel: 'تلفن ثابت',
         socialLabel: 'شبکه‌های اجتماعی',
+        hoursLabel: '🕐 ساعت کاری',
+        hoursWeekdays: 'شنبه تا پنج‌شنبه: ۹ صبح – ۹ شب',
+        hoursFriday: 'جمعه: تعطیل',
         navProducts: 'محصولات',
         navBasket: 'سبد خرید',
         navOrders: 'سفارشات من',
@@ -139,6 +145,12 @@ runWhenLocaleReady(function () {
       document.getElementById('mobile-label').textContent = t.mobileLabel;
       document.getElementById('landline-label').textContent = t.landlineLabel;
       document.getElementById('social-label').textContent = t.socialLabel;
+      const hoursLabelEl = document.getElementById('hours-label');
+      const hoursWeekdaysEl = document.getElementById('hours-weekdays');
+      const hoursFridayEl = document.getElementById('hours-friday');
+      if (hoursLabelEl) hoursLabelEl.textContent = t.hoursLabel;
+      if (hoursWeekdaysEl) hoursWeekdaysEl.textContent = t.hoursWeekdays;
+      if (hoursFridayEl) hoursFridayEl.textContent = t.hoursFriday;
       document.getElementById('nav-products').textContent = t.navProducts;
       document.getElementById('nav-basket-label').textContent = t.navBasket;
       const navBasketMobile = document.getElementById('nav-basket-mobile');
