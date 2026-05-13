@@ -26,7 +26,6 @@ test.describe('Home SEO meta (locale routes)', () => {
     await page.goto('/en/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#loading')).toBeHidden({ timeout: 30_000 });
 
-    const hostname = new URL(baseURL ?? 'http://127.0.0.1:3000').hostname;
     await expect(page).toHaveTitle(/Zahedan/);
 
     const desc = page.locator('meta[name="description"]');
@@ -34,13 +33,14 @@ test.describe('Home SEO meta (locale routes)', () => {
     const content = (await desc.getAttribute('content')) ?? '';
     expect(content.length).toBeGreaterThan(20);
 
-    const hostnameEscaped = hostname.replace(/\./g, '\\.');
+    const base = new URL(baseURL ?? 'http://127.0.0.1:3000');
     const canonical = page.locator('link[rel="canonical"]');
     await expect(canonical).toHaveCount(1);
-    await expect(canonical).toHaveAttribute(
-      'href',
-      new RegExp(`^https?:\\/\\/${hostnameEscaped}\\/en\\/$`)
-    );
+    const canonicalHref = (await canonical.getAttribute('href')) ?? '';
+    expect(canonicalHref).toBeTruthy();
+    const canonicalUrl = new URL(canonicalHref);
+    expect(canonicalUrl.pathname).toBe('/en/');
+    expect(canonicalUrl.origin).toBe(base.origin);
 
     await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(1);
     await expect(page.locator('link[rel="alternate"][hreflang="fa"]')).toHaveCount(1);
@@ -83,13 +83,14 @@ test.describe('Home SEO meta (locale routes)', () => {
     const content = (await desc.getAttribute('content')) ?? '';
     expect(content.length).toBeGreaterThan(20);
 
-    const hostname = new URL(baseURL ?? 'http://127.0.0.1:3000').hostname;
+    const base = new URL(baseURL ?? 'http://127.0.0.1:3000');
     const canonical = page.locator('link[rel="canonical"]');
     await expect(canonical).toHaveCount(1);
-    await expect(canonical).toHaveAttribute(
-      'href',
-      new RegExp(`^https?:\\/\\/${hostname.replace(/\./g, '\\.')}\\/fa\\/$`)
-    );
+    const canonicalHref = (await canonical.getAttribute('href')) ?? '';
+    expect(canonicalHref).toBeTruthy();
+    const canonicalUrl = new URL(canonicalHref);
+    expect(canonicalUrl.pathname).toBe('/fa/');
+    expect(canonicalUrl.origin).toBe(base.origin);
 
     await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(1);
     await expect(page.locator('link[rel="alternate"][hreflang="fa"]')).toHaveCount(1);
