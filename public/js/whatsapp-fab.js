@@ -6,7 +6,7 @@
   style.textContent = [
     '#whatsapp-fab {',
     '  position: fixed;',
-    '  bottom: 1.5rem;',
+    '  bottom: 5rem;',
     '  right: 1.5rem;',
     '  left: auto;',
     '  z-index: 50;',
@@ -23,6 +23,7 @@
     '  transition: background-color 0.2s, transform 0.2s;',
     '}',
     'body[dir="rtl"] #whatsapp-fab {',
+    '  bottom: 5rem;',
     '  right: auto;',
     '  left: 1.5rem;',
     '}',
