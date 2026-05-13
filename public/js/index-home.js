@@ -36,7 +36,9 @@ runWhenLocaleReady(function () {
         viewAllProductsAria: 'View all products in the catalog',
         homeIntroTitle: 'Electrical shop in Zahedan',
         homeIntroText:
-          'Eslami Electric is a local electrical store serving Zahedan and Sistan and Baluchestan with cables, lighting, sockets, and building supplies. Shop online for delivery or browse our catalog — trusted service for homes and businesses.'
+          'Eslami Electric is a local electrical store serving Zahedan and Sistan and Baluchestan with cables, lighting, sockets, and building supplies. Shop online for delivery or browse our catalog — trusted service for homes and businesses.',
+        mapHeading: '📍 Find Us',
+        mapLinkText: 'Open in Maps →'
       },
       fa: {
         siteTitle: 'الکتریکی‌ اسلامی',
@@ -68,7 +70,9 @@ runWhenLocaleReady(function () {
         viewAllProductsAria: 'رفتن به صفحهٔ کامل محصولات',
         homeIntroTitle: 'فروشگاه لوازم برق در زاهدان',
         homeIntroText:
-          'الکتریکی اسلامی فروشگاه و فروش آنلاین لوازم برق در زاهدان و سیستان و بلوچستان است؛ کابل، روشنایی، کلید و پریز و تجهیزات ساختمانی. خدمات مطمئن برای منازل و کسب‌وکارها.'
+          'الکتریکی اسلامی فروشگاه و فروش آنلاین لوازم برق در زاهدان و سیستان و بلوچستان است؛ کابل، روشنایی، کلید و پریز و تجهیزات ساختمانی. خدمات مطمئن برای منازل و کسب‌وکارها.',
+        mapHeading: '📍 موقعیت ما',
+        mapLinkText: '← مشاهده در نقشه'
       }
     };
 
@@ -179,6 +183,11 @@ runWhenLocaleReady(function () {
       document.getElementById('lang-fa').className = currentLang === 'fa'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+
+      const mapHeadingEl = document.getElementById('map-heading');
+      const mapLinkEl = document.getElementById('map-link');
+      if (mapHeadingEl && t.mapHeading) mapHeadingEl.textContent = t.mapHeading;
+      if (mapLinkEl && t.mapLinkText) mapLinkEl.textContent = t.mapLinkText;
 
       if (typeof applyFooterI18n === 'function') applyFooterI18n();
       renderProducts();
