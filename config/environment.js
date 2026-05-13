@@ -28,13 +28,26 @@ function isProductionDeployment() {
 }
 
 /**
+ * Explicit site URL from env (no trailing slash), or ''.
+ * Prefer PUBLIC_SITE_URL / PUBLIC_BASE_URL for SEO/canonical symmetry; same keys work for Stripe/email base.
+ */
+function getExplicitSiteUrlTrimmed() {
+  const ordered = ['PUBLIC_SITE_URL', 'PUBLIC_BASE_URL', 'NEXT_PUBLIC_BASE_URL', 'BASE_URL'];
+  for (const key of ordered) {
+    const v = (process.env[key] || '').trim();
+    if (v) return v.replace(/\/$/, '');
+  }
+  return '';
+}
+
+/**
  * Canonical base URL for Stripe redirects, emails, receipts (no trailing slash).
- * Prefer NEXT_PUBLIC_BASE_URL or BASE_URL; on Vercel, falls back to https://VERCEL_URL.
+ * Prefer PUBLIC_SITE_URL / PUBLIC_BASE_URL / NEXT_PUBLIC_BASE_URL / BASE_URL; on Vercel, falls back to https://VERCEL_URL.
  */
 function resolvePublicBaseUrl() {
-  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '').trim();
+  const explicit = getExplicitSiteUrlTrimmed();
   if (explicit) {
-    return explicit.replace(/\/$/, '');
+    return explicit;
   }
   const vercelUrl = (process.env.VERCEL_URL || '').trim();
   if (vercelUrl) {
@@ -93,6 +106,7 @@ function logStartupSummary() {
 module.exports = {
   getDeploymentEnvironment,
   isProductionDeployment,
+  getExplicitSiteUrlTrimmed,
   resolvePublicBaseUrl,
   stripeTestAllowedInProduction,
   logStartupSummary

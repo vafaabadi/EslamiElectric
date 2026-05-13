@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
 const {
   resolvePublicBaseUrl,
+  getExplicitSiteUrlTrimmed,
   logStartupSummary,
   getDeploymentEnvironment
 } = require('./config/environment');
@@ -172,8 +173,8 @@ const publicDir = path.join(__dirname, 'public');
  * Prefer NEXT_PUBLIC_BASE_URL / BASE_URL; otherwise use the incoming request (fixes custom domains on Vercel when env is unset).
  */
 function getPublicBaseUrlForClient(req) {
-  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '').trim();
-  if (explicit) return explicit.replace(/\/$/, '');
+  const explicit = getExplicitSiteUrlTrimmed();
+  if (explicit) return explicit;
   if (req && req.get) {
     const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
     if (host) {
@@ -252,7 +253,7 @@ function collectTelegramLoginWidgetHostnames(req) {
       }
     }
   }
-  const baseForHost = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || '';
+  const baseForHost = getExplicitSiteUrlTrimmed();
   if (baseForHost) {
     try {
       const u = new URL(baseForHost.includes('://') ? baseForHost : 'https://' + baseForHost);
@@ -1081,7 +1082,8 @@ function serveLocalePage(locale, subPath, req, res) {
       baseUrl,
       locale,
       routeKey: '',
-      categories: readCategoriesJson()
+      categories: readCategoriesJson(),
+      requestPathAndQuery: req.originalUrl || req.url
     });
     body = injectAnalyticsScript(
       injectSpeedInsightsScript(injectServiceWorker(injectPwa(body)))
