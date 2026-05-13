@@ -17,6 +17,9 @@ runWhenLocaleReady(function () {
         mobileLabel: 'Mobile',
         landlineLabel: 'Landline',
         socialLabel: 'Social Media',
+        hoursLabel: '🕐 Opening Hours',
+        hoursWeekdays: 'Saturday – Thursday: 9:00 AM – 9:00 PM',
+        hoursFriday: 'Friday: Closed',
         navProducts: 'Products',
         navBasket: 'Basket',
         navOrders: 'My Orders',
@@ -33,7 +36,9 @@ runWhenLocaleReady(function () {
         viewAllProductsAria: 'View all products in the catalog',
         homeIntroTitle: 'Electrical shop in Zahedan',
         homeIntroText:
-          'Eslami Electric is a local electrical store serving Zahedan and Sistan and Baluchestan with cables, lighting, sockets, and building supplies. Shop online for delivery or browse our catalog — trusted service for homes and businesses.'
+          'Eslami Electric is a local electrical store serving Zahedan and Sistan and Baluchestan with cables, lighting, sockets, and building supplies. Shop online for delivery or browse our catalog — trusted service for homes and businesses.',
+        mapHeading: '📍 Find Us',
+        mapLinkText: 'Open in Maps →'
       },
       fa: {
         siteTitle: 'الکتریکی‌ اسلامی',
@@ -46,6 +51,9 @@ runWhenLocaleReady(function () {
         mobileLabel: 'موبایل',
         landlineLabel: 'تلفن ثابت',
         socialLabel: 'شبکه‌های اجتماعی',
+        hoursLabel: '🕐 ساعت کاری',
+        hoursWeekdays: 'شنبه تا پنج‌شنبه: ۹ صبح – ۹ شب',
+        hoursFriday: 'جمعه: تعطیل',
         navProducts: 'محصولات',
         navBasket: 'سبد خرید',
         navOrders: 'سفارشات من',
@@ -62,7 +70,9 @@ runWhenLocaleReady(function () {
         viewAllProductsAria: 'رفتن به صفحهٔ کامل محصولات',
         homeIntroTitle: 'فروشگاه لوازم برق در زاهدان',
         homeIntroText:
-          'الکتریکی اسلامی فروشگاه و فروش آنلاین لوازم برق در زاهدان و سیستان و بلوچستان است؛ کابل، روشنایی، کلید و پریز و تجهیزات ساختمانی. خدمات مطمئن برای منازل و کسب‌وکارها.'
+          'الکتریکی اسلامی فروشگاه و فروش آنلاین لوازم برق در زاهدان و سیستان و بلوچستان است؛ کابل، روشنایی، کلید و پریز و تجهیزات ساختمانی. خدمات مطمئن برای منازل و کسب‌وکارها.',
+        mapHeading: '📍 موقعیت ما',
+        mapLinkText: '← مشاهده در نقشه'
       }
     };
 
@@ -139,6 +149,12 @@ runWhenLocaleReady(function () {
       document.getElementById('mobile-label').textContent = t.mobileLabel;
       document.getElementById('landline-label').textContent = t.landlineLabel;
       document.getElementById('social-label').textContent = t.socialLabel;
+      const hoursLabelEl = document.getElementById('hours-label');
+      const hoursWeekdaysEl = document.getElementById('hours-weekdays');
+      const hoursFridayEl = document.getElementById('hours-friday');
+      if (hoursLabelEl) hoursLabelEl.textContent = t.hoursLabel;
+      if (hoursWeekdaysEl) hoursWeekdaysEl.textContent = t.hoursWeekdays;
+      if (hoursFridayEl) hoursFridayEl.textContent = t.hoursFriday;
       document.getElementById('nav-products').textContent = t.navProducts;
       document.getElementById('nav-basket-label').textContent = t.navBasket;
       const navBasketMobile = document.getElementById('nav-basket-mobile');
@@ -167,6 +183,11 @@ runWhenLocaleReady(function () {
       document.getElementById('lang-fa').className = currentLang === 'fa'
         ? 'px-3 py-1.5 rounded text-sm font-medium bg-amber-500 text-slate-900'
         : 'px-3 py-1.5 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors';
+
+      const mapHeadingEl = document.getElementById('map-heading');
+      const mapLinkEl = document.getElementById('map-link');
+      if (mapHeadingEl && t.mapHeading) mapHeadingEl.textContent = t.mapHeading;
+      if (mapLinkEl && t.mapLinkText) mapLinkEl.textContent = t.mapLinkText;
 
       if (typeof applyFooterI18n === 'function') applyFooterI18n();
       renderProducts();
