@@ -76,6 +76,9 @@ app.use(
       if (filePath.endsWith('.mjs')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       }
+      if (process.env.NODE_ENV !== 'development') {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
     }
   })
 );
@@ -88,6 +91,9 @@ app.use(
     setHeaders(res, filePath) {
       if (filePath.endsWith('.mjs')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
+      if (process.env.NODE_ENV !== 'development') {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       }
     }
   })
@@ -167,6 +173,32 @@ const PATH_TO_HTML = {
   'profile': 'profile.html'
 };
 const publicDir = path.join(__dirname, 'public');
+
+/**
+ * Cache-Control for files under `public/` (locale-prefixed `sendFile` and `express.static`).
+ * Long TTL + immutable for typical deploy-addressed CSS/JS/images; HTML stays revalidate-only.
+ */
+function cacheControlForPublicAsset(absResolvedPath) {
+  let rel = '';
+  try {
+    rel = path.relative(publicDir, absResolvedPath).replace(/\\/g, '/');
+  } catch {
+    return undefined;
+  }
+  if (!rel || rel.startsWith('..')) return undefined;
+
+  const dev = process.env.NODE_ENV === 'development';
+
+  if (/\.html?$/i.test(rel)) return 'public, max-age=0, must-revalidate';
+
+  const longPrefixDir = ['css/', 'js/', 'images/', 'icons/'].some((p) => rel.startsWith(p));
+  const longExt = /\.(css|js|mjs|png|jpe?g|gif|svg|webp|ico|woff2?)$/i.test(rel);
+  if ((longPrefixDir || longExt) && rel !== 'sw.js' && rel !== 'site.webmanifest') {
+    return dev ? 'public, max-age=0, must-revalidate' : 'public, max-age=31536000, immutable';
+  }
+
+  return dev ? 'public, max-age=0, must-revalidate' : 'public, max-age=604800, stale-while-revalidate=86400';
+}
 
 /**
  * Public site origin for OAuth redirectTo, Stripe, and email links.
@@ -344,15 +376,17 @@ function injectServiceWorker(html) {
 /** Vercel Speed Insights (vanilla / non-Next.js). Dashboard: Project → Speed Insights. */
 function injectSpeedInsightsScript(html) {
   if (!html || html.includes('speed-insights-init.js')) return html;
-  const snippet = '<script type="module" src="/js/speed-insights-init.js"></script>\n';
-  return html.replace(/<\/head>/i, '  ' + snippet + '</head>');
+  const snippet = '  <script type="module" src="/js/speed-insights-init.js"></script>\n';
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, snippet + '</body>');
+  return html.replace(/<\/head>/i, snippet + '</head>');
 }
 
 /** Vercel Web Analytics (vanilla / non-Next.js). Dashboard: Project → Analytics. */
 function injectAnalyticsScript(html) {
   if (!html || html.includes('analytics-init.js')) return html;
-  const snippet = '<script type="module" src="/js/analytics-init.js"></script>\n';
-  return html.replace(/<\/head>/i, '  ' + snippet + '</head>');
+  const snippet = '  <script type="module" src="/js/analytics-init.js"></script>\n';
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, snippet + '</body>');
+  return html.replace(/<\/head>/i, snippet + '</head>');
 }
 
 const HTML_WITH_PUBLIC_CONFIG = new Set([
@@ -1069,6 +1103,8 @@ function serveLocalePage(locale, subPath, req, res) {
   if (ext && !rest.includes('..')) {
     fs.access(assetPath, fs.constants.R_OK, (err) => {
       if (err) return res.status(404).send('Not found');
+      const cc = cacheControlForPublicAsset(assetPath);
+      if (cc) res.setHeader('Cache-Control', cc);
       res.sendFile(assetPath);
     });
     return;
@@ -1154,17 +1190,12 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 app.use(
-  express.static(path.join(__dirname, 'public'), {
+  express.static(publicDir, {
     etag: true,
     maxAge: process.env.NODE_ENV === 'development' ? 0 : '7d',
     setHeaders(res, filePath) {
-      if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-        return;
-      }
-      if (/\.(css|js|mjs|png|jpe?g|gif|svg|webp|ico|woff2?|json)$/i.test(filePath)) {
-        res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
-      }
+      const cc = cacheControlForPublicAsset(filePath);
+      if (cc) res.setHeader('Cache-Control', cc);
     }
   })
 );
