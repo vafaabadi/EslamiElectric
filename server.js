@@ -45,7 +45,8 @@ const {
   guestOrderTokenBodySchema,
   resumeCheckoutBodySchema,
   emptyJsonBodySchema,
-  guestLookupQuerySchema
+  guestLookupQuerySchema,
+  adminProductPatchBodySchema
 } = require('./lib/schemas/api');
 const crypto = require('crypto');
 const express = require('express');
@@ -53,6 +54,7 @@ const compression = require('compression');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const { Resend } = require('resend');
@@ -133,6 +135,91 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 const supabaseAnon = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+const CATALOG_IMAGES_BUCKET = (process.env.CATALOG_IMAGES_BUCKET || 'product-images').trim() || 'product-images';
+
+/** Catalog for /api/categories, /api/products, SEO — loaded from Postgres when present, else categories.json */
+let catalogPayloadCache = null;
+
+function buildCatalogPayloadFromRows(categoryRows, productRows) {
+  const sortedCats = [...categoryRows].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const byCat = new Map();
+  for (const c of sortedCats) {
+    byCat.set(c.id, { id: c.id, name: c.name, name_fa: c.name_fa || '', products: [] });
+  }
+  for (const p of productRows || []) {
+    const cat = byCat.get(p.category_id);
+    if (!cat) continue;
+    const row = {
+      id: p.id,
+      name: p.name,
+      name_fa: p.name_fa || '',
+      price: p.price != null ? Number(p.price) : 0,
+      image_url: p.image_url || '',
+      description: p.description || ''
+    };
+    const extra =
+      p.extra_json && typeof p.extra_json === 'object' && !Array.isArray(p.extra_json) ? p.extra_json : {};
+    cat.products.push({ ...row, ...extra });
+  }
+  return { categories: sortedCats.map((c) => byCat.get(c.id)).filter(Boolean) };
+}
+
+let lastCatalogDbWarnAt = 0;
+async function refreshCatalogPayloadFromDatabase() {
+  try {
+    const { data: cats, error: cErr } = await supabase
+      .from('catalog_categories')
+      .select('id,name,name_fa,sort_order')
+      .order('sort_order', { ascending: true });
+    if (cErr) {
+      catalogPayloadCache = null;
+      const t = Date.now();
+      if (t - lastCatalogDbWarnAt > 60_000) {
+        lastCatalogDbWarnAt = t;
+        console.warn('catalog: could not read catalog_categories (run migration 014?)', cErr.message);
+      }
+      return;
+    }
+    if (!cats || cats.length === 0) {
+      catalogPayloadCache = null;
+      return;
+    }
+    const { data: prods, error: pErr } = await supabase
+      .from('catalog_products')
+      .select('id,category_id,name,name_fa,price,image_url,description,extra_json');
+    if (pErr) {
+      catalogPayloadCache = null;
+      const t = Date.now();
+      if (t - lastCatalogDbWarnAt > 60_000) {
+        lastCatalogDbWarnAt = t;
+        console.warn('catalog: could not read catalog_products', pErr.message);
+      }
+      return;
+    }
+    catalogPayloadCache = buildCatalogPayloadFromRows(cats, prods || []);
+  } catch (e) {
+    catalogPayloadCache = null;
+    console.error('refreshCatalogPayloadFromDatabase:', e);
+  }
+}
+
+function getCatalogPayload() {
+  if (catalogPayloadCache && catalogPayloadCache.categories && catalogPayloadCache.categories.length > 0) {
+    return catalogPayloadCache;
+  }
+  return readCategoriesJson();
+}
+
+const uploadProductImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype || '');
+    cb(null, ok);
+  }
+});
+void refreshCatalogPayloadFromDatabase();
 /** Failed password attempts before lock; default 5 */
 const LOGIN_LOCKOUT_MAX_ATTEMPTS = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MAX_ATTEMPTS || '5', 10) || 5);
 /** Lock duration after too many failures (minutes); default 60 */
@@ -170,7 +257,8 @@ const PATH_TO_HTML = {
   'update-password': 'update-password.html',
   'auth-callback': 'auth-callback.html',
   'claim-account': 'claim-account.html',
-  'profile': 'profile.html'
+  'profile': 'profile.html',
+  'admin-products': 'admin-products.html'
 };
 const publicDir = path.join(__dirname, 'public');
 
@@ -415,7 +503,7 @@ function serveHtmlWithPublicConfig(req, res, relativePath) {
               baseUrl,
               locale: 'en',
               routeKey,
-              categories: readCategoriesJson()
+              categories: getCatalogPayload()
             })
           )
         )
@@ -1083,7 +1171,7 @@ function serveLocalePage(locale, subPath, req, res) {
         baseUrl,
         locale,
         routeKey,
-        categories: readCategoriesJson(),
+        categories: getCatalogPayload(),
         requestPathAndQuery: req.originalUrl || req.url
       });
       body = injectAnalyticsScript(
@@ -1118,7 +1206,7 @@ function serveLocalePage(locale, subPath, req, res) {
       baseUrl,
       locale,
       routeKey: '',
-      categories: readCategoriesJson(),
+      categories: getCatalogPayload(),
       requestPathAndQuery: req.originalUrl || req.url
     });
     body = injectAnalyticsScript(
@@ -1186,7 +1274,7 @@ app.get('/robots.txt', (req, res) => {
 app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
   res.setHeader('Cache-Control', 'public, max-age=86400');
-  res.send(buildSitemapXml(getPublicBaseUrlForClient(req), readCategoriesJson()));
+  res.send(buildSitemapXml(getPublicBaseUrlForClient(req), getCatalogPayload()));
 });
 
 app.use(
@@ -1956,8 +2044,8 @@ app.post('/api/notify/signup', notifySignupLimiter, async (req, res) => {
 });
 
 function getCategories() {
-  const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
-  return JSON.parse(data).categories;
+  const payload = getCatalogPayload();
+  return payload.categories || [];
 }
 
 function getAllProducts() {
@@ -1977,24 +2065,173 @@ function getAllProducts() {
 }
 
 // GET all categories (with their products)
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', async (req, res) => {
   try {
-    const categories = getCategories();
-    res.json(categories);
+    await refreshCatalogPayloadFromDatabase();
+    res.json(getCategories());
   } catch (err) {
     res.status(500).json({ error: 'Failed to load categories' });
   }
 });
 
 // GET all products (flattened, for homepage)
-app.get('/api/products', (req, res) => {
+app.get('/api/products', async (req, res) => {
   try {
-    const products = getAllProducts();
-    res.json(products);
+    await refreshCatalogPayloadFromDatabase();
+    res.json(getAllProducts());
   } catch (err) {
     res.status(500).json({ error: 'Failed to load products' });
   }
 });
+
+// --- Admin catalog (JWT + ADMIN_ALLOWED_EMAILS; uploads use service role on server only) ---
+app.get('/api/admin/catalog', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    await refreshCatalogPayloadFromDatabase();
+    const payload = getCatalogPayload();
+    res.json({
+      categories: payload.categories || [],
+      source:
+        catalogPayloadCache && catalogPayloadCache.categories && catalogPayloadCache.categories.length
+          ? 'database'
+          : 'json_fallback'
+    });
+  } catch (err) {
+    console.error('GET /api/admin/catalog:', err);
+    res.status(500).json({ error: 'Failed to load catalog' });
+  }
+});
+
+app.patch('/api/admin/products/:productId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const productId = (req.params.productId && String(req.params.productId).trim()) || '';
+    if (!productId) return res.status(400).json({ error: 'product id required' });
+    const body = parseBody(adminProductPatchBodySchema, req, res);
+    if (!body) return;
+
+    const { data: existing, error: exErr } = await supabase
+      .from('catalog_products')
+      .select('id,extra_json,category_id')
+      .eq('id', productId)
+      .maybeSingle();
+    if (exErr) {
+      console.error('admin patch:', exErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!existing) return res.status(404).json({ error: 'Product not found' });
+
+    const updates = { updated_at: new Date().toISOString() };
+    if (body.name != null) updates.name = body.name;
+    if (body.name_fa != null) updates.name_fa = body.name_fa;
+    if (body.price != null) {
+      const n = typeof body.price === 'number' ? body.price : parseFloat(String(body.price));
+      if (Number.isNaN(n) || n < 0) return res.status(400).json({ error: 'Invalid price' });
+      updates.price = n;
+    }
+    if (body.description != null) updates.description = body.description;
+    if (body.image_url != null) updates.image_url = body.image_url;
+
+    if (body.category_id != null && body.category_id !== existing.category_id) {
+      const { data: cat } = await supabase
+        .from('catalog_categories')
+        .select('id')
+        .eq('id', body.category_id)
+        .maybeSingle();
+      if (!cat) return res.status(400).json({ error: 'Unknown category' });
+      updates.category_id = body.category_id;
+    }
+
+    if (body.wattage !== undefined) {
+      const extra =
+        existing.extra_json && typeof existing.extra_json === 'object' && !Array.isArray(existing.extra_json)
+          ? { ...existing.extra_json }
+          : {};
+      if (body.wattage === null) delete extra.wattage;
+      else extra.wattage = body.wattage;
+      updates.extra_json = extra;
+    }
+
+    const { data: updated, error: upErr } = await supabase
+      .from('catalog_products')
+      .update(updates)
+      .eq('id', productId)
+      .select()
+      .single();
+    if (upErr) {
+      console.error('admin patch update:', upErr);
+      return res.status(500).json({ error: 'Failed to update product' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, product: updated });
+  } catch (err) {
+    console.error('PATCH /api/admin/products:', err);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
+
+app.post(
+  '/api/admin/products/:productId/image',
+  authMiddleware,
+  adminMiddleware,
+  (req, res, next) => {
+    uploadProductImage.single('image')(req, res, (e) => {
+      if (e) return res.status(400).json({ error: e.message || 'Upload failed' });
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      const productId = (req.params.productId && String(req.params.productId).trim()) || '';
+      if (!productId) return res.status(400).json({ error: 'product id required' });
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ error: 'Image file required (field name: image)' });
+      }
+      const { data: existing, error: exErr } = await supabase
+        .from('catalog_products')
+        .select('id')
+        .eq('id', productId)
+        .maybeSingle();
+      if (exErr) return res.status(500).json({ error: 'Database error' });
+      if (!existing) return res.status(404).json({ error: 'Product not found' });
+
+      const ext =
+        (req.file.mimetype && req.file.mimetype.includes('png') && 'png') ||
+        (req.file.mimetype && req.file.mimetype.includes('webp') && 'webp') ||
+        (req.file.mimetype && req.file.mimetype.includes('gif') && 'gif') ||
+        'jpg';
+      const basename = sanitizeImageUploadBasename(req.file.originalname);
+      const safeBase = basename.replace(/\.[^.]+$/, '') || 'photo';
+      const objectPath = `products/${productId}/${Date.now()}-${safeBase}.${ext}`;
+
+      const { error: upStorageErr } = await supabase.storage
+        .from(CATALOG_IMAGES_BUCKET)
+        .upload(objectPath, req.file.buffer, { contentType: req.file.mimetype || 'image/jpeg', upsert: true });
+      if (upStorageErr) {
+        console.error('admin image storage:', upStorageErr);
+        return res.status(500).json({ error: 'Failed to upload image (check Storage bucket exists)' });
+      }
+      const { data: pub } = supabase.storage.from(CATALOG_IMAGES_BUCKET).getPublicUrl(objectPath);
+      const publicUrl = pub && pub.publicUrl ? pub.publicUrl : '';
+      if (!publicUrl) return res.status(500).json({ error: 'Could not resolve public URL' });
+
+      const { data: updated, error: upErr } = await supabase
+        .from('catalog_products')
+        .update({ image_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', productId)
+        .select()
+        .single();
+      if (upErr) {
+        console.error('admin image db:', upErr);
+        return res.status(500).json({ error: 'Uploaded but failed to save URL' });
+      }
+      await refreshCatalogPayloadFromDatabase();
+      res.json({ ok: true, image_url: publicUrl, product: updated });
+    } catch (err) {
+      console.error('POST /api/admin/products image:', err);
+      res.status(500).json({ error: 'Failed to upload image' });
+    }
+  }
+);
 
 function getClientIp(req) {
   const xff = req.headers['x-forwarded-for'];
@@ -2382,6 +2619,46 @@ function authMiddleware(req, res, next) {
       console.error('authMiddleware:', err);
       res.status(500).json({ error: 'Failed to verify account' });
     });
+}
+
+function parseAdminAllowlist() {
+  const raw = process.env.ADMIN_ALLOWED_EMAILS || '';
+  return raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 3 && s.includes('@'));
+}
+
+function adminMiddleware(req, res, next) {
+  const allowed = parseAdminAllowlist();
+  if (!allowed.length) {
+    return res.status(503).json({ error: 'Admin access is not configured (set ADMIN_ALLOWED_EMAILS).' });
+  }
+  supabase
+    .from('users')
+    .select('email')
+    .eq('id', req.userId)
+    .maybeSingle()
+    .then(({ data: row, error }) => {
+      if (error) {
+        console.error('adminMiddleware:', error);
+        return res.status(500).json({ error: 'Failed to verify admin' });
+      }
+      const em = (row && row.email && String(row.email).trim().toLowerCase()) || '';
+      if (!em || !allowed.includes(em)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      next();
+    })
+    .catch((err) => {
+      console.error('adminMiddleware:', err);
+      res.status(500).json({ error: 'Failed to verify admin' });
+    });
+}
+
+function sanitizeImageUploadBasename(name) {
+  const base = path.basename(name || 'image').replace(/[^a-zA-Z0-9._-]+/g, '_');
+  return base.slice(0, 96) || 'image.jpg';
 }
 
 app.get('/api/me', authMiddleware, async (req, res) => {
@@ -4082,6 +4359,7 @@ app.post('/api/orders/confirm-by-session/:sessionId', orderOpsLimiter, async (re
 
 app.listen(PORT, '0.0.0.0', () => {
   logStartupSummary();
+  void refreshCatalogPayloadFromDatabase();
   const dep = getDeploymentEnvironment();
   if (process.env.VERCEL || dep === 'preview') {
     console.log('Eslami Electric server (Vercel / cloud): public URL from env — see [env] publicBaseUrl above');
