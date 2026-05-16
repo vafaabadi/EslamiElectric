@@ -2084,7 +2084,7 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// --- Admin catalog (JWT + ADMIN_ALLOWED_EMAILS; uploads use service role on server only) ---
+// --- Admin catalog (JWT + users.is_admin; optional ADMIN_ALLOWED_EMAILS bypass; uploads use service role on server only) ---
 app.get('/api/admin/catalog', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     await refreshCatalogPayloadFromDatabase();
@@ -2601,7 +2601,7 @@ function authMiddleware(req, res, next) {
   req.userId = payload.userId;
   supabase
     .from('users')
-    .select('account_status')
+    .select('account_status, email, is_admin')
     .eq('id', req.userId)
     .maybeSingle()
     .then(({ data: row, error }) => {
@@ -2613,6 +2613,9 @@ function authMiddleware(req, res, next) {
       if (status !== 'active') {
         return res.status(403).json({ error: 'Account is no longer active', code: 'ACCOUNT_INACTIVE' });
       }
+      const em = row && row.email != null ? String(row.email).trim().toLowerCase() : '';
+      req.userEmail = em;
+      req.userIsAdmin = !!(row && row.is_admin === true);
       next();
     })
     .catch((err) => {
@@ -2621,6 +2624,7 @@ function authMiddleware(req, res, next) {
     });
 }
 
+/** Optional emergency bypass: comma-separated emails that may access admin routes without is_admin. */
 function parseAdminAllowlist() {
   const raw = process.env.ADMIN_ALLOWED_EMAILS || '';
   return raw
@@ -2630,30 +2634,11 @@ function parseAdminAllowlist() {
 }
 
 function adminMiddleware(req, res, next) {
+  if (req.userIsAdmin) return next();
   const allowed = parseAdminAllowlist();
-  if (!allowed.length) {
-    return res.status(503).json({ error: 'Admin access is not configured (set ADMIN_ALLOWED_EMAILS).' });
-  }
-  supabase
-    .from('users')
-    .select('email')
-    .eq('id', req.userId)
-    .maybeSingle()
-    .then(({ data: row, error }) => {
-      if (error) {
-        console.error('adminMiddleware:', error);
-        return res.status(500).json({ error: 'Failed to verify admin' });
-      }
-      const em = (row && row.email && String(row.email).trim().toLowerCase()) || '';
-      if (!em || !allowed.includes(em)) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-      next();
-    })
-    .catch((err) => {
-      console.error('adminMiddleware:', err);
-      res.status(500).json({ error: 'Failed to verify admin' });
-    });
+  const em = (req.userEmail && String(req.userEmail).trim().toLowerCase()) || '';
+  if (allowed.length > 0 && em && allowed.includes(em)) return next();
+  return res.status(403).json({ error: 'Forbidden' });
 }
 
 function sanitizeImageUploadBasename(name) {
