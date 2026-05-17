@@ -4,12 +4,20 @@
   const panel = document.getElementById('admin-panel');
   const select = document.getElementById('admin-product-select');
   const categorySelect = document.getElementById('field-category');
+  const newProductCategorySelect = document.getElementById('new-product-category');
   const form = document.getElementById('admin-edit-form');
   const preview = document.getElementById('admin-preview');
   const gotoLogin = document.getElementById('admin-goto-login');
   const sourceEl = document.getElementById('admin-source');
   const uploadBtn = document.getElementById('admin-upload-btn');
   const fileInput = document.getElementById('field-image-file');
+
+  const addCategoryPanel = document.getElementById('add-category-panel');
+  const addProductPanel = document.getElementById('add-product-panel');
+  const toggleAddCategoryBtn = document.getElementById('toggle-add-category');
+  const toggleAddProductBtn = document.getElementById('toggle-add-product');
+  const newCategoryForm = document.getElementById('new-category-form');
+  const newProductForm = document.getElementById('new-product-form');
 
   function showBanner(text, kind) {
     banner.textContent = text;
@@ -66,6 +74,109 @@
     });
   }
 
+  /** @param {{ id: string, name: string, name_fa?: string, sort_order?: number }[]} cats */
+  function fillCategorySelectsFromCategories(cats) {
+    categorySelect.innerHTML = '';
+    newProductCategorySelect.innerHTML = '';
+    cats.forEach(function (cat) {
+      const editOpt = document.createElement('option');
+      editOpt.value = cat.id;
+      editOpt.textContent = cat.name + ' (' + cat.id + ')';
+      categorySelect.appendChild(editOpt);
+
+      const newOpt = document.createElement('option');
+      newOpt.value = cat.id;
+      newOpt.textContent = cat.name + ' (' + cat.id + ')';
+      newProductCategorySelect.appendChild(newOpt);
+    });
+  }
+
+  toggleAddCategoryBtn.addEventListener('click', function () {
+    addProductPanel.classList.add('hidden');
+    addCategoryPanel.classList.toggle('hidden');
+  });
+  toggleAddProductBtn.addEventListener('click', function () {
+    addCategoryPanel.classList.add('hidden');
+    addProductPanel.classList.toggle('hidden');
+  });
+
+  newCategoryForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const name = document.getElementById('new-category-name').value.trim();
+    const nameFa = document.getElementById('new-category-name-fa').value.trim();
+    const sortRaw = document.getElementById('new-category-sort').value.trim();
+    const idOverride = document.getElementById('new-category-id-override').value.trim();
+    const body = { name: name };
+    if (nameFa) body.name_fa = nameFa;
+    if (sortRaw !== '') {
+      const s = parseInt(sortRaw, 10);
+      if (!Number.isNaN(s)) body.sort_order = s;
+    }
+    if (idOverride) body.id = idOverride;
+
+    const res = await fetch('/api/admin/categories', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify(body)
+    });
+    const j = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok) {
+      showBanner(j.error || 'Could not create category', 'error');
+      return;
+    }
+    showBanner('Category created.', 'ok');
+    newCategoryForm.reset();
+    await loadCatalog();
+  });
+
+  newProductForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (!newProductCategorySelect.options.length) {
+      showBanner('Create a category first.', 'error');
+      return;
+    }
+    const wattVal = document.getElementById('new-product-wattage').value.trim();
+    const body = {
+      category_id: document.getElementById('new-product-category').value,
+      name: document.getElementById('new-product-name').value.trim(),
+      name_fa: document.getElementById('new-product-name-fa').value.trim(),
+      price: document.getElementById('new-product-price').value
+    };
+    if (body.name_fa === '') delete body.name_fa;
+    const img = document.getElementById('new-product-image-url').value.trim();
+    if (img) body.image_url = img;
+    const desc = document.getElementById('new-product-desc').value;
+    if (desc) body.description = desc;
+    if (wattVal !== '') {
+      const w = parseInt(wattVal, 10);
+      if (!Number.isNaN(w)) body.wattage = w;
+    }
+
+    const res = await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify(body)
+    });
+    const j = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok) {
+      showBanner(j.error || 'Could not create product', 'error');
+      return;
+    }
+    showBanner('Product created.', 'ok');
+    const createdId = j.product && j.product.id ? String(j.product.id) : '';
+    newProductForm.reset();
+    await loadCatalog();
+    if (createdId) {
+      select.value = createdId;
+      var afterCreate = selectedProduct();
+      if (afterCreate) fillForm(afterCreate);
+    }
+  });
+
   async function loadCatalog() {
     const res = await fetch('/api/admin/catalog', { headers: Object.assign({}, authHeaders()) });
     if (res.status === 401) {
@@ -104,12 +215,8 @@
 
     flatProducts = [];
     select.innerHTML = '';
-    categorySelect.innerHTML = '';
+    fillCategorySelectsFromCategories(data.categories || []);
     (data.categories || []).forEach(function (cat) {
-      const co = document.createElement('option');
-      co.value = cat.id;
-      co.textContent = cat.name + ' (' + cat.id + ')';
-      categorySelect.appendChild(co);
       (cat.products || []).forEach(function (p) {
         flatProducts.push(
           Object.assign({}, p, {
@@ -129,6 +236,16 @@
       }
       var first = selectedProduct();
       if (first) fillForm(first);
+    } else {
+      document.getElementById('field-name').value = '';
+      document.getElementById('field-name-fa').value = '';
+      document.getElementById('field-price').value = '';
+      document.getElementById('field-category').selectedIndex =
+        categorySelect.options.length ? 0 : -1;
+      document.getElementById('field-desc').value = '';
+      document.getElementById('field-wattage').value = '';
+      document.getElementById('field-image-url').value = '';
+      syncPreview('');
     }
   }
 
