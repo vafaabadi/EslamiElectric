@@ -279,7 +279,7 @@ runWhenLocaleReady(function () {
         productsGrid.insertAdjacentHTML('beforeend', `
           <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow" data-product-id="${productId}" data-category-id="${catIdEscaped}">
             <div class="product-card-media aspect-[4/3] bg-slate-200 overflow-hidden">
-              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="product-card-img" width="400" height="300" decoding="async" loading="${imgLoading}"${fetchPriority}>
+              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="product-card-img h-full w-full object-cover" width="400" height="300" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" decoding="async" loading="${imgLoading}"${fetchPriority}>
             </div>
             <div class="p-4">
               <h3 class="text-lg font-semibold text-slate-800 mt-1">${escapeHtml(name)}</h3>
