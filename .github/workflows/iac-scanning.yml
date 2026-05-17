@@ -12,7 +12,6 @@ name: IaC Scanning (Checkov)
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
 
 concurrency:
