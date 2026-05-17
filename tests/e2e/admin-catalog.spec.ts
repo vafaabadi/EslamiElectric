@@ -27,6 +27,33 @@ test.describe('admin catalog', () => {
     expect(res.status()).toBe(401);
   });
 
+  test('POST /api/admin/categories returns 401 without token', async ({ request }) => {
+    const res = await request.fetch('/api/admin/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({ name: 'E2ENoAuthCat' }),
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /api/admin/products returns 401 without token', async ({ request }) => {
+    const res = await request.fetch('/api/admin/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({
+        category_id: 'does-not-exist',
+        name: 'E2ENoAuthProduct',
+        price: 1,
+      }),
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test.skip(
+    true,
+    'Manual smoke (Bearer admin JWT): POST /api/admin/categories { name, name_fa?, sort_order?, id? } then POST /api/admin/products { category_id, name, price }; expect 200 and new rows in GET /api/admin/catalog.'
+  );
+
   test('admin can open catalog UI when E2E admin credentials are set', async ({ page }) => {
     // Requires public.users.is_admin = true for that user on the DB the server uses (set in Supabase Dashboard),
     // unless the server sets ADMIN_ALLOWED_EMAILS as a bypass.

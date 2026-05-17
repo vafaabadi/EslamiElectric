@@ -46,7 +46,9 @@ const {
   resumeCheckoutBodySchema,
   emptyJsonBodySchema,
   guestLookupQuerySchema,
-  adminProductPatchBodySchema
+  adminProductPatchBodySchema,
+  adminCategoryPostBodySchema,
+  adminProductPostBodySchema
 } = require('./lib/schemas/api');
 const crypto = require('crypto');
 const express = require('express');
@@ -2043,6 +2045,41 @@ app.post('/api/notify/signup', notifySignupLimiter, async (req, res) => {
   }
 });
 
+/** Produce `^[a-z0-9-]+$` slug from English display name for `catalog_categories.id`. */
+function slugifyCatalogCategoryIdFromName(englishName) {
+  let slug = String(englishName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100);
+  if (!slug) slug = 'category';
+  return slug;
+}
+
+/**
+ * Resolve a new category primary key.
+ * Omit `explicitId` to auto-generate from `englishName` with numeric suffix fallback on collision.
+ */
+async function resolveNewCatalogCategoryId(englishName, explicitIdOpt) {
+  if (explicitIdOpt) {
+    const { data: row } = await supabase.from('catalog_categories').select('id').eq('id', explicitIdOpt).maybeSingle();
+    if (row)
+      return { ok: false, status: 409, error: 'Category id already exists', code: 'CATEGORY_EXISTS' };
+    return { ok: true, id: explicitIdOpt };
+  }
+  const base = slugifyCatalogCategoryIdFromName(englishName);
+  let candidate = base;
+  let n = 2;
+  for (let i = 0; i < 64; i++) {
+    const { data: row } = await supabase.from('catalog_categories').select('id').eq('id', candidate).maybeSingle();
+    if (!row) return { ok: true, id: candidate };
+    candidate = `${base}-${n}`;
+    n += 1;
+  }
+  return { ok: true, id: `${base}-${crypto.randomBytes(8).toString('hex')}` };
+}
+
 function getCategories() {
   const payload = getCatalogPayload();
   return payload.categories || [];
@@ -2099,6 +2136,124 @@ app.get('/api/admin/catalog', authMiddleware, adminMiddleware, async (req, res) 
   } catch (err) {
     console.error('GET /api/admin/catalog:', err);
     res.status(500).json({ error: 'Failed to load catalog' });
+  }
+});
+
+/**
+ * POST /api/admin/categories
+ * Body: `{ name }` required; optional `name_fa`, `sort_order`, and optional power-user `id` (`^[a-z0-9-]+$`, must be unused).
+ * When `id` is omitted the server derives a slug from English `name` and ensures uniqueness.
+ */
+app.post('/api/admin/categories', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(adminCategoryPostBodySchema, req, res, {
+      message: 'Invalid category payload',
+      errorCode: 'VALIDATION_FAILED'
+    });
+    if (!body) return;
+
+    const reserved = await resolveNewCatalogCategoryId(body.name, body.id ? String(body.id).trim() : null);
+    if (!reserved.ok) return res.status(reserved.status).json({ error: reserved.error, code: reserved.code });
+
+    let sortOrder = body.sort_order;
+    if (sortOrder === undefined) {
+      const { data: lastRows } = await supabase
+        .from('catalog_categories')
+        .select('sort_order')
+        .order('sort_order', { ascending: false })
+        .limit(1);
+      const top =
+        lastRows && lastRows[0] != null && lastRows[0].sort_order != null ? Number(lastRows[0].sort_order) : -1;
+      sortOrder = top + 1;
+    }
+
+    const nowIso = new Date().toISOString();
+    const row = {
+      id: reserved.id,
+      name: body.name.trim(),
+      name_fa: body.name_fa != null ? String(body.name_fa).trim() : '',
+      sort_order: sortOrder,
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+
+    const { data: inserted, error: insErr } = await supabase.from('catalog_categories').insert(row).select().single();
+    if (insErr) {
+      console.error('POST /api/admin/categories insert:', insErr);
+      if (String(insErr.code || '') === '23505')
+        return res.status(409).json({ error: 'Category already exists', code: 'CATEGORY_EXISTS' });
+      return res.status(500).json({ error: 'Failed to create category', code: 'DB_ERROR' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, category: inserted });
+  } catch (err) {
+    console.error('POST /api/admin/categories:', err);
+    res.status(500).json({ error: 'Failed to create category', code: 'SERVER_ERROR' });
+  }
+});
+
+/**
+ * POST /api/admin/products — creates a row with server-generated UUID `id` (non-colliding PK).
+ */
+app.post('/api/admin/products', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(adminProductPostBodySchema, req, res, {
+      message: 'Invalid product payload',
+      errorCode: 'VALIDATION_FAILED'
+    });
+    if (!body) return;
+
+    const { data: cat, error: cErr } = await supabase
+      .from('catalog_categories')
+      .select('id')
+      .eq('id', body.category_id.trim())
+      .maybeSingle();
+    if (cErr) {
+      console.error('POST /api/admin/products category lookup:', cErr);
+      return res.status(500).json({ error: 'Database error', code: 'DB_ERROR' });
+    }
+    if (!cat) return res.status(400).json({ error: 'Unknown category', code: 'UNKNOWN_CATEGORY' });
+
+    const n = typeof body.price === 'number' ? body.price : parseFloat(String(body.price));
+    if (Number.isNaN(n) || n < 0)
+      return res.status(400).json({ error: 'Invalid price', code: 'INVALID_PRICE' });
+
+    const extra =
+      body.extra_json && typeof body.extra_json === 'object' && !Array.isArray(body.extra_json)
+        ? { ...body.extra_json }
+        : {};
+    if (body.wattage !== undefined) {
+      if (body.wattage === null) delete extra.wattage;
+      else extra.wattage = body.wattage;
+    }
+
+    const productId = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    const insertRow = {
+      id: productId,
+      category_id: body.category_id.trim(),
+      name: body.name.trim(),
+      name_fa: body.name_fa != null ? String(body.name_fa).trim() : '',
+      price: n,
+      image_url: body.image_url != null ? String(body.image_url).trim() : '',
+      description: body.description != null ? String(body.description) : '',
+      extra_json: extra,
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+
+    const { data: inserted, error: insErr } = await supabase.from('catalog_products').insert(insertRow).select().single();
+    if (insErr) {
+      console.error('POST /api/admin/products insert:', insErr);
+      if (String(insErr.code || '') === '23505')
+        return res.status(409).json({ error: 'Product id collision', code: 'PRODUCT_EXISTS' });
+      return res.status(500).json({ error: 'Failed to create product', code: 'DB_ERROR' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, product: inserted });
+  } catch (err) {
+    console.error('POST /api/admin/products:', err);
+    res.status(500).json({ error: 'Failed to create product', code: 'SERVER_ERROR' });
   }
 });
 
