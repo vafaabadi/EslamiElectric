@@ -2324,6 +2324,61 @@ app.patch('/api/admin/products/:productId', authMiddleware, adminMiddleware, asy
   }
 });
 
+/**
+ * Derive Storage object path from our public image URL (upload uses `products/<productId>/...`).
+ * Skip removal for relative paths, external hosts, or non-matching keys — avoids deleting unrelated blobs.
+ */
+function catalogProductImageStoragePathFromUrl(imageUrl, productId, bucketId) {
+  if (!imageUrl || !productId || !bucketId) return null;
+  try {
+    const u = new URL(imageUrl);
+    const needle = `/object/public/${bucketId}/`;
+    const idx = u.pathname.indexOf(needle);
+    if (idx === -1) return null;
+    const objectPath = u.pathname.slice(idx + needle.length);
+    if (!objectPath.startsWith(`products/${productId}/`)) return null;
+    return objectPath;
+  } catch {
+    return null;
+  }
+}
+
+app.delete('/api/admin/products/:productId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const productId = (req.params.productId && String(req.params.productId).trim()) || '';
+    if (!productId) return res.status(400).json({ error: 'product id required' });
+
+    const { data: existing, error: exErr } = await supabase
+      .from('catalog_products')
+      .select('id,image_url')
+      .eq('id', productId)
+      .maybeSingle();
+    if (exErr) {
+      console.error('admin delete product:', exErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!existing) return res.status(404).json({ error: 'Product not found' });
+
+    const imageUrl = existing.image_url != null ? String(existing.image_url).trim() : '';
+    const storagePath = catalogProductImageStoragePathFromUrl(imageUrl, productId, CATALOG_IMAGES_BUCKET);
+    if (storagePath) {
+      const { error: rmErr } = await supabase.storage.from(CATALOG_IMAGES_BUCKET).remove([storagePath]);
+      if (rmErr) console.error('admin delete product storage (non-fatal):', rmErr);
+    }
+
+    const { error: delErr } = await supabase.from('catalog_products').delete().eq('id', productId);
+    if (delErr) {
+      console.error('admin delete product row:', delErr);
+      return res.status(500).json({ error: 'Failed to delete product' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, deleted: true });
+  } catch (err) {
+    console.error('DELETE /api/admin/products:', err);
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
+});
+
 app.post(
   '/api/admin/products/:productId/image',
   authMiddleware,
