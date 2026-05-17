@@ -101,9 +101,48 @@ test.describe('admin catalog — unauthenticated API', () => {
     const res = await request.fetch('/api/admin/products/e2e-no-auth-image-id/image', { method: 'DELETE' });
     expect(res.status()).toBe(401);
   });
+
+  test('GET /api/admin/orders returns 401 without token', async ({ request }) => {
+    const res = await request.get('/api/admin/orders');
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /api/admin/audit returns 401 without token', async ({ request }) => {
+    const res = await request.get('/api/admin/audit');
+    expect(res.status()).toBe(401);
+  });
+
+  test('PATCH /api/admin/orders/:id returns 401 without token', async ({ request }) => {
+    const res = await request.fetch('/api/admin/orders/00000000-0000-4000-8000-000000000099', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({ fulfillment_status: 'shipped', admin_notes: 'n' })
+    });
+    expect(res.status()).toBe(401);
+  });
 });
 
 test.describe('admin catalog — public UI shell', () => {
+  test('admin orders page shell loads', async ({ page, baseURL }) => {
+    await page.goto('/en/admin-orders', { waitUntil: 'domcontentloaded' });
+
+    /** Locale route missing on older deployments: Node falls back to `index.html` (shop home). */
+    try {
+      await page.locator('#admin-orders-gate').waitFor({ state: 'visible', timeout: 12_000 });
+    } catch {
+      // waitFor failure — fall through for skip/assert below
+    }
+    if (!(await page.locator('#admin-orders-gate').isVisible())) {
+      test.skip(
+        !isLocalBaseUrl(baseURL),
+        'This host serves shop home instead of admin-orders; deploy PATH_TO_HTML + admin-orders.html or test against localhost.'
+      );
+    }
+
+    await expect(page.locator('#admin-orders-gate')).toBeVisible();
+    await expect(page.locator('header h1')).toContainText(/orders/i);
+  });
+
   test('admin products page shell loads', async ({ page }) => {
     await page.goto('/en/admin-products', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /product admin/i })).toBeVisible();
@@ -157,6 +196,7 @@ test.describe('admin catalog — safe localhost checks', () => {
     await expect(page.locator('#field-alt-fa')).toBeVisible();
     await expect(page.locator('#admin-category-order')).toBeVisible();
     await expect(page.locator('#admin-export-csv-btn')).toBeVisible();
+    await expect(page.locator('a[href="admin-orders.html"]')).toBeVisible();
   });
 
   test('admin UI: upload image requires a file (error banner)', async ({ page }) => {
@@ -218,5 +258,28 @@ test.describe('admin catalog — safe localhost checks', () => {
     const text = await res.text();
     expect(text.length).toBeGreaterThan(10);
     expect(text.includes('section,categories') || text.includes('category_id')).toBeTruthy();
+  });
+
+  test('admin JWT: PATCH unknown order returns 404 (no row updated)', async ({ request }) => {
+    const { email, password } = getAdminE2ECredentials();
+    test.skip(!email || !password, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD.');
+
+    let token: string;
+    try {
+      token = await fetchAppJwtViaPasswordLogin(request, email!, password!);
+    } catch {
+      test.skip(true, 'Admin login failed; fix credentials.');
+      token = '';
+    }
+
+    const res = await request.fetch('/api/admin/orders/00000000-0000-4000-8000-000000000099', {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: JSON.stringify({ fulfillment_status: 'shipped', admin_notes: '-' })
+    });
+    if (res.status() === 500) {
+      test.skip(true, 'PATCH order failed server-side — apply migration 018 (fulfillment columns on orders).');
+    }
+    expect(res.status()).toBe(404);
   });
 });

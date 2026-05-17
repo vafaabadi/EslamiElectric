@@ -87,6 +87,18 @@ test.describe('Basket editing and catalog behaviour', () => {
     await products.expectProductAreaReady();
   });
 
+  test('GET /api/products payloads include storefront image_alt fields when catalog is populated', async ({ request }) => {
+    const res = await request.get('/api/products');
+    expect(res.status()).toBe(200);
+    const data = (await res.json()) as Record<string, unknown>[];
+    expect(Array.isArray(data)).toBeTruthy();
+    if (data.length === 0) return;
+    expect(data[0]).toHaveProperty('image_alt_en');
+    expect(data[0]).toHaveProperty('image_alt_fa');
+    expect(typeof (data[0].image_alt_en as string)).toBe('string');
+    expect(typeof (data[0].image_alt_fa as string)).toBe('string');
+  });
+
   test('basket language toggle still shows content', async ({ page }) => {
     const products = new ProductsPage(page);
     await products.openEnglishProducts();
