@@ -370,11 +370,15 @@
 
     flatProducts = [];
     select.innerHTML = '';
-    const cats = data.categories || [];
+    const catsRaw = data.categories || [];
+    const cats = catsRaw.filter(function (c) {
+      return !c.deleted_at;
+    });
     fillCategorySelectsFromCategories(cats);
     renderCategoryOrderList(cats);
     cats.forEach(function (cat) {
       (cat.products || []).forEach(function (p) {
+        if (p.deleted_at) return;
         flatProducts.push(
           Object.assign({}, p, {
             categoryId: cat.id,
@@ -624,7 +628,7 @@
     deleteProductBtn.addEventListener('click', async function () {
       const p = selectedProduct();
       if (!p) return;
-      if (!confirm('Delete product "' + (p.name || p.id) + '"? This cannot be undone.')) return;
+      if (!confirm('Archive product "' + (p.name || p.id) + '"? It will be hidden from the shop; use API restore or purge=hard later if needed.')) return;
       const res = await fetch('/api/admin/products/' + encodeURIComponent(p.id), {
         method: 'DELETE',
         headers: Object.assign({}, authHeaders())
@@ -636,7 +640,7 @@
         showBanner(j.error || 'Delete failed', 'error');
         return;
       }
-      showBanner('Product deleted.', 'ok');
+      showBanner('Product archived.', 'ok');
       await loadCatalog();
     });
   }
@@ -652,9 +656,9 @@
           : catId;
       if (
         !confirm(
-          'Delete category "' +
+          'Archive category "' +
             catLabel +
-            '"?\n\nAll products in this category will be permanently removed (database CASCADE). This cannot be undone.'
+            '"?\n\nProducts in this category will be archived (hidden from the shop).\nStaff can permanently delete with purge=hard on the API if necessary.'
         )
       )
         return;
@@ -669,7 +673,7 @@
         showBanner(j.error || 'Could not delete category', 'error');
         return;
       }
-      showBanner('Category deleted.', 'ok');
+      showBanner('Category archived.', 'ok');
       await loadCatalog();
     });
   }

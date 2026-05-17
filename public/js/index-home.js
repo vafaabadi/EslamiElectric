@@ -220,6 +220,17 @@ runWhenLocaleReady(function () {
 
       gridProducts.forEach((p, idx) => {
         const name = currentLang === 'fa' && p.name_fa ? p.name_fa : p.name;
+        const imgAlt =
+          currentLang === 'fa'
+            ? p.image_alt_fa || p.image_alt_en || name
+            : p.image_alt_en || p.image_alt_fa || name;
+        const descRaw = currentLang === 'fa' && p.description_fa ? p.description_fa : (p.description || '');
+        const descPlain = String(descRaw).replace(/\s+/g, ' ').trim();
+        const descSnippet =
+          descPlain.length > 220 ? descPlain.slice(0, 217) + '…' : descPlain;
+        const descHtml = descSnippet
+          ? `<p class="text-slate-600 text-sm mt-1 line-clamp-3">${escapeHtml(descSnippet)}</p>`
+          : '';
         const category = currentLang === 'fa' && p.category_fa ? p.category_fa : p.category;
         const wattageHtml = p.wattage != null
           ? `<p class="text-slate-500 text-sm mt-1">${escapeHtml(String(p.wattage))} ${escapeHtml(t.wattage)}</p>`
@@ -230,11 +241,12 @@ runWhenLocaleReady(function () {
         grid.insertAdjacentHTML('beforeend', `
           <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow" data-product-id="${pid}">
             <div class="product-card-media aspect-[4/3] bg-slate-200 overflow-hidden">
-              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(name)}" class="product-card-img h-full w-full object-cover" width="400" height="300" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" decoding="async" loading="${imgLoading}"${fetchPriority}>
+              <img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(imgAlt)}" class="product-card-img h-full w-full object-cover" width="400" height="300" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" decoding="async" loading="${imgLoading}"${fetchPriority}>
             </div>
             <div class="p-4">
               <span class="text-xs font-semibold text-amber-800 uppercase tracking-wider">${escapeHtml(category)}</span>
               <h2 class="text-lg font-semibold text-slate-800 mt-1">${escapeHtml(name)}</h2>
+              ${descHtml}
               ${wattageHtml}
               <p class="text-xl font-bold text-slate-900 mt-2">${wrapLtr(formatPriceUSD(Number(p.price)))}</p>
               <div class="mt-3 flex items-center gap-2 flex-wrap">

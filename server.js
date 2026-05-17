@@ -51,7 +51,8 @@ const {
   adminCategoryPatchBodySchema,
   adminCategoriesReorderBodySchema,
   adminProductPostBodySchema,
-  adminProductDuplicateBodySchema
+  adminProductDuplicateBodySchema,
+  adminOrderPatchBodySchema
 } = require('./lib/schemas/api');
 const crypto = require('crypto');
 const express = require('express');
@@ -181,12 +182,66 @@ function buildCatalogPayloadFromRows(categoryRows, productRows) {
   return { categories: sortedCats.map((c) => byCat.get(c.id)).filter(Boolean) };
 }
 
+/** Admin UI + export: grouped categories with deleted_at on rows (includes soft-deleted). */
+function buildAdminCatalogPayloadFromRows(categoryRows, productRows) {
+  const sortedCats = [...categoryRows].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const byCat = new Map();
+  for (const c of sortedCats) {
+    byCat.set(c.id, {
+      id: c.id,
+      name: c.name,
+      name_fa: c.name_fa || '',
+      sort_order: c.sort_order || 0,
+      deleted_at: c.deleted_at != null ? c.deleted_at : null,
+      products: []
+    });
+  }
+  for (const p of productRows || []) {
+    const cat = byCat.get(p.category_id);
+    if (!cat) continue;
+    const row = {
+      id: p.id,
+      name: p.name,
+      name_fa: p.name_fa || '',
+      price: p.price != null ? Number(p.price) : 0,
+      image_url: p.image_url || '',
+      description: p.description || '',
+      description_fa: p.description_fa || '',
+      image_alt_en: p.image_alt_en != null && p.image_alt_en !== '' ? String(p.image_alt_en) : '',
+      image_alt_fa: p.image_alt_fa != null && p.image_alt_fa !== '' ? String(p.image_alt_fa) : '',
+      deleted_at: p.deleted_at != null ? p.deleted_at : null
+    };
+    const extra =
+      p.extra_json && typeof p.extra_json === 'object' && !Array.isArray(p.extra_json) ? p.extra_json : {};
+    cat.products.push({ ...row, ...extra });
+  }
+  return { categories: sortedCats.map((c) => byCat.get(c.id)).filter(Boolean) };
+}
+
+async function insertAuditRow(req, action, entityType, entityId, details) {
+  try {
+    const row = {
+      actor_user_id: req.userId || null,
+      actor_email: req.userEmail || null,
+      action: String(action),
+      entity_type: String(entityType),
+      entity_id: entityId != null ? String(entityId) : null,
+      details: details && typeof details === 'object' ? details : {}
+    };
+    const { error } = await supabase.from('catalog_admin_audit').insert(row);
+    if (error) console.warn('catalog_admin_audit:', error.message);
+  } catch (e) {
+    console.warn('catalog_admin_audit insert failed:', e && e.message);
+  }
+}
+
 let lastCatalogDbWarnAt = 0;
 async function refreshCatalogPayloadFromDatabase() {
   try {
     const { data: cats, error: cErr } = await supabase
       .from('catalog_categories')
       .select('id,name,name_fa,sort_order')
+      .is('deleted_at', null)
       .order('sort_order', { ascending: true });
     if (cErr) {
       catalogPayloadCache = null;
@@ -205,7 +260,8 @@ async function refreshCatalogPayloadFromDatabase() {
       .from('catalog_products')
       .select(
         'id,category_id,name,name_fa,price,image_url,description,description_fa,image_alt_en,image_alt_fa,extra_json'
-      );
+      )
+      .is('deleted_at', null);
     if (pErr) {
       catalogPayloadCache = null;
       const t = Date.now();
@@ -293,7 +349,8 @@ const PATH_TO_HTML = {
   'auth-callback': 'auth-callback.html',
   'claim-account': 'claim-account.html',
   'profile': 'profile.html',
-  'admin-products': 'admin-products.html'
+  'admin-products': 'admin-products.html',
+  'admin-orders': 'admin-orders.html'
 };
 const publicDir = path.join(__dirname, 'public');
 
@@ -2205,14 +2262,15 @@ function buildCatalogExportCsvFromRows(categoryRows, productRows) {
   const cats = [...categoryRows].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const lines = [];
   lines.push('section,categories');
-  lines.push(rowToCsvLine(['id', 'name', 'name_fa', 'sort_order']));
+  lines.push(rowToCsvLine(['id', 'name', 'name_fa', 'sort_order', 'deleted_at']));
   for (const c of cats) {
     lines.push(
       rowToCsvLine([
         c.id,
         c.name,
         c.name_fa != null ? c.name_fa : '',
-        c.sort_order != null ? c.sort_order : 0
+        c.sort_order != null ? c.sort_order : 0,
+        c.deleted_at != null ? c.deleted_at : ''
       ])
     );
   }
@@ -2230,7 +2288,8 @@ function buildCatalogExportCsvFromRows(categoryRows, productRows) {
       'image_alt_en',
       'image_alt_fa',
       'wattage',
-      'extra_json'
+      'extra_json',
+      'deleted_at'
     ])
   );
   for (const p of productRows || []) {
@@ -2250,7 +2309,8 @@ function buildCatalogExportCsvFromRows(categoryRows, productRows) {
         p.image_alt_en != null ? p.image_alt_en : '',
         p.image_alt_fa != null ? p.image_alt_fa : '',
         wattage !== '' ? wattage : '',
-        JSON.stringify(extra)
+        JSON.stringify(extra),
+        p.deleted_at != null ? p.deleted_at : ''
       ])
     );
   }
@@ -2365,13 +2425,13 @@ async function processProductImageBuffer(buffer, mimetype) {
 async function loadCatalogTablesForExport() {
   const { data: cats, error: cErr } = await supabase
     .from('catalog_categories')
-    .select('id,name,name_fa,sort_order')
+    .select('id,name,name_fa,sort_order,deleted_at')
     .order('sort_order', { ascending: true });
   if (cErr) throw cErr;
   const { data: prods, error: pErr } = await supabase
     .from('catalog_products')
     .select(
-      'id,category_id,name,name_fa,price,image_url,description,description_fa,image_alt_en,image_alt_fa,extra_json'
+      'id,category_id,name,name_fa,price,image_url,description,description_fa,image_alt_en,image_alt_fa,extra_json,deleted_at'
     );
   if (pErr) throw pErr;
   return { cats: cats || [], prods: prods || [] };
@@ -2411,6 +2471,10 @@ async function runCatalogImportFromCsvString(csvText, res) {
           const upd = { updated_at: nowIso, name_fa };
           if (name) upd.name = name;
           upd.sort_order = sort_order;
+          if (Object.prototype.hasOwnProperty.call(raw, 'deleted_at')) {
+            const ds = raw.deleted_at != null ? String(raw.deleted_at).trim().toLowerCase() : '';
+            upd.deleted_at = ds === '' || ds === 'null' || ds === 'clear' ? null : String(raw.deleted_at).trim();
+          }
           const { error: uErr } = await supabase.from('catalog_categories').update(upd).eq('id', idRaw);
           if (uErr) throw uErr;
           summary.updated += 1;
@@ -2421,6 +2485,7 @@ async function runCatalogImportFromCsvString(csvText, res) {
             name,
             name_fa,
             sort_order,
+            deleted_at: null,
             created_at: nowIso,
             updated_at: nowIso
           };
@@ -2437,6 +2502,7 @@ async function runCatalogImportFromCsvString(csvText, res) {
           name,
           name_fa,
           sort_order,
+          deleted_at: null,
           created_at: nowIso,
           updated_at: nowIso
         };
@@ -2506,6 +2572,10 @@ async function runCatalogImportFromCsvString(csvText, res) {
         extra_json: extra,
         updated_at: nowIso
       };
+      if (Object.prototype.hasOwnProperty.call(raw, 'deleted_at')) {
+        const ds = raw.deleted_at != null ? String(raw.deleted_at).trim().toLowerCase() : '';
+        row.deleted_at = ds === '' || ds === 'null' || ds === 'clear' ? null : String(raw.deleted_at).trim();
+      }
       if (exists) {
         const { error: uErr } = await supabase.from('catalog_products').update(row).eq('id', id);
         if (uErr) throw uErr;
@@ -2553,8 +2623,25 @@ app.get('/api/products', async (req, res) => {
 // --- Admin catalog (JWT + users.is_admin; optional ADMIN_ALLOWED_EMAILS bypass; uploads use service role on server only) ---
 app.get('/api/admin/catalog', authMiddleware, adminMiddleware, async (req, res) => {
   try {
+    const { data: cats, error: cErr } = await supabase
+      .from('catalog_categories')
+      .select('id,name,name_fa,sort_order,deleted_at')
+      .order('sort_order', { ascending: true });
+    if (cErr) {
+      console.error('GET /api/admin/catalog categories:', cErr);
+      return res.status(500).json({ error: 'Failed to load catalog' });
+    }
+    const { data: prods, error: pErr } = await supabase
+      .from('catalog_products')
+      .select(
+        'id,category_id,name,name_fa,price,image_url,description,description_fa,image_alt_en,image_alt_fa,extra_json,deleted_at'
+      );
+    if (pErr) {
+      console.error('GET /api/admin/catalog products:', pErr);
+      return res.status(500).json({ error: 'Failed to load catalog' });
+    }
     await refreshCatalogPayloadFromDatabase();
-    const payload = getCatalogPayload();
+    const payload = buildAdminCatalogPayloadFromRows(cats || [], prods || []);
     res.json({
       categories: payload.categories || [],
       source:
@@ -2678,6 +2765,7 @@ app.post('/api/admin/categories', authMiddleware, adminMiddleware, async (req, r
       name: body.name.trim(),
       name_fa: body.name_fa != null ? String(body.name_fa).trim() : '',
       sort_order: sortOrder,
+      deleted_at: null,
       created_at: nowIso,
       updated_at: nowIso
     };
@@ -2690,6 +2778,7 @@ app.post('/api/admin/categories', authMiddleware, adminMiddleware, async (req, r
       return res.status(500).json({ error: 'Failed to create category', code: 'DB_ERROR' });
     }
     await refreshCatalogPayloadFromDatabase();
+    await insertAuditRow(req, 'category.create', 'category', inserted.id, { name: inserted.name });
     res.json({ ok: true, category: inserted });
   } catch (err) {
     console.error('POST /api/admin/categories:', err);
@@ -2704,7 +2793,7 @@ app.patch('/api/admin/categories/reorder', authMiddleware, adminMiddleware, asyn
       errorCode: 'VALIDATION_FAILED'
     });
     if (!body) return;
-    const { data: all, error: lErr } = await supabase.from('catalog_categories').select('id');
+    const { data: all, error: lErr } = await supabase.from('catalog_categories').select('id').is('deleted_at', null);
     if (lErr) {
       console.error('admin reorder list:', lErr);
       return res.status(500).json({ error: 'Database error' });
@@ -2729,6 +2818,7 @@ app.patch('/api/admin/categories/reorder', authMiddleware, adminMiddleware, asyn
       }
     }
     await refreshCatalogPayloadFromDatabase();
+    await insertAuditRow(req, 'category.reorder', 'catalog', 'reorder', { order: body.orderedIds });
     res.json({ ok: true });
   } catch (err) {
     console.error('PATCH /api/admin/categories/reorder:', err);
@@ -2770,6 +2860,7 @@ app.patch('/api/admin/categories/:categoryId', authMiddleware, adminMiddleware, 
       return res.status(500).json({ error: 'Failed to update category' });
     }
     await refreshCatalogPayloadFromDatabase();
+    await insertAuditRow(req, 'category.patch', 'category', categoryId, { keys: Object.keys(updates) });
     res.json({ ok: true, category: updated });
   } catch (err) {
     console.error('PATCH /api/admin/categories:', err);
@@ -2778,14 +2869,14 @@ app.patch('/api/admin/categories/:categoryId', authMiddleware, adminMiddleware, 
 });
 
 /**
- * DELETE /api/admin/categories/:categoryId
- * Removes the category row; `catalog_products.category_id` references this table with ON DELETE CASCADE,
- * so all products in the category are deleted with it (see migration 014).
+ * DELETE /api/admin/categories/:categoryId — soft-delete (sets deleted_at; products in category soft-deleted).
+ * Query purge=hard removes rows permanently (CASCADE removes products — use rarely).
  */
 app.delete('/api/admin/categories/:categoryId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const categoryId = (req.params.categoryId && String(req.params.categoryId).trim()) || '';
     if (!categoryId) return res.status(400).json({ error: 'category id required' });
+    const hard = String(req.query.purge || '') === 'hard';
 
     const { data: existing, error: exErr } = await supabase
       .from('catalog_categories')
@@ -2798,16 +2889,66 @@ app.delete('/api/admin/categories/:categoryId', authMiddleware, adminMiddleware,
     }
     if (!existing) return res.status(404).json({ error: 'Category not found' });
 
-    const { error: delErr } = await supabase.from('catalog_categories').delete().eq('id', categoryId);
-    if (delErr) {
-      console.error('admin delete category row:', delErr);
-      return res.status(500).json({ error: 'Failed to delete category' });
+    if (hard) {
+      const { error: delErr } = await supabase.from('catalog_categories').delete().eq('id', categoryId);
+      if (delErr) {
+        console.error('admin hard delete category row:', delErr);
+        return res.status(500).json({ error: 'Failed to delete category' });
+      }
+      await insertAuditRow(req, 'category.hard_delete', 'category', categoryId, {});
+    } else {
+      const nowIso = new Date().toISOString();
+      const { error: uProd } = await supabase
+        .from('catalog_products')
+        .update({ deleted_at: nowIso, updated_at: nowIso })
+        .eq('category_id', categoryId)
+        .is('deleted_at', null);
+      if (uProd) {
+        console.error('admin soft delete category products:', uProd);
+        return res.status(500).json({ error: 'Failed to soft-delete products' });
+      }
+      const { error: uCat } = await supabase
+        .from('catalog_categories')
+        .update({ deleted_at: nowIso, updated_at: nowIso })
+        .eq('id', categoryId);
+      if (uCat) {
+        console.error('admin soft delete category:', uCat);
+        return res.status(500).json({ error: 'Failed to soft-delete category' });
+      }
+      await insertAuditRow(req, 'category.soft_delete', 'category', categoryId, {});
     }
+
     await refreshCatalogPayloadFromDatabase();
-    res.json({ ok: true, deleted: true });
+    res.json({ ok: true, deleted: true, purge: !!hard });
   } catch (err) {
     console.error('DELETE /api/admin/categories:', err);
     res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+app.post('/api/admin/categories/:categoryId/restore', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const categoryId = (req.params.categoryId && String(req.params.categoryId).trim()) || '';
+    if (!categoryId) return res.status(400).json({ error: 'category id required' });
+    const nowIso = new Date().toISOString();
+    const { data: exists, error: exErr } = await supabase
+      .from('catalog_categories')
+      .select('id,deleted_at')
+      .eq('id', categoryId)
+      .maybeSingle();
+    if (exErr) return res.status(500).json({ error: 'Database error' });
+    if (!exists) return res.status(404).json({ error: 'Category not found' });
+    const { error: upErr } = await supabase
+      .from('catalog_categories')
+      .update({ deleted_at: null, updated_at: nowIso })
+      .eq('id', categoryId);
+    if (upErr) return res.status(500).json({ error: 'Failed to restore category' });
+    await insertAuditRow(req, 'category.restore', 'category', categoryId, {});
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, restored: true });
+  } catch (err) {
+    console.error('POST restore category:', err);
+    res.status(500).json({ error: 'Failed to restore' });
   }
 });
 
@@ -2826,6 +2967,7 @@ app.post('/api/admin/products', authMiddleware, adminMiddleware, async (req, res
       .from('catalog_categories')
       .select('id')
       .eq('id', body.category_id.trim())
+      .is('deleted_at', null)
       .maybeSingle();
     if (cErr) {
       console.error('POST /api/admin/products category lookup:', cErr);
@@ -2867,7 +3009,8 @@ app.post('/api/admin/products', authMiddleware, adminMiddleware, async (req, res
           : null,
       extra_json: extra,
       created_at: nowIso,
-      updated_at: nowIso
+      updated_at: nowIso,
+      deleted_at: null
     };
 
     const { data: inserted, error: insErr } = await supabase.from('catalog_products').insert(insertRow).select().single();
@@ -2878,6 +3021,7 @@ app.post('/api/admin/products', authMiddleware, adminMiddleware, async (req, res
       return res.status(500).json({ error: 'Failed to create product', code: 'DB_ERROR' });
     }
     await refreshCatalogPayloadFromDatabase();
+    await insertAuditRow(req, 'product.create', 'product', inserted.id, { name: inserted.name });
     res.json({ ok: true, product: inserted });
   } catch (err) {
     console.error('POST /api/admin/products:', err);
@@ -2922,6 +3066,7 @@ app.patch('/api/admin/products/:productId', authMiddleware, adminMiddleware, asy
         .from('catalog_categories')
         .select('id')
         .eq('id', body.category_id)
+        .is('deleted_at', null)
         .maybeSingle();
       if (!cat) return res.status(400).json({ error: 'Unknown category' });
       updates.category_id = body.category_id;
@@ -2948,6 +3093,9 @@ app.patch('/api/admin/products/:productId', authMiddleware, adminMiddleware, asy
       return res.status(500).json({ error: 'Failed to update product' });
     }
     await refreshCatalogPayloadFromDatabase();
+    await insertAuditRow(req, 'product.patch', 'product', productId, {
+      keys: Object.keys(updates).filter((k) => k !== 'extra_json')
+    });
     res.json({ ok: true, product: updated });
   } catch (err) {
     console.error('PATCH /api/admin/products:', err);
@@ -2976,6 +3124,7 @@ app.post('/api/admin/products/:productId/duplicate', authMiddleware, adminMiddle
       return res.status(500).json({ error: 'Database error' });
     }
     if (!src) return res.status(404).json({ error: 'Product not found' });
+    if (src.deleted_at) return res.status(400).json({ error: 'Cannot duplicate an archived product' });
 
     const newId = crypto.randomUUID();
     const nowIso = new Date().toISOString();
@@ -2997,7 +3146,8 @@ app.post('/api/admin/products/:productId/duplicate', authMiddleware, adminMiddle
       image_alt_fa: src.image_alt_fa != null ? src.image_alt_fa : null,
       extra_json: extra,
       created_at: nowIso,
-      updated_at: nowIso
+      updated_at: nowIso,
+      deleted_at: null
     };
 
     const { data: inserted, error: insErr } = await supabase
@@ -3010,6 +3160,7 @@ app.post('/api/admin/products/:productId/duplicate', authMiddleware, adminMiddle
       return res.status(500).json({ error: 'Failed to duplicate product' });
     }
     await refreshCatalogPayloadFromDatabase();
+    await insertAuditRow(req, 'product.duplicate', 'product', inserted.id, { from: productId });
     res.json({ ok: true, product: inserted });
   } catch (err) {
     console.error('POST /api/admin/products duplicate:', err);
@@ -3073,6 +3224,7 @@ app.delete('/api/admin/products/:productId/image', authMiddleware, adminMiddlewa
       return res.status(500).json({ error: 'Failed to clear image URL' });
     }
     await refreshCatalogPayloadFromDatabase();
+    await insertAuditRow(req, 'product.image.delete', 'product', productId, {});
     res.json({ ok: true, product: updated });
   } catch (err) {
     console.error('DELETE /api/admin/products image:', err);
@@ -3084,10 +3236,11 @@ app.delete('/api/admin/products/:productId', authMiddleware, adminMiddleware, as
   try {
     const productId = (req.params.productId && String(req.params.productId).trim()) || '';
     if (!productId) return res.status(400).json({ error: 'product id required' });
+    const hard = String(req.query.purge || '') === 'hard';
 
     const { data: existing, error: exErr } = await supabase
       .from('catalog_products')
-      .select('id,image_url')
+      .select('id,image_url,deleted_at')
       .eq('id', productId)
       .maybeSingle();
     if (exErr) {
@@ -3096,19 +3249,65 @@ app.delete('/api/admin/products/:productId', authMiddleware, adminMiddleware, as
     }
     if (!existing) return res.status(404).json({ error: 'Product not found' });
 
-    const imageUrl = existing.image_url != null ? String(existing.image_url).trim() : '';
-    await removeCatalogProductImageFromStorageIfManaged(imageUrl, productId);
-
-    const { error: delErr } = await supabase.from('catalog_products').delete().eq('id', productId);
-    if (delErr) {
-      console.error('admin delete product row:', delErr);
-      return res.status(500).json({ error: 'Failed to delete product' });
+    if (hard) {
+      const imageUrl = existing.image_url != null ? String(existing.image_url).trim() : '';
+      await removeCatalogProductImageFromStorageIfManaged(imageUrl, productId);
+      const { error: delErr } = await supabase.from('catalog_products').delete().eq('id', productId);
+      if (delErr) {
+        console.error('admin delete product row:', delErr);
+        return res.status(500).json({ error: 'Failed to delete product' });
+      }
+      await insertAuditRow(req, 'product.hard_delete', 'product', productId, {});
+    } else {
+      const nowIso = new Date().toISOString();
+      const { error: softErr } = await supabase
+        .from('catalog_products')
+        .update({ deleted_at: nowIso, updated_at: nowIso })
+        .eq('id', productId);
+      if (softErr) return res.status(500).json({ error: 'Failed to archive product' });
+      await insertAuditRow(req, 'product.soft_delete', 'product', productId, {});
     }
+
     await refreshCatalogPayloadFromDatabase();
-    res.json({ ok: true, deleted: true });
+    res.json({ ok: true, deleted: true, purge: !!hard });
   } catch (err) {
     console.error('DELETE /api/admin/products:', err);
     res.status(500).json({ error: 'Failed to delete product' });
+  }
+});
+
+app.post('/api/admin/products/:productId/restore', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const productId = (req.params.productId && String(req.params.productId).trim()) || '';
+    if (!productId) return res.status(400).json({ error: 'product id required' });
+    const nowIso = new Date().toISOString();
+    const { data: row, error: exErr } = await supabase
+      .from('catalog_products')
+      .select('id,category_id')
+      .eq('id', productId)
+      .maybeSingle();
+    if (exErr) return res.status(500).json({ error: 'Database error' });
+    if (!row) return res.status(404).json({ error: 'Product not found' });
+    const { data: cat } = await supabase
+      .from('catalog_categories')
+      .select('id')
+      .eq('id', row.category_id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (!cat) {
+      return res.status(409).json({ error: 'Restore the product category first (category archived).' });
+    }
+    const { error: upErr } = await supabase
+      .from('catalog_products')
+      .update({ deleted_at: null, updated_at: nowIso })
+      .eq('id', productId);
+    if (upErr) return res.status(500).json({ error: 'Failed to restore product' });
+    await insertAuditRow(req, 'product.restore', 'product', productId, {});
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, restored: true });
+  } catch (err) {
+    console.error('POST restore product:', err);
+    res.status(500).json({ error: 'Failed to restore' });
   }
 });
 
@@ -3175,6 +3374,7 @@ app.post(
         return res.status(500).json({ error: 'Uploaded but failed to save URL' });
       }
       await refreshCatalogPayloadFromDatabase();
+      await insertAuditRow(req, 'product.image.upload', 'product', productId, { image_url: publicUrl });
       res.json({ ok: true, image_url: publicUrl, product: updated });
     } catch (err) {
       console.error('POST /api/admin/products image:', err);
@@ -3182,6 +3382,86 @@ app.post(
     }
   }
 );
+
+/** Admin orders + audit log (migration 018: fulfillment_status, admin_notes on orders; catalog_admin_audit table). */
+app.get('/api/admin/orders', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || ''), 10) || 40));
+    const { data: rows, error } = await supabase
+      .from('orders')
+      .select(
+        'id, order_number, amount_total, currency, status, line_items, customer_email, customer_name, fulfillment_type, shipping_address, tracking_number, fulfillment_status, admin_notes, created_at, user_id'
+      )
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.error('GET /api/admin/orders:', error.message);
+      return res.status(500).json({ error: 'Failed to load orders', hint: 'Apply migration 018 on orders table' });
+    }
+    res.json({ orders: rows || [] });
+  } catch (err) {
+    console.error('GET /api/admin/orders:', err);
+    res.status(500).json({ error: 'Failed to load orders' });
+  }
+});
+
+app.patch('/api/admin/orders/:orderId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const orderId = (req.params.orderId && String(req.params.orderId).trim()) || '';
+    if (!orderId) return res.status(400).json({ error: 'order id required' });
+    const body = parseBody(adminOrderPatchBodySchema, req, res, {
+      message: 'Invalid order patch',
+      errorCode: 'VALIDATION_FAILED'
+    });
+    if (!body) return;
+    const { data: existing, error: exErr } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
+    if (exErr) return res.status(500).json({ error: 'Database error' });
+    if (!existing) return res.status(404).json({ error: 'Order not found' });
+    /** @type {Record<string, unknown>} */
+    const updates = {};
+    if (body.fulfillment_status != null) updates.fulfillment_status = body.fulfillment_status;
+    if (body.tracking_number !== undefined) {
+      updates.tracking_number =
+        body.tracking_number === null || body.tracking_number === ''
+          ? null
+          : String(body.tracking_number).trim().slice(0, 200);
+    }
+    if (body.admin_notes !== undefined) updates.admin_notes = String(body.admin_notes || '').slice(0, 8000);
+
+    const { data: updated, error: upErr } = await supabase.from('orders').update(updates).eq('id', orderId).select().single();
+    if (upErr) {
+      console.error('PATCH /api/admin/orders:', upErr.message);
+      return res.status(500).json({ error: 'Failed to update order', hint: 'Apply migration 018' });
+    }
+    await insertAuditRow(req, 'order.patch', 'order', orderId, { updates });
+    res.json({ ok: true, order: updated });
+  } catch (err) {
+    console.error('PATCH /api/admin/orders:', err);
+    res.status(500).json({ error: 'Failed to update order' });
+  }
+});
+
+app.get('/api/admin/audit', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit || ''), 10) || 80));
+    const offset = Math.max(0, parseInt(String(req.query.offset || ''), 10) || 0);
+    const { data: rows, error } = await supabase
+      .from('catalog_admin_audit')
+      .select(
+        'id, actor_email, action, entity_type, entity_id, details, created_at'
+      )
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) {
+      console.error('GET /api/admin/audit:', error.message);
+      return res.status(500).json({ error: 'Failed to load audit log', hint: 'Apply migration 018 (catalog_admin_audit)' });
+    }
+    res.json({ entries: rows || [] });
+  } catch (err) {
+    console.error('GET /api/admin/audit:', err);
+    res.status(500).json({ error: 'Failed to load audit log' });
+  }
+});
 
 function getClientIp(req) {
   const xff = req.headers['x-forwarded-for'];
