@@ -28,7 +28,6 @@
   const deleteCategoryBtn = document.getElementById('admin-delete-category');
 
   let dragCategoryId = null;
-  let lastCategories = [];
 
   function showBanner(text, kind) {
     banner.textContent = text;
@@ -371,10 +370,10 @@
 
     flatProducts = [];
     select.innerHTML = '';
-    lastCategories = data.categories || [];
-    fillCategorySelectsFromCategories(lastCategories);
-    renderCategoryOrderList(lastCategories);
-    (data.categories || []).forEach(function (cat) {
+    const cats = data.categories || [];
+    fillCategorySelectsFromCategories(cats);
+    renderCategoryOrderList(cats);
+    cats.forEach(function (cat) {
       (cat.products || []).forEach(function (p) {
         flatProducts.push(
           Object.assign({}, p, {
