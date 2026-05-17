@@ -1,4 +1,4 @@
-# Runs on every push to any branch and on pull requests.
+# Runs on every push to any branch (not on pull_request — saves Actions minutes).
 # Configure repository secrets (Settings → Secrets and variables → Actions) so the app can boot in CI:
 #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
 #   E2E_TEST_USER_EMAIL, E2E_TEST_USER_PASSWORD (Playwright shop login; optional, tests skip if unset)
@@ -12,7 +12,6 @@ name: CI
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
 
 concurrency:

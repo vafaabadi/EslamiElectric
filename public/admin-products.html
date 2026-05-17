@@ -43,6 +43,26 @@
         <span class="text-xs text-slate-500 hidden sm:inline">New categories use a slug from the English name; new products use a random id.</span>
       </div>
 
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex flex-wrap gap-3 items-center">
+        <button type="button" id="admin-export-csv-btn" class="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-50 min-h-[44px]">
+          Export catalog CSV
+        </button>
+        <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+          <span>Import CSV</span>
+          <input id="admin-import-file" type="file" accept=".csv,text/csv" class="text-sm max-w-[14rem]">
+        </label>
+        <button type="button" id="admin-import-btn" class="px-4 py-2 rounded-lg border border-amber-600 text-amber-900 text-sm font-semibold hover:bg-amber-50 min-h-[44px]">
+          Run import
+        </button>
+        <span class="text-xs text-slate-500">UTF-8; use export format for round-trip.</span>
+      </div>
+
+      <section id="admin-category-order-section" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <h2 class="text-sm font-semibold text-slate-800">Categories order</h2>
+        <p class="text-xs text-slate-500">Drag rows to reorder navigation. Order saves when you drop a row.</p>
+        <ul id="admin-category-order" class="space-y-2" aria-label="Category order"></ul>
+      </section>
+
       <div id="add-category-panel" class="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
         <h2 class="text-sm font-semibold text-slate-800">New category</h2>
         <form id="new-category-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -102,8 +122,20 @@
             <input id="new-product-image-url" type="text" maxlength="4000" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="https://… or leave blank">
           </div>
           <div class="sm:col-span-2">
-            <label for="new-product-desc" class="block text-xs font-medium text-slate-600 mb-1">Description</label>
+            <label for="new-product-desc" class="block text-xs font-medium text-slate-600 mb-1">Description (EN)</label>
             <textarea id="new-product-desc" rows="2" maxlength="4000" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea>
+          </div>
+          <div class="sm:col-span-2">
+            <label for="new-product-desc-fa" class="block text-xs font-medium text-slate-600 mb-1">Description (FA)</label>
+            <textarea id="new-product-desc-fa" rows="2" maxlength="4000" dir="rtl" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea>
+          </div>
+          <div>
+            <label for="new-product-alt-en" class="block text-xs font-medium text-slate-600 mb-1">Image alt (EN)</label>
+            <input id="new-product-alt-en" type="text" maxlength="500" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Optional accessibility text">
+          </div>
+          <div>
+            <label for="new-product-alt-fa" class="block text-xs font-medium text-slate-600 mb-1">Image alt (FA)</label>
+            <input id="new-product-alt-fa" type="text" maxlength="500" dir="rtl" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="اختیاری">
           </div>
           <div class="sm:col-span-2 flex flex-wrap gap-3">
             <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-900 text-sm font-semibold hover:bg-amber-400 min-h-[44px]">Create product</button>
@@ -150,8 +182,22 @@
           </div>
         </div>
         <div>
-          <label for="field-desc" class="block text-xs font-medium text-slate-600 mb-1">Description</label>
+          <label for="field-desc" class="block text-xs font-medium text-slate-600 mb-1">Description (EN)</label>
           <textarea id="field-desc" name="description" rows="3" maxlength="4000" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea>
+        </div>
+        <div>
+          <label for="field-desc-fa" class="block text-xs font-medium text-slate-600 mb-1">Description (FA)</label>
+          <textarea id="field-desc-fa" name="description_fa" rows="3" maxlength="4000" dir="rtl" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="field-alt-en" class="block text-xs font-medium text-slate-600 mb-1">Image alt (EN)</label>
+            <input id="field-alt-en" name="image_alt_en" type="text" maxlength="500" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Accessibility / SEO">
+          </div>
+          <div>
+            <label for="field-alt-fa" class="block text-xs font-medium text-slate-600 mb-1">Image alt (FA)</label>
+            <input id="field-alt-fa" name="image_alt_fa" type="text" maxlength="500" dir="rtl" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+          </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -167,18 +213,35 @@
           <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-900 text-sm font-semibold hover:bg-amber-400 min-h-[44px]">Save changes</button>
           <button
             type="button"
+            id="admin-duplicate-product"
+            disabled
+            class="px-4 py-2 rounded-lg border border-slate-600 text-slate-800 text-sm font-semibold hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+          >
+            Duplicate product
+          </button>
+          <button
+            type="button"
             id="admin-delete-product"
             disabled
             class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
             Delete product
           </button>
+          <button
+            type="button"
+            id="admin-remove-image-btn"
+            disabled
+            class="px-4 py-2 rounded-lg border border-amber-800 text-amber-950 text-sm font-medium hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+          >
+            Remove stored image
+          </button>
           <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-            <span>Upload photo</span>
+            <span>Upload / replace photo</span>
             <input id="field-image-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="text-sm max-w-[12rem]">
           </label>
           <button type="button" id="admin-upload-btn" class="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-50 min-h-[44px]">Upload image</button>
         </div>
+        <p class="text-xs text-slate-500">Upload replaces the image URL and removes the previous Supabase file when applicable.</p>
         <div class="flex justify-center">
           <img id="admin-preview" alt="" class="max-h-48 rounded-lg border border-slate-200 hidden">
         </div>

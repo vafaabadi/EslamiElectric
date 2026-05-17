@@ -14,7 +14,6 @@ name: CodeQL
 
 on:
   push:
-  pull_request:
   schedule:
     # Weekly — catches new queries / baseline drift even with low commit volume
     - cron: '24 5 * * 1'

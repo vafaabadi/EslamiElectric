@@ -21,8 +21,6 @@ name: SonarCloud (SAST)
 #   on:
 #     push:
 #       branches: [main]
-#     pull_request:
-#       types: [opened, synchronize, reopened]
 #     workflow_dispatch:
 #
 # One-time setup still required:
@@ -39,8 +37,6 @@ concurrency:
 jobs:
   sonarcloud:
     name: SonarCloud analysis
-    # Skip forks — SONAR_TOKEN is not available on fork PRs
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
