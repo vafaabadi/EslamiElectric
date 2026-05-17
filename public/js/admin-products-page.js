@@ -18,6 +18,7 @@
   const toggleAddProductBtn = document.getElementById('toggle-add-product');
   const newCategoryForm = document.getElementById('new-category-form');
   const newProductForm = document.getElementById('new-product-form');
+  const deleteProductBtn = document.getElementById('admin-delete-product');
 
   function showBanner(text, kind) {
     banner.textContent = text;
@@ -72,6 +73,11 @@
     return flatProducts.find(function (x) {
       return x.id === id;
     });
+  }
+
+  function syncDeleteButtonState() {
+    if (!deleteProductBtn) return;
+    deleteProductBtn.disabled = !select.value;
   }
 
   /** @param {{ id: string, name: string, name_fa?: string, sort_order?: number }[]} cats */
@@ -247,11 +253,13 @@
       document.getElementById('field-image-url').value = '';
       syncPreview('');
     }
+    syncDeleteButtonState();
   }
 
   select.addEventListener('change', function () {
     const p = selectedProduct();
     if (p) fillForm(p);
+    syncDeleteButtonState();
   });
 
   document.getElementById('field-image-url').addEventListener('input', function () {
@@ -294,6 +302,7 @@
     select.value = prevId;
     var after = selectedProduct();
     if (after) fillForm(after);
+    syncDeleteButtonState();
   });
 
   uploadBtn.addEventListener('click', async function () {
@@ -325,7 +334,29 @@
     select.value = prevId;
     var after = selectedProduct();
     if (after) fillForm(after);
+    syncDeleteButtonState();
   });
+
+  if (deleteProductBtn) {
+    deleteProductBtn.addEventListener('click', async function () {
+      const p = selectedProduct();
+      if (!p) return;
+      if (!confirm('Delete product "' + (p.name || p.id) + '"? This cannot be undone.')) return;
+      const res = await fetch('/api/admin/products/' + encodeURIComponent(p.id), {
+        method: 'DELETE',
+        headers: Object.assign({}, authHeaders())
+      });
+      const j = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        showBanner(j.error || 'Delete failed', 'error');
+        return;
+      }
+      showBanner('Product deleted.', 'ok');
+      await loadCatalog();
+    });
+  }
 
   const token = localStorage.getItem('token');
   if (!token) {
