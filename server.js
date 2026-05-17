@@ -48,7 +48,10 @@ const {
   guestLookupQuerySchema,
   adminProductPatchBodySchema,
   adminCategoryPostBodySchema,
-  adminProductPostBodySchema
+  adminCategoryPatchBodySchema,
+  adminCategoriesReorderBodySchema,
+  adminProductPostBodySchema,
+  adminProductDuplicateBodySchema
 } = require('./lib/schemas/api');
 const crypto = require('crypto');
 const express = require('express');
@@ -61,6 +64,14 @@ const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const { Resend } = require('resend');
 const https = require('https');
+
+/** Optional native image processing (resize/compress uploads). */
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('sharp not loaded; product image uploads will not be resized:', e && e.message);
+}
 
 const app = express();
 app.set('trust proxy', 1);
@@ -158,7 +169,10 @@ function buildCatalogPayloadFromRows(categoryRows, productRows) {
       name_fa: p.name_fa || '',
       price: p.price != null ? Number(p.price) : 0,
       image_url: p.image_url || '',
-      description: p.description || ''
+      description: p.description || '',
+      description_fa: p.description_fa || '',
+      image_alt_en: p.image_alt_en != null && p.image_alt_en !== '' ? String(p.image_alt_en) : '',
+      image_alt_fa: p.image_alt_fa != null && p.image_alt_fa !== '' ? String(p.image_alt_fa) : ''
     };
     const extra =
       p.extra_json && typeof p.extra_json === 'object' && !Array.isArray(p.extra_json) ? p.extra_json : {};
@@ -189,7 +203,9 @@ async function refreshCatalogPayloadFromDatabase() {
     }
     const { data: prods, error: pErr } = await supabase
       .from('catalog_products')
-      .select('id,category_id,name,name_fa,price,image_url,description,extra_json');
+      .select(
+        'id,category_id,name,name_fa,price,image_url,description,description_fa,image_alt_en,image_alt_fa,extra_json'
+      );
     if (pErr) {
       catalogPayloadCache = null;
       const t = Date.now();
@@ -221,6 +237,23 @@ const uploadProductImage = multer({
     cb(null, ok);
   }
 });
+
+const catalogImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    const name = (file.originalname || '').toLowerCase();
+    const mt = (file.mimetype || '').toLowerCase();
+    const ok = mt.includes('csv') || mt.includes('text/plain') || name.endsWith('.csv');
+    cb(null, ok);
+  }
+});
+
+const catalogImportCsvTextParser = express.text({
+  type: ['text/csv', 'application/csv', 'text/plain'],
+  limit: '12mb'
+});
+
 void refreshCatalogPayloadFromDatabase();
 /** Failed password attempts before lock; default 5 */
 const LOGIN_LOCKOUT_MAX_ATTEMPTS = Math.max(1, parseInt(process.env.LOGIN_LOCKOUT_MAX_ATTEMPTS || '5', 10) || 5);
@@ -2101,6 +2134,402 @@ function getAllProducts() {
   return products;
 }
 
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let i = 0;
+  let inQuotes = false;
+  const s = String(text || '');
+  while (i < s.length) {
+    const c = s[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (s[i + 1] === '"') {
+          field += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      field += c;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inQuotes = true;
+      i++;
+      continue;
+    }
+    if (c === ',') {
+      row.push(field);
+      field = '';
+      i++;
+      continue;
+    }
+    if (c === '\n' || (c === '\r' && s[i + 1] === '\n')) {
+      row.push(field);
+      field = '';
+      if (row.some((cell) => String(cell).length > 0)) rows.push(row);
+      row = [];
+      if (c === '\r') i += 2;
+      else i++;
+      continue;
+    }
+    if (c === '\r') {
+      i++;
+      continue;
+    }
+    field += c;
+    i++;
+  }
+  row.push(field);
+  if (row.some((cell) => String(cell).length > 0)) rows.push(row);
+  return rows;
+}
+
+function csvEscapeCell(v) {
+  if (v == null) return '';
+  const str = String(v);
+  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+function rowToCsvLine(cells) {
+  return cells.map(csvEscapeCell).join(',');
+}
+
+function buildCatalogExportCsvFromRows(categoryRows, productRows) {
+  const cats = [...categoryRows].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const lines = [];
+  lines.push('section,categories');
+  lines.push(rowToCsvLine(['id', 'name', 'name_fa', 'sort_order']));
+  for (const c of cats) {
+    lines.push(
+      rowToCsvLine([
+        c.id,
+        c.name,
+        c.name_fa != null ? c.name_fa : '',
+        c.sort_order != null ? c.sort_order : 0
+      ])
+    );
+  }
+  lines.push('section,products');
+  lines.push(
+    rowToCsvLine([
+      'id',
+      'category_id',
+      'name',
+      'name_fa',
+      'price',
+      'image_url',
+      'description',
+      'description_fa',
+      'image_alt_en',
+      'image_alt_fa',
+      'wattage',
+      'extra_json'
+    ])
+  );
+  for (const p of productRows || []) {
+    const extra =
+      p.extra_json && typeof p.extra_json === 'object' && !Array.isArray(p.extra_json) ? { ...p.extra_json } : {};
+    const wattage = extra.wattage != null ? extra.wattage : '';
+    lines.push(
+      rowToCsvLine([
+        p.id,
+        p.category_id,
+        p.name,
+        p.name_fa != null ? p.name_fa : '',
+        p.price != null ? p.price : '',
+        p.image_url != null ? p.image_url : '',
+        p.description != null ? p.description : '',
+        p.description_fa != null ? p.description_fa : '',
+        p.image_alt_en != null ? p.image_alt_en : '',
+        p.image_alt_fa != null ? p.image_alt_fa : '',
+        wattage !== '' ? wattage : '',
+        JSON.stringify(extra)
+      ])
+    );
+  }
+  return `\uFEFF${lines.join('\n')}\n`;
+}
+
+function parseSectionedOrLooseCatalogCsv(text) {
+  const rows = parseCsv(String(text || '').replace(/^\uFEFF/, ''));
+  if (!rows.length) return { categories: [], products: [], format: 'empty' };
+  const hasSection = rows.some((r) => r[0] === 'section');
+  if (hasSection) {
+    const categories = [];
+    const products = [];
+    let mode = null;
+    let header = null;
+    for (const r of rows) {
+      if (!r.length) continue;
+      if (r[0] === 'section' && r[1] === 'categories') {
+        mode = 'cat';
+        header = null;
+        continue;
+      }
+      if (r[0] === 'section' && r[1] === 'products') {
+        mode = 'prod';
+        header = null;
+        continue;
+      }
+      if (!mode) continue;
+      if (!header) {
+        header = r.map((h) => String(h).trim().toLowerCase());
+        continue;
+      }
+      const obj = {};
+      header.forEach((h, j) => {
+        obj[h] = r[j] != null ? String(r[j]) : '';
+      });
+      if (mode === 'cat') categories.push(obj);
+      else if (mode === 'prod') products.push(obj);
+    }
+    return { categories, products, format: 'sectioned' };
+  }
+  const header = rows[0].map((h) => String(h).trim().toLowerCase());
+  if (header.includes('category_id')) {
+    const products = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.length || !r.some((c) => String(c).trim())) continue;
+      const obj = {};
+      header.forEach((h, j) => {
+        obj[h] = r[j] != null ? String(r[j]) : '';
+      });
+      products.push(obj);
+    }
+    return { categories: [], products, format: 'products_only' };
+  }
+  if (header.includes('name') && (header.includes('sort_order') || header.includes('name_fa'))) {
+    const categories = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.length || !r.some((c) => String(c).trim())) continue;
+      const obj = {};
+      header.forEach((h, j) => {
+        obj[h] = r[j] != null ? String(r[j]) : '';
+      });
+      categories.push(obj);
+    }
+    return { categories, products: [], format: 'categories_only' };
+  }
+  const err = new Error(
+    'Unrecognized CSV: use export.csv format, or a header row with category_id (products) or sort_order (categories)'
+  );
+  err.code = 'CSV_FORMAT';
+  throw err;
+}
+
+const CATALOG_IMAGE_MAX_DIMENSION = Math.max(
+  256,
+  parseInt(process.env.CATALOG_IMAGE_MAX_DIMENSION || '1920', 10) || 1920
+);
+
+async function processProductImageBuffer(buffer, mimetype) {
+  if (!buffer || !sharp) return { buffer, mimetype: mimetype || 'image/jpeg' };
+  const mt = (mimetype || 'image/jpeg').toLowerCase();
+  if (mt.includes('gif')) return { buffer, mimetype: mt };
+  try {
+    let pipeline = sharp(buffer).rotate();
+    const meta = await pipeline.metadata();
+    const w = meta.width || 0;
+    const h = meta.height || 0;
+    if (w > CATALOG_IMAGE_MAX_DIMENSION || h > CATALOG_IMAGE_MAX_DIMENSION) {
+      pipeline = pipeline.resize(CATALOG_IMAGE_MAX_DIMENSION, CATALOG_IMAGE_MAX_DIMENSION, {
+        fit: 'inside',
+        withoutEnlargement: true
+      });
+    }
+    if (mt.includes('png')) {
+      const out = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+      return { buffer: out, mimetype: 'image/png' };
+    }
+    if (mt.includes('webp')) {
+      const out = await pipeline.webp({ quality: 85 }).toBuffer();
+      return { buffer: out, mimetype: 'image/webp' };
+    }
+    const out = await pipeline.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+    return { buffer: out, mimetype: 'image/jpeg' };
+  } catch (e) {
+    console.warn('sharp processing failed; using original buffer:', e && e.message);
+    return { buffer, mimetype: mimetype || 'image/jpeg' };
+  }
+}
+
+async function loadCatalogTablesForExport() {
+  const { data: cats, error: cErr } = await supabase
+    .from('catalog_categories')
+    .select('id,name,name_fa,sort_order')
+    .order('sort_order', { ascending: true });
+  if (cErr) throw cErr;
+  const { data: prods, error: pErr } = await supabase
+    .from('catalog_products')
+    .select(
+      'id,category_id,name,name_fa,price,image_url,description,description_fa,image_alt_en,image_alt_fa,extra_json'
+    );
+  if (pErr) throw pErr;
+  return { cats: cats || [], prods: prods || [] };
+}
+
+async function runCatalogImportFromCsvString(csvText, res) {
+  let parsed;
+  try {
+    parsed = parseSectionedOrLooseCatalogCsv(csvText);
+  } catch (e) {
+    return res.status(400).json({
+      inserted: 0,
+      updated: 0,
+      errors: [{ message: e.message || 'Invalid CSV', code: e.code || 'CSV_FORMAT' }]
+    });
+  }
+  const summary = { inserted: 0, updated: 0, errors: [] };
+  const nowIso = new Date().toISOString();
+
+  const categoryRows = parsed.categories || [];
+  for (let i = 0; i < categoryRows.length; i++) {
+    const raw = categoryRows[i];
+    const idRaw = (raw.id != null ? String(raw.id) : '').trim();
+    const name = (raw.name != null ? String(raw.name) : '').trim();
+    const name_fa = raw.name_fa != null ? String(raw.name_fa).trim() : '';
+    let sort_order = parseInt(raw.sort_order, 10);
+    if (Number.isNaN(sort_order)) sort_order = 0;
+    try {
+      if (idRaw) {
+        const { data: exists, error: lErr } = await supabase
+          .from('catalog_categories')
+          .select('id,name')
+          .eq('id', idRaw)
+          .maybeSingle();
+        if (lErr) throw lErr;
+        if (exists) {
+          const upd = { updated_at: nowIso, name_fa };
+          if (name) upd.name = name;
+          upd.sort_order = sort_order;
+          const { error: uErr } = await supabase.from('catalog_categories').update(upd).eq('id', idRaw);
+          if (uErr) throw uErr;
+          summary.updated += 1;
+        } else {
+          if (!name) throw new Error('name required for new category with id');
+          const row = {
+            id: idRaw,
+            name,
+            name_fa,
+            sort_order,
+            created_at: nowIso,
+            updated_at: nowIso
+          };
+          const { error: iErr } = await supabase.from('catalog_categories').insert(row);
+          if (iErr) throw iErr;
+          summary.inserted += 1;
+        }
+      } else {
+        if (!name) throw new Error('name or id required for category row');
+        const reserved = await resolveNewCatalogCategoryId(name, null);
+        if (!reserved.ok) throw new Error(reserved.error || 'Could not allocate category id');
+        const row = {
+          id: reserved.id,
+          name,
+          name_fa,
+          sort_order,
+          created_at: nowIso,
+          updated_at: nowIso
+        };
+        const { error: iErr } = await supabase.from('catalog_categories').insert(row);
+        if (iErr) throw iErr;
+        summary.inserted += 1;
+      }
+    } catch (e) {
+      summary.errors.push({ row: i + 1, kind: 'category', message: e.message || String(e) });
+    }
+  }
+
+  const productRows = parsed.products || [];
+  for (let i = 0; i < productRows.length; i++) {
+    const raw = productRows[i];
+    try {
+      const category_id = (raw.category_id != null ? String(raw.category_id) : '').trim();
+      const name = (raw.name != null ? String(raw.name) : '').trim();
+      if (!category_id || !name) throw new Error('category_id and name required');
+      const { data: cOk, error: cErr } = await supabase
+        .from('catalog_categories')
+        .select('id')
+        .eq('id', category_id)
+        .maybeSingle();
+      if (cErr) throw cErr;
+      if (!cOk) throw new Error(`Unknown category_id ${category_id}`);
+
+      let id = (raw.id != null ? String(raw.id) : '').trim();
+      if (!id) id = crypto.randomUUID();
+
+      const n = parseFloat(raw.price != null ? String(raw.price) : '');
+      if (Number.isNaN(n) || n < 0) throw new Error('Invalid price');
+
+      let extra = {};
+      if (raw.extra_json != null && String(raw.extra_json).trim()) {
+        const parsedEx = JSON.parse(String(raw.extra_json));
+        if (!parsedEx || typeof parsedEx !== 'object' || Array.isArray(parsedEx)) throw new Error('extra_json must be an object');
+        extra = { ...parsedEx };
+      }
+      if (raw.wattage != null && String(raw.wattage).trim() !== '') {
+        const w = parseInt(raw.wattage, 10);
+        if (!Number.isNaN(w)) extra.wattage = w;
+      }
+
+      const name_fa = raw.name_fa != null ? String(raw.name_fa).trim() : '';
+      const image_url = raw.image_url != null ? String(raw.image_url).trim() : '';
+      const description = raw.description != null ? String(raw.description) : '';
+      const description_fa = raw.description_fa != null ? String(raw.description_fa).trim() : '';
+      const image_alt_en =
+        raw.image_alt_en != null && String(raw.image_alt_en).trim() !== '' ? String(raw.image_alt_en).trim() : null;
+      const image_alt_fa =
+        raw.image_alt_fa != null && String(raw.image_alt_fa).trim() !== '' ? String(raw.image_alt_fa).trim() : null;
+
+      const { data: exists, error: exErr } = await supabase.from('catalog_products').select('id').eq('id', id).maybeSingle();
+      if (exErr) throw exErr;
+      const row = {
+        id,
+        category_id,
+        name,
+        name_fa,
+        price: n,
+        image_url,
+        description,
+        description_fa,
+        image_alt_en,
+        image_alt_fa,
+        extra_json: extra,
+        updated_at: nowIso
+      };
+      if (exists) {
+        const { error: uErr } = await supabase.from('catalog_products').update(row).eq('id', id);
+        if (uErr) throw uErr;
+        summary.updated += 1;
+      } else {
+        const insertRow = { ...row, created_at: nowIso };
+        const { error: insErr } = await supabase.from('catalog_products').insert(insertRow);
+        if (insErr) throw insErr;
+        summary.inserted += 1;
+      }
+    } catch (e) {
+      const msg = e && e.message ? e.message : String(e);
+      if (msg.includes('JSON')) {
+        summary.errors.push({ row: i + 1, kind: 'product', message: 'Invalid extra_json' });
+      } else {
+        summary.errors.push({ row: i + 1, kind: 'product', message: msg });
+      }
+    }
+  }
+
+  await refreshCatalogPayloadFromDatabase();
+  return res.json({ ok: summary.errors.length === 0, ...summary });
+}
+
 // GET all categories (with their products)
 app.get('/api/categories', async (req, res) => {
   try {
@@ -2138,6 +2567,82 @@ app.get('/api/admin/catalog', authMiddleware, adminMiddleware, async (req, res) 
     res.status(500).json({ error: 'Failed to load catalog' });
   }
 });
+
+app.get('/api/admin/catalog/export.csv', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { cats, prods } = await loadCatalogTablesForExport();
+    const csv = buildCatalogExportCsvFromRows(cats, prods);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="catalog-export.csv"');
+    res.send(csv);
+  } catch (err) {
+    console.error('GET /api/admin/catalog/export.csv:', err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+app.get('/api/admin/catalog/export.json', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { cats, prods } = await loadCatalogTablesForExport();
+    res.json({ categories: cats, products: prods });
+  } catch (err) {
+    console.error('GET /api/admin/catalog/export.json:', err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+app.get('/api/admin/catalog/export', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const accept = (req.headers.accept || '').toLowerCase();
+    if (accept.includes('application/json')) {
+      const { cats, prods } = await loadCatalogTablesForExport();
+      return res.json({ categories: cats, products: prods });
+    }
+    const { cats, prods } = await loadCatalogTablesForExport();
+    const csv = buildCatalogExportCsvFromRows(cats, prods);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="catalog-export.csv"');
+    return res.send(csv);
+  } catch (err) {
+    console.error('GET /api/admin/catalog/export:', err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+app.post(
+  '/api/admin/catalog/import',
+  authMiddleware,
+  adminMiddleware,
+  (req, res, next) => {
+    const ct = (req.headers['content-type'] || '').toLowerCase();
+    if (ct.includes('multipart/form-data')) return catalogImportUpload.single('file')(req, res, next);
+    if (ct.includes('text/csv') || ct.includes('application/csv') || ct.includes('text/plain')) {
+      return catalogImportCsvTextParser(req, res, next);
+    }
+    return res.status(400).json({ error: 'Expected multipart form-data file or text/csv body' });
+  },
+  async (req, res) => {
+    try {
+      let text = '';
+      if (req.file && req.file.buffer) text = req.file.buffer.toString('utf8');
+      else if (typeof req.body === 'string') text = req.body;
+      if (!text || !String(text).trim()) {
+        return res
+          .status(400)
+          .json({ inserted: 0, updated: 0, errors: [{ message: 'Empty CSV', code: 'EMPTY' }] });
+      }
+      return runCatalogImportFromCsvString(text, res);
+    } catch (err) {
+      console.error('POST /api/admin/catalog/import:', err);
+      res.status(500).json({
+        error: 'Import failed',
+        inserted: 0,
+        updated: 0,
+        errors: [{ message: String(err.message || err) }]
+      });
+    }
+  }
+);
 
 /**
  * POST /api/admin/categories
@@ -2189,6 +2694,86 @@ app.post('/api/admin/categories', authMiddleware, adminMiddleware, async (req, r
   } catch (err) {
     console.error('POST /api/admin/categories:', err);
     res.status(500).json({ error: 'Failed to create category', code: 'SERVER_ERROR' });
+  }
+});
+
+app.patch('/api/admin/categories/reorder', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(adminCategoriesReorderBodySchema, req, res, {
+      message: 'Invalid reorder payload',
+      errorCode: 'VALIDATION_FAILED'
+    });
+    if (!body) return;
+    const { data: all, error: lErr } = await supabase.from('catalog_categories').select('id');
+    if (lErr) {
+      console.error('admin reorder list:', lErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    const idSet = new Map((all || []).map((r) => [r.id, true]));
+    if (body.orderedIds.length !== idSet.size) {
+      return res.status(400).json({ error: 'orderedIds must list every category exactly once' });
+    }
+    for (const id of body.orderedIds) {
+      if (!idSet.has(id)) return res.status(400).json({ error: 'Unknown category id: ' + id });
+    }
+    const nowIso = new Date().toISOString();
+    for (let i = 0; i < body.orderedIds.length; i++) {
+      const id = body.orderedIds[i];
+      const { error: uErr } = await supabase
+        .from('catalog_categories')
+        .update({ sort_order: i, updated_at: nowIso })
+        .eq('id', id);
+      if (uErr) {
+        console.error('admin reorder update:', uErr);
+        return res.status(500).json({ error: 'Failed to reorder categories' });
+      }
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('PATCH /api/admin/categories/reorder:', err);
+    res.status(500).json({ error: 'Failed to reorder categories' });
+  }
+});
+
+app.patch('/api/admin/categories/:categoryId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const categoryId = (req.params.categoryId && String(req.params.categoryId).trim()) || '';
+    if (!categoryId) return res.status(400).json({ error: 'category id required' });
+    const body = parseBody(adminCategoryPatchBodySchema, req, res, {
+      message: 'Invalid category patch',
+      errorCode: 'VALIDATION_FAILED'
+    });
+    if (!body) return;
+    const { data: existing, error: exErr } = await supabase
+      .from('catalog_categories')
+      .select('id')
+      .eq('id', categoryId)
+      .maybeSingle();
+    if (exErr) {
+      console.error('admin patch category:', exErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!existing) return res.status(404).json({ error: 'Category not found' });
+    const updates = { updated_at: new Date().toISOString() };
+    if (body.name != null) updates.name = body.name.trim();
+    if (body.name_fa != null) updates.name_fa = String(body.name_fa).trim();
+    if (body.sort_order != null) updates.sort_order = body.sort_order;
+    const { data: updated, error: upErr } = await supabase
+      .from('catalog_categories')
+      .update(updates)
+      .eq('id', categoryId)
+      .select()
+      .single();
+    if (upErr) {
+      console.error('admin patch category update:', upErr);
+      return res.status(500).json({ error: 'Failed to update category' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, category: updated });
+  } catch (err) {
+    console.error('PATCH /api/admin/categories:', err);
+    res.status(500).json({ error: 'Failed to update category' });
   }
 });
 
@@ -2271,6 +2856,15 @@ app.post('/api/admin/products', authMiddleware, adminMiddleware, async (req, res
       price: n,
       image_url: body.image_url != null ? String(body.image_url).trim() : '',
       description: body.description != null ? String(body.description) : '',
+      description_fa: body.description_fa != null ? String(body.description_fa) : '',
+      image_alt_en:
+        body.image_alt_en != null && String(body.image_alt_en).trim() !== ''
+          ? String(body.image_alt_en).trim()
+          : null,
+      image_alt_fa:
+        body.image_alt_fa != null && String(body.image_alt_fa).trim() !== ''
+          ? String(body.image_alt_fa).trim()
+          : null,
       extra_json: extra,
       created_at: nowIso,
       updated_at: nowIso
@@ -2318,7 +2912,10 @@ app.patch('/api/admin/products/:productId', authMiddleware, adminMiddleware, asy
       updates.price = n;
     }
     if (body.description != null) updates.description = body.description;
+    if (body.description_fa != null) updates.description_fa = body.description_fa;
     if (body.image_url != null) updates.image_url = body.image_url;
+    if (body.image_alt_en !== undefined) updates.image_alt_en = body.image_alt_en;
+    if (body.image_alt_fa !== undefined) updates.image_alt_fa = body.image_alt_fa;
 
     if (body.category_id != null && body.category_id !== existing.category_id) {
       const { data: cat } = await supabase
@@ -2358,6 +2955,68 @@ app.patch('/api/admin/products/:productId', authMiddleware, adminMiddleware, asy
   }
 });
 
+app.post('/api/admin/products/:productId/duplicate', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const productId = (req.params.productId && String(req.params.productId).trim()) || '';
+    if (!productId) return res.status(400).json({ error: 'product id required' });
+    const body = parseBody(adminProductDuplicateBodySchema, req, res, {
+      message: 'Invalid body',
+      errorCode: 'VALIDATION_FAILED',
+      allowEmptyBody: true
+    });
+    if (!body) return;
+
+    const { data: src, error: sErr } = await supabase
+      .from('catalog_products')
+      .select('*')
+      .eq('id', productId)
+      .maybeSingle();
+    if (sErr) {
+      console.error('duplicate lookup:', sErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!src) return res.status(404).json({ error: 'Product not found' });
+
+    const newId = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    const suffix = body.suffix_name === false ? '' : ' (copy)';
+    const extra =
+      src.extra_json && typeof src.extra_json === 'object' && !Array.isArray(src.extra_json)
+        ? { ...src.extra_json }
+        : {};
+    const insertRow = {
+      id: newId,
+      category_id: src.category_id,
+      name: `${String(src.name)}${suffix}`,
+      name_fa: src.name_fa != null ? String(src.name_fa) : '',
+      price: src.price,
+      image_url: '',
+      description: src.description != null ? String(src.description) : '',
+      description_fa: src.description_fa != null ? String(src.description_fa) : '',
+      image_alt_en: src.image_alt_en != null ? src.image_alt_en : null,
+      image_alt_fa: src.image_alt_fa != null ? src.image_alt_fa : null,
+      extra_json: extra,
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+
+    const { data: inserted, error: insErr } = await supabase
+      .from('catalog_products')
+      .insert(insertRow)
+      .select()
+      .single();
+    if (insErr) {
+      console.error('duplicate insert:', insErr);
+      return res.status(500).json({ error: 'Failed to duplicate product' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, product: inserted });
+  } catch (err) {
+    console.error('POST /api/admin/products duplicate:', err);
+    res.status(500).json({ error: 'Failed to duplicate product' });
+  }
+});
+
 /**
  * Derive Storage object path from our public image URL (upload uses `products/<productId>/...`).
  * Skip removal for relative paths, external hosts, or non-matching keys — avoids deleting unrelated blobs.
@@ -2377,6 +3036,50 @@ function catalogProductImageStoragePathFromUrl(imageUrl, productId, bucketId) {
   }
 }
 
+async function removeCatalogProductImageFromStorageIfManaged(imageUrl, productId) {
+  const storagePath = catalogProductImageStoragePathFromUrl(imageUrl, productId, CATALOG_IMAGES_BUCKET);
+  if (!storagePath) return;
+  const { error: rmErr } = await supabase.storage.from(CATALOG_IMAGES_BUCKET).remove([storagePath]);
+  if (rmErr) console.error('admin storage remove (non-fatal):', rmErr);
+}
+
+app.delete('/api/admin/products/:productId/image', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const productId = (req.params.productId && String(req.params.productId).trim()) || '';
+    if (!productId) return res.status(400).json({ error: 'product id required' });
+
+    const { data: existing, error: exErr } = await supabase
+      .from('catalog_products')
+      .select('id,image_url')
+      .eq('id', productId)
+      .maybeSingle();
+    if (exErr) {
+      console.error('admin delete image lookup:', exErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!existing) return res.status(404).json({ error: 'Product not found' });
+
+    const imageUrl = existing.image_url != null ? String(existing.image_url).trim() : '';
+    await removeCatalogProductImageFromStorageIfManaged(imageUrl, productId);
+
+    const { data: updated, error: upErr } = await supabase
+      .from('catalog_products')
+      .update({ image_url: '', updated_at: new Date().toISOString() })
+      .eq('id', productId)
+      .select()
+      .single();
+    if (upErr) {
+      console.error('admin delete image db:', upErr);
+      return res.status(500).json({ error: 'Failed to clear image URL' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, product: updated });
+  } catch (err) {
+    console.error('DELETE /api/admin/products image:', err);
+    res.status(500).json({ error: 'Failed to remove image' });
+  }
+});
+
 app.delete('/api/admin/products/:productId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const productId = (req.params.productId && String(req.params.productId).trim()) || '';
@@ -2394,11 +3097,7 @@ app.delete('/api/admin/products/:productId', authMiddleware, adminMiddleware, as
     if (!existing) return res.status(404).json({ error: 'Product not found' });
 
     const imageUrl = existing.image_url != null ? String(existing.image_url).trim() : '';
-    const storagePath = catalogProductImageStoragePathFromUrl(imageUrl, productId, CATALOG_IMAGES_BUCKET);
-    if (storagePath) {
-      const { error: rmErr } = await supabase.storage.from(CATALOG_IMAGES_BUCKET).remove([storagePath]);
-      if (rmErr) console.error('admin delete product storage (non-fatal):', rmErr);
-    }
+    await removeCatalogProductImageFromStorageIfManaged(imageUrl, productId);
 
     const { error: delErr } = await supabase.from('catalog_products').delete().eq('id', productId);
     if (delErr) {
@@ -2432,24 +3131,31 @@ app.post(
       }
       const { data: existing, error: exErr } = await supabase
         .from('catalog_products')
-        .select('id')
+        .select('id,image_url')
         .eq('id', productId)
         .maybeSingle();
       if (exErr) return res.status(500).json({ error: 'Database error' });
       if (!existing) return res.status(404).json({ error: 'Product not found' });
 
+      const oldUrl = existing.image_url != null ? String(existing.image_url).trim() : '';
+      const processed = await processProductImageBuffer(req.file.buffer, req.file.mimetype || 'image/jpeg');
+      const buf = processed.buffer;
+      const outMime = processed.mimetype || 'image/jpeg';
+
       const ext =
-        (req.file.mimetype && req.file.mimetype.includes('png') && 'png') ||
-        (req.file.mimetype && req.file.mimetype.includes('webp') && 'webp') ||
-        (req.file.mimetype && req.file.mimetype.includes('gif') && 'gif') ||
+        (outMime.includes('png') && 'png') ||
+        (outMime.includes('webp') && 'webp') ||
+        (outMime.includes('gif') && 'gif') ||
         'jpg';
       const basename = sanitizeImageUploadBasename(req.file.originalname);
       const safeBase = basename.replace(/\.[^.]+$/, '') || 'photo';
       const objectPath = `products/${productId}/${Date.now()}-${safeBase}.${ext}`;
 
+      if (oldUrl) await removeCatalogProductImageFromStorageIfManaged(oldUrl, productId);
+
       const { error: upStorageErr } = await supabase.storage
         .from(CATALOG_IMAGES_BUCKET)
-        .upload(objectPath, req.file.buffer, { contentType: req.file.mimetype || 'image/jpeg', upsert: true });
+        .upload(objectPath, buf, { contentType: outMime, upsert: true });
       if (upStorageErr) {
         console.error('admin image storage:', upStorageErr);
         return res.status(500).json({ error: 'Failed to upload image (check Storage bucket exists)' });
