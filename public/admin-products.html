@@ -135,7 +135,18 @@
           </div>
           <div>
             <label for="field-category" class="block text-xs font-medium text-slate-600 mb-1">Category</label>
-            <select id="field-category" name="category_id" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
+            <div class="flex flex-wrap gap-2 items-stretch">
+              <select id="field-category" name="category_id" class="flex-1 min-w-[10rem] border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
+              <button
+                type="button"
+                id="admin-delete-category"
+                disabled
+                class="px-3 py-2 rounded-lg bg-red-700 text-white text-sm font-semibold hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] shrink-0"
+              >
+                Delete category
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">Deletes the selected category and every product in it (database cascade).</p>
           </div>
         </div>
         <div>

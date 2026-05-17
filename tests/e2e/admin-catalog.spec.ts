@@ -68,6 +68,11 @@ test.describe('admin catalog — unauthenticated API', () => {
     const res = await request.fetch('/api/admin/products/e2e-no-auth-delete-id', { method: 'DELETE' });
     expect(res.status()).toBe(401);
   });
+
+  test('DELETE /api/admin/categories/:id returns 401 without token', async ({ request }) => {
+    const res = await request.fetch('/api/admin/categories/e2e-no-auth-delete-cat-id', { method: 'DELETE' });
+    expect(res.status()).toBe(401);
+  });
 });
 
 test.describe('admin catalog — public UI shell', () => {
@@ -232,6 +237,58 @@ test.describe('admin catalog — localhost admin flows', () => {
     expect(stillPresent, 'deleted product id absent from catalog').toBe(false);
   });
 
+  test('admin JWT: DELETE category removes category and cascades products', async ({ request }) => {
+    const { email, password } = getAdminE2ECredentials();
+    test.skip(!email || !password, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD (and is_admin for that user in DB).');
+
+    const token = await fetchAppJwtViaPasswordLogin(request, email!, password!);
+    const auth = { Authorization: `Bearer ${token}` };
+    const suffix = uniqueSuffix();
+    const categoryId = `e2e-del-cat-all-${suffix}`;
+
+    const catRes = await request.fetch('/api/admin/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      data: JSON.stringify({ name: `e2e-del-cat-all-${suffix}`, id: categoryId })
+    });
+    assertOkStatus(catRes, await catRes.text(), 'POST /api/admin/categories (delete category test)');
+
+    const prodRes = await request.fetch('/api/admin/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      data: JSON.stringify({
+        category_id: categoryId,
+        name: `e2e-del-cat-all-prod-${suffix}`,
+        price: 2.22
+      })
+    });
+    const prodTxt = await prodRes.text();
+    assertOkStatus(prodRes, prodTxt, 'POST /api/admin/products (delete category test)');
+    const prodJson = JSON.parse(prodTxt) as { product?: { id?: string } };
+    const productId = prodJson.product?.id;
+    expect(productId).toBeTruthy();
+
+    const delCatRes = await request.fetch(`/api/admin/categories/${encodeURIComponent(categoryId)}`, {
+      method: 'DELETE',
+      headers: auth
+    });
+    const delCatTxt = await delCatRes.text();
+    assertOkStatus(delCatRes, delCatTxt, 'DELETE /api/admin/categories');
+    expect(JSON.parse(delCatTxt)).toMatchObject({ ok: true, deleted: true });
+
+    const afterRes = await request.get('/api/admin/catalog', { headers: auth });
+    const afterTxt = await afterRes.text();
+    assertOkStatus(afterRes, afterTxt, 'GET /api/admin/catalog (after category delete)');
+    const afterCatalog = JSON.parse(afterTxt) as {
+      categories?: { id: string; products?: { id: string }[] }[];
+    };
+    expect(afterCatalog.categories?.some((c) => c.id === categoryId)).toBe(false);
+    const productStillListed = (afterCatalog.categories || []).some((c) =>
+      (c.products || []).some((p) => p.id === productId)
+    );
+    expect(productStillListed, 'cascade: child product removed with category').toBe(false);
+  });
+
   test('admin JWT: POST product image (skipped when storage unavailable)', async ({ request }, testInfo) => {
     const { email, password } = getAdminE2ECredentials();
     test.skip(!email || !password, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD.');
@@ -360,6 +417,45 @@ test.describe('admin catalog — localhost admin flows', () => {
     await expect(
       page.locator('#admin-product-select').locator('option').filter({ hasText: productLabel })
     ).toHaveCount(0);
+  });
+
+  test('admin UI: delete category with confirm and banner (cascade)', async ({ page }) => {
+    const { email, password } = getAdminE2ECredentials();
+    test.skip(!email || !password, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD (and is_admin for that user in DB).');
+
+    await loginAsAdminUser(page);
+    await page.goto('/en/admin-products', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#admin-panel')).toBeVisible({ timeout: 20_000 });
+
+    const suf = uniqueSuffix();
+    const slug = `e2e-del-cat-ui-${suf}`;
+    const productLabel = `e2e-del-cat-ui-product ${suf}`;
+
+    await page.locator('#toggle-add-category').click();
+    await page.locator('#new-category-name').fill(`e2e-del-cat-ui-cat ${suf}`);
+    await page.locator('#new-category-id-override').fill(slug);
+    await page.locator('#new-category-form button[type="submit"]').click();
+    await expect(page.locator('#admin-banner')).toContainText(/category created/i, { timeout: 20_000 });
+
+    await page.locator('#toggle-add-product').click();
+    await page.locator('#new-product-category').selectOption({ value: slug });
+    await page.locator('#new-product-name').fill(productLabel);
+    await page.locator('#new-product-price').fill('1.22');
+    await page.locator('#new-product-form button[type="submit"]').click();
+    await expect(page.locator('#admin-banner')).toContainText(/product created/i, { timeout: 20_000 });
+
+    await page
+      .locator('#admin-product-select')
+      .selectOption({ label: `${productLabel} — e2e-del-cat-ui-cat ${suf}` });
+    await expect(page.locator('#admin-delete-category')).toBeEnabled();
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('#admin-delete-category').click();
+    await expect(page.locator('#admin-banner')).toContainText(/category deleted/i, { timeout: 20_000 });
+    await expect(
+      page.locator('#admin-product-select').locator('option').filter({ hasText: productLabel })
+    ).toHaveCount(0);
+    await expect(page.locator(`#field-category option[value="${slug}"]`)).toHaveCount(0);
   });
 
   test('admin UI: upload image requires a file (error banner)', async ({ page }) => {

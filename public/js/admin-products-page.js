@@ -19,6 +19,7 @@
   const newCategoryForm = document.getElementById('new-category-form');
   const newProductForm = document.getElementById('new-product-form');
   const deleteProductBtn = document.getElementById('admin-delete-product');
+  const deleteCategoryBtn = document.getElementById('admin-delete-category');
 
   function showBanner(text, kind) {
     banner.textContent = text;
@@ -78,6 +79,11 @@
   function syncDeleteButtonState() {
     if (!deleteProductBtn) return;
     deleteProductBtn.disabled = !select.value;
+  }
+
+  function syncDeleteCategoryButtonState() {
+    if (!deleteCategoryBtn) return;
+    deleteCategoryBtn.disabled = !categorySelect.value || !categorySelect.options.length;
   }
 
   /** @param {{ id: string, name: string, name_fa?: string, sort_order?: number }[]} cats */
@@ -254,12 +260,18 @@
       syncPreview('');
     }
     syncDeleteButtonState();
+    syncDeleteCategoryButtonState();
   }
 
   select.addEventListener('change', function () {
     const p = selectedProduct();
     if (p) fillForm(p);
     syncDeleteButtonState();
+    syncDeleteCategoryButtonState();
+  });
+
+  categorySelect.addEventListener('change', function () {
+    syncDeleteCategoryButtonState();
   });
 
   document.getElementById('field-image-url').addEventListener('input', function () {
@@ -303,6 +315,7 @@
     var after = selectedProduct();
     if (after) fillForm(after);
     syncDeleteButtonState();
+    syncDeleteCategoryButtonState();
   });
 
   uploadBtn.addEventListener('click', async function () {
@@ -335,6 +348,7 @@
     var after = selectedProduct();
     if (after) fillForm(after);
     syncDeleteButtonState();
+    syncDeleteCategoryButtonState();
   });
 
   if (deleteProductBtn) {
@@ -354,6 +368,39 @@
         return;
       }
       showBanner('Product deleted.', 'ok');
+      await loadCatalog();
+    });
+  }
+
+  if (deleteCategoryBtn) {
+    deleteCategoryBtn.addEventListener('click', async function () {
+      const catId = categorySelect.value;
+      if (!catId) return;
+      const catLabel =
+        categorySelect.options[categorySelect.selectedIndex] &&
+        categorySelect.options[categorySelect.selectedIndex].textContent
+          ? categorySelect.options[categorySelect.selectedIndex].textContent
+          : catId;
+      if (
+        !confirm(
+          'Delete category "' +
+            catLabel +
+            '"?\n\nAll products in this category will be permanently removed (database CASCADE). This cannot be undone.'
+        )
+      )
+        return;
+      const res = await fetch('/api/admin/categories/' + encodeURIComponent(catId), {
+        method: 'DELETE',
+        headers: Object.assign({}, authHeaders())
+      });
+      const j = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        showBanner(j.error || 'Could not delete category', 'error');
+        return;
+      }
+      showBanner('Category deleted.', 'ok');
       await loadCatalog();
     });
   }

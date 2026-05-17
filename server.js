@@ -2193,6 +2193,40 @@ app.post('/api/admin/categories', authMiddleware, adminMiddleware, async (req, r
 });
 
 /**
+ * DELETE /api/admin/categories/:categoryId
+ * Removes the category row; `catalog_products.category_id` references this table with ON DELETE CASCADE,
+ * so all products in the category are deleted with it (see migration 014).
+ */
+app.delete('/api/admin/categories/:categoryId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const categoryId = (req.params.categoryId && String(req.params.categoryId).trim()) || '';
+    if (!categoryId) return res.status(400).json({ error: 'category id required' });
+
+    const { data: existing, error: exErr } = await supabase
+      .from('catalog_categories')
+      .select('id')
+      .eq('id', categoryId)
+      .maybeSingle();
+    if (exErr) {
+      console.error('admin delete category lookup:', exErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!existing) return res.status(404).json({ error: 'Category not found' });
+
+    const { error: delErr } = await supabase.from('catalog_categories').delete().eq('id', categoryId);
+    if (delErr) {
+      console.error('admin delete category row:', delErr);
+      return res.status(500).json({ error: 'Failed to delete category' });
+    }
+    await refreshCatalogPayloadFromDatabase();
+    res.json({ ok: true, deleted: true });
+  } catch (err) {
+    console.error('DELETE /api/admin/categories:', err);
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+/**
  * POST /api/admin/products — creates a row with server-generated UUID `id` (non-colliding PK).
  */
 app.post('/api/admin/products', authMiddleware, adminMiddleware, async (req, res) => {
