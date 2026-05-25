@@ -67,7 +67,7 @@ jobs:
 
       - name: Run HawkScan
         if: env.HAWKS_API_KEY != ''
-        uses: stackhawk/hawkscan-action@v2.2.2
+        uses: stackhawk/hawkscan-action@v2.5.0
         env:
           HAWKS_API_KEY: ${{ secrets.HAWKS_API_KEY }}
           E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
