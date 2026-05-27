@@ -350,7 +350,8 @@ const PATH_TO_HTML = {
   'claim-account': 'claim-account.html',
   'profile': 'profile.html',
   'admin-products': 'admin-products.html',
-  'admin-orders': 'admin-orders.html'
+  'admin-orders': 'admin-orders.html',
+  'privacy': 'privacy.html'
 };
 const publicDir = path.join(__dirname, 'public');
 

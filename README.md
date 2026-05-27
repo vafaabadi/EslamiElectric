@@ -2,6 +2,8 @@
 
 A full-stack bilingual (English / Persian) e-commerce web app for an electrical supplies shop. Built with Express.js, Supabase, and Stripe. Deployed on Vercel.
 
+Native **Android** customer app ([eslami-electric-android](https://github.com/vafaabadi/eslami-electric-android)) — Kotlin, Jetpack Compose.
+
 This project is also maintained as a **portfolio piece** demonstrating production-grade test automation and DevSecOps practices.
 
 [![CI](https://github.com/vafaabadi/EslamiElectric/actions/workflows/ci.yml/badge.svg)](https://github.com/vafaabadi/EslamiElectric/actions/workflows/ci.yml)
