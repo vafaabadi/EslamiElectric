@@ -142,10 +142,28 @@ test.describe('admin catalog — public UI shell', () => {
     await expect(page.locator('#admin-orders-gate')).toBeVisible();
     await expect(page.locator('header h1')).toContainText(/orders/i);
   });
+});
 
-  test('admin products page shell loads', async ({ page }) => {
+test.describe('admin catalog — admin-products shell (localhost)', () => {
+  test.beforeEach(({ baseURL }) => {
+    test.skip(
+      !isLocalBaseUrl(baseURL),
+      'Admin HTML routes expect the Node server (unset PLAYWRIGHT_BASE_URL for localhost).'
+    );
+  });
+
+  test('admin products: header + nav targets (logged out)', async ({ page }) => {
     await page.goto('/en/admin-products', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /product admin/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Product admin$/i })).toBeVisible();
+    /** Relative `admin-orders.html`; stable host-agnostic locator: */
+    await expect(page.locator('header a[href*="admin-orders"]')).toBeVisible();
+    await expect(page.locator('header a[href*="admin-orders"]')).toContainText(/orders/i);
+    await expect(page.locator('header a[href*="products.html"]')).toBeVisible();
+
+    await expect(page.locator('#admin-gate')).toBeVisible();
+    await expect(page.locator('#admin-panel')).toBeHidden();
+    await expect(page.getByRole('link', { name: /^Log in$/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Log out$/i })).toHaveCount(0);
   });
 });
 
@@ -183,20 +201,50 @@ test.describe('admin catalog — safe localhost checks', () => {
     expect(res.status()).toBe(403);
   });
 
-  test('admin UI: login and panel loads existing catalog', async ({ page }) => {
+  test('admin UI: authenticated panel renders import/export + category reorder chrome', async ({ page }) => {
     const { email, password } = getAdminE2ECredentials();
     test.skip(!email || !password, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD (and is_admin for that user in DB).');
 
     await loginAsAdminUser(page);
     await page.goto('/en/admin-products', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#admin-panel')).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator('#admin-product-select option').first()).toBeAttached();
+    await expect(page.locator('#admin-gate')).toBeHidden();
+
+    await expect(page.getByRole('button', { name: /^Add category$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Add product$/i })).toBeVisible();
+    await expect(page.locator('#admin-export-csv-btn')).toBeVisible();
+    await expect(page.locator('#admin-import-file')).toBeVisible();
+    await expect(page.locator('#admin-import-btn')).toBeVisible();
+    /** Drag-target list is `<ul id="admin-category-order">` with draggable `<li data-category-id>`, not `<table>`. */
+    const categoryReorder = page.locator('#admin-category-order');
+    await expect(categoryReorder).toBeVisible();
+    await expect(categoryReorder.locator('tbody')).toHaveCount(0);
+
     await expect(page.locator('#field-desc-fa')).toBeVisible();
     await expect(page.locator('#field-alt-en')).toBeVisible();
     await expect(page.locator('#field-alt-fa')).toBeVisible();
-    await expect(page.locator('#admin-category-order')).toBeVisible();
-    await expect(page.locator('#admin-export-csv-btn')).toBeVisible();
-    await expect(page.locator('a[href="admin-orders.html"]')).toBeVisible();
+
+    /** Log out swaps `#admin-goto-login` role from Log in → Log out. */
+    await expect(page.locator('#admin-goto-login')).toContainText(/^Log out$/i);
+    /** Relative sibling page (repo uses `href="admin-orders.html"`). */
+    await expect(page.locator('header a[href*="admin-orders"]')).toBeVisible();
+
+    await expect(page.locator('#admin-product-select')).toBeVisible();
+  });
+
+  test('admin UI: fully empty catalogue (optional)', async ({ page }) => {
+    test.skip(
+      (process.env.E2E_EXPECT_EMPTY_ADMIN_CATALOG || '').trim() !== '1',
+      'Set E2E_EXPECT_EMPTY_ADMIN_CATALOG=1 when catalog_categories/catalog_products have no active rows.'
+    );
+    const { email, password } = getAdminE2ECredentials();
+    test.skip(!email || !password, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD.');
+
+    await loginAsAdminUser(page);
+    await page.goto('/en/admin-products', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#admin-panel')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('#admin-product-select option')).toHaveCount(0);
+    await expect(page.locator('#admin-category-order li[data-category-id]')).toHaveCount(0);
   });
 
   test('admin UI: upload image requires a file (error banner)', async ({ page }) => {
