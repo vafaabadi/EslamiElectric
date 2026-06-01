@@ -29,27 +29,27 @@
   "license": "ISC",
   "dependencies": {
     "@stripe/stripe-js": "^8.9.0",
-    "@supabase/supabase-js": "^2.98.0",
+    "@supabase/supabase-js": "^2.106.2",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
-    "dotenv": "^17.3.1",
+    "dotenv": "^17.4.2",
     "express": "^4.22.2",
     "express-rate-limit": "^7.5.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
-    "resend": "^6.12.3",
+    "resend": "^6.12.4",
     "sharp": "^0.34.5",
     "stripe": "^20.4.1",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
-    "@types/node": "^25.6.0",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^25.9.1",
     "lighthouse": "^12.8.2",
     "tailwindcss": "^3.4.17",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "basic-ftp": "^5.3.0"
