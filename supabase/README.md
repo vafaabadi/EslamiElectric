@@ -46,7 +46,18 @@ node scripts/migrate-users-to-supabase.js
 
 Then restart the server and use the app; new signups will go to Supabase.
 
-## 6. Row Level Security (RLS)
+## 6. Push notifications (Firebase Cloud Messaging)
+
+For the Android push-notification feature (FCM tokens + per-user channel preferences), run **migration `019_push_tokens_and_preferences.sql`** in the SQL Editor. It creates:
+
+- `public.push_tokens` — one row per device token. `user_id` FK → `public.users` with `ON DELETE CASCADE` (account deletion cleans up devices automatically). Unique index on `token`.
+- `public.push_preferences` — per-user master toggle + channel toggles (`orders`, `promotions`, `account`, `general`). Default: all on.
+
+Both tables enable RLS with no policies (server uses `SUPABASE_SERVICE_ROLE_KEY` and bypasses RLS). The application talks to these tables only via the `/api/me/push-tokens` and `/api/me/push-preferences` endpoints, which require a Bearer JWT.
+
+Set `FIREBASE_SERVICE_ACCOUNT_JSON` (or `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`) in `.env` + Vercel env to enable actual sends. Without it, tokens still register and preferences still persist, but `firebase-admin` returns `skipped: true` and no push is delivered. See `.env.example`.
+
+## 7. Row Level Security (RLS)
 
 - Migrations **`011_enable_rls_public_tables.sql`** enable RLS on `public.users`, `public.orders`, and `public.account_claims`.
 - **`013_rls_explicit_deny_anon_authenticated.sql`** adds policies so `anon` and `authenticated` (PostgREST) have **no** direct access to those tables. The app uses **`SUPABASE_SERVICE_ROLE_KEY` only on the server** (bypasses RLS for trusted operations).

@@ -210,6 +210,18 @@ See [`.env.example`](.env.example) for the full list. Required variables:
 | `STRIPE_SECRET_KEY` | Stripe dashboard → Developers → API keys |
 | `STRIPE_WEBHOOK_SECRET` | Stripe dashboard → Webhooks → signing secret |
 | `RESEND_API_KEY` | resend.com → API Keys |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` *(optional, Android push)* | Firebase Console → Project settings → Service accounts → **Generate new private key**. Paste the entire JSON as a single line. Use `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` (base64-encoded JSON) on Vercel if multi-line secrets are awkward. Without it, FCM sends are skipped silently. |
+
+### Android push notifications
+
+The Android client (`eslami-electric-android`) registers FCM tokens at `POST /api/me/push-tokens` after login/signup/token refresh and removes them at `DELETE /api/me/push-tokens` on logout. Channel preferences live at `GET/PATCH /api/me/push-preferences`. Server-side sends fire on:
+
+- Order paid (Stripe webhook `checkout.session.completed` + `/api/orders/confirm-by-session/:sessionId` fallback)
+- Stripe `checkout.session.async_payment_failed` (delayed bank-debit failures)
+- User cancels their own pending order (`POST /api/orders/:orderId/cancel`)
+- Admin updates fulfilment status to `processing`, `shipped`, `delivered`, or `cancelled` (`PATCH /api/admin/orders/:orderId`)
+
+Tokens that FCM rejects (`messaging/registration-token-not-registered`) are marked `disabled_at` automatically. Run **`supabase/migrations/019_push_tokens_and_preferences.sql`** before the first deploy. See [`docs/mobile-api.md`](docs/mobile-api.md) for the API contract.
 
 ---
 
