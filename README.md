@@ -249,3 +249,5 @@ Tokens that FCM rejects (`messaging/registration-token-not-registered`) are mark
 ## Author
 
 Built by a Test Automation Engineer as both a working shop web app and a demonstration of production-quality QA and DevSecOps practices.
+
+<!-- chore: trigger deploy -->
