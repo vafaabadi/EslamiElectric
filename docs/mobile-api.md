@@ -296,6 +296,84 @@ App-managed token from email (not Supabase recovery page).
 
 ---
 
+### `POST /api/me/push-tokens` (FCM)
+
+Register or upsert a Firebase Cloud Messaging registration token for the current user. Idempotent on `token`. Call after login, after signup, on `onNewToken`, and whenever the client app starts.
+
+**Auth:** Bearer required.
+
+**Body** (`pushTokenPostBodySchema`):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `token` | string | FCM registration token (20–4096 chars) |
+| `platform` | `"android"` \| `"ios"` \| `"web"` | optional; default `"android"` |
+| `appVersion` | string | optional; from `BuildConfig.VERSION_NAME` |
+| `locale` | `"en"` \| `"fa"` | optional; used to localise outgoing pushes |
+
+**Response:** `200`
+
+```json
+{ "ok": true, "pushConfigured": true }
+```
+
+`pushConfigured` is `false` when the server has no Firebase service account configured. Tokens still persist; sends are skipped server-side until the secret is added.
+
+**Errors:** `400` validation; `401`; `503` `push_tokens` table missing — run migration `019_push_tokens_and_preferences.sql`; `500`.
+
+---
+
+### `DELETE /api/me/push-tokens`
+
+Remove a token (logout). Only deletes rows owned by the current user.
+
+**Auth:** Bearer required.
+
+**Body:** `{ "token": "<fcm token>" }`
+
+**Response:** `200` `{ "ok": true }`
+
+---
+
+### `GET /api/me/push-preferences`
+
+Returns the user's push channel preferences. If no row exists yet, returns the defaults (everything enabled).
+
+**Auth:** Bearer required.
+
+**Response:** `200`
+
+```json
+{
+  "master_enabled": true,
+  "channels": { "orders": true, "promotions": true, "account": true, "general": true },
+  "updated_at": null
+}
+```
+
+---
+
+### `PATCH /api/me/push-preferences`
+
+Update master toggle or per-channel toggles. Channels are merged (omit a key to leave it unchanged).
+
+**Auth:** Bearer required.
+
+**Body** (at least one field required):
+
+```json
+{
+  "master_enabled": true,
+  "channels": { "promotions": false }
+}
+```
+
+**Response:** `200` — same shape as GET.
+
+**Errors:** `400` validation; `401`; `500`.
+
+---
+
 ### `PATCH /api/me`
 
 **Auth:** Bearer required.

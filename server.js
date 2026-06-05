@@ -23,7 +23,9 @@ const {
   checkoutSessionLimiter,
   orderOpsLimiter,
   claimAccountLimiter,
-  guestLookupLimiter
+  guestLookupLimiter,
+  pushTokenLimiter,
+  pushPreferencesLimiter
 } = require('./lib/rate-limits');
 const { parseBody, parseQuery } = require('./lib/req-validation');
 const {
@@ -52,8 +54,12 @@ const {
   adminCategoriesReorderBodySchema,
   adminProductPostBodySchema,
   adminProductDuplicateBodySchema,
-  adminOrderPatchBodySchema
+  adminOrderPatchBodySchema,
+  pushTokenPostBodySchema,
+  pushTokenDeleteBodySchema,
+  pushPreferencesPatchBodySchema
 } = require('./lib/schemas/api');
+const pushNotifications = require('./lib/push-notifications');
 const crypto = require('crypto');
 const express = require('express');
 const compression = require('compression');
@@ -1047,6 +1053,36 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: 
     console.error('Stripe webhook signature error:', err && err.message ? err.message : err);
     return res.status(400).send('Webhook signature verification failed');
   }
+  // Payment failure: optional FCM push to the order owner so they can retry. Best-effort only —
+  // ack immediately and do not block other webhook deliveries.
+  if (event.type === 'checkout.session.async_payment_failed') {
+    try {
+      const failedSession = event.data.object || {};
+      const failedSessionId = failedSession.id;
+      if (failedSessionId) {
+        supabase
+          .from('orders')
+          .select('id, user_id, order_number')
+          .eq('stripe_session_id', failedSessionId)
+          .maybeSingle()
+          .then(({ data: row }) => {
+            if (row && row.user_id) {
+              pushNotifications
+                .notifyPaymentFailed(supabase, {
+                  userId: row.user_id,
+                  orderId: row.id,
+                  orderNumber: row.order_number || ''
+                })
+                .catch((err) => console.error('Push notify payment failed error:', err));
+            }
+          })
+          .catch((err) => console.error('Webhook payment_failed lookup error:', err));
+      }
+    } catch (e) {
+      console.error('Stripe webhook async_payment_failed handler error:', e && e.message ? e.message : e);
+    }
+    return res.status(200).send('OK');
+  }
   if (event.type !== 'checkout.session.completed') {
     return res.status(200).send('OK');
   }
@@ -1162,6 +1198,16 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: 
       sendOrderReceiptEmail(orderForEmail).catch((err) => console.error('Receipt email error:', err));
     }
     if (shouldTelegramNotify && orderForEmail) {
+      // Push notification to the order owner (if logged-in). Guests have no user_id, so no push.
+      if (orderForEmail.user_id) {
+        pushNotifications
+          .notifyOrderPaid(supabase, {
+            userId: orderForEmail.user_id,
+            orderId: orderForEmail.id,
+            orderNumber: orderForEmail.order_number || ''
+          })
+          .catch((err) => console.error('Push notify order paid (webhook) error:', err));
+      }
       const orderDisplay = orderForEmail.order_number || orderForEmail.id || stripeSessionId;
       const isGuest = !!orderForEmail.guest_access_token;
       const customer = orderForEmail.customer_email || (isGuest ? 'guest' : 'unknown');
@@ -3415,7 +3461,11 @@ app.patch('/api/admin/orders/:orderId', authMiddleware, adminMiddleware, async (
       errorCode: 'VALIDATION_FAILED'
     });
     if (!body) return;
-    const { data: existing, error: exErr } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
+    const { data: existing, error: exErr } = await supabase
+      .from('orders')
+      .select('id, fulfillment_status, user_id, order_number')
+      .eq('id', orderId)
+      .maybeSingle();
     if (exErr) return res.status(500).json({ error: 'Database error' });
     if (!existing) return res.status(404).json({ error: 'Order not found' });
     /** @type {Record<string, unknown>} */
@@ -3435,6 +3485,24 @@ app.patch('/api/admin/orders/:orderId', authMiddleware, adminMiddleware, async (
       return res.status(500).json({ error: 'Failed to update order', hint: 'Apply migration 018' });
     }
     await insertAuditRow(req, 'order.patch', 'order', orderId, { updates });
+    // Push notification on fulfillment status change (only when value actually changed and order has an owner).
+    try {
+      const newStatus = body.fulfillment_status;
+      const oldStatus = existing.fulfillment_status;
+      const isUserVisible = newStatus && newStatus !== 'unfulfilled' && newStatus !== oldStatus;
+      if (isUserVisible && existing.user_id) {
+        pushNotifications
+          .notifyOrderStatusChange(supabase, {
+            userId: existing.user_id,
+            orderId,
+            orderNumber: existing.order_number || '',
+            status: newStatus
+          })
+          .catch((err) => console.error('Push notify admin status change error:', err));
+      }
+    } catch (e) {
+      console.error('Push notify admin status change (sync) error:', e && e.message ? e.message : e);
+    }
     res.json({ ok: true, order: updated });
   } catch (err) {
     console.error('PATCH /api/admin/orders:', err);
@@ -4327,6 +4395,142 @@ app.patch('/api/me', patchMeLimiter, authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * Push notifications (FCM) — token registration + per-user channel preferences.
+ *
+ * Android client calls these after login / signup / token refresh / logout. Tokens are stored
+ * unique-by-token so a re-install on a different account moves ownership to the new user.
+ * If FCM credentials are not configured on the server (FIREBASE_SERVICE_ACCOUNT_JSON), endpoints
+ * still succeed (200) and persist the token so notifications can flip on without a client change.
+ */
+app.post('/api/me/push-tokens', pushTokenLimiter, authMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(pushTokenPostBodySchema, req, res);
+    if (!body) return;
+    const token = String(body.token).trim();
+    if (!token) return res.status(400).json({ error: 'token is required' });
+    const platform = body.platform || 'android';
+    const appVersion = body.appVersion ? String(body.appVersion).slice(0, 60) : null;
+    const locale = body.locale || null;
+
+    const { error } = await supabase
+      .from('push_tokens')
+      .upsert(
+        {
+          user_id: req.userId,
+          token,
+          platform,
+          app_version: appVersion,
+          locale,
+          last_seen_at: new Date().toISOString(),
+          disabled_at: null
+        },
+        { onConflict: 'token' }
+      );
+    if (error) {
+      console.error('POST /api/me/push-tokens upsert error:', error.message);
+      if (error.code === '42P01' || /relation .* does not exist/i.test(error.message || '')) {
+        return res
+          .status(503)
+          .json({ error: 'Push tokens table missing — run supabase migration 019_push_tokens_and_preferences.sql' });
+      }
+      return res.status(500).json({ error: 'Failed to register device' });
+    }
+    res.json({ ok: true, pushConfigured: pushNotifications.isConfigured() });
+  } catch (err) {
+    console.error('POST /api/me/push-tokens:', err);
+    res.status(500).json({ error: 'Failed to register device' });
+  }
+});
+
+app.delete('/api/me/push-tokens', pushTokenLimiter, authMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(pushTokenDeleteBodySchema, req, res);
+    if (!body) return;
+    const token = String(body.token).trim();
+    if (!token) return res.status(400).json({ error: 'token is required' });
+    // Only delete rows owned by this user (cannot remove tokens belonging to other accounts).
+    const { error } = await supabase
+      .from('push_tokens')
+      .delete()
+      .eq('user_id', req.userId)
+      .eq('token', token);
+    if (error) {
+      console.error('DELETE /api/me/push-tokens error:', error.message);
+      return res.status(500).json({ error: 'Failed to remove device' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /api/me/push-tokens:', err);
+    res.status(500).json({ error: 'Failed to remove device' });
+  }
+});
+
+app.get('/api/me/push-preferences', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('push_preferences')
+      .select('master_enabled, channels, updated_at')
+      .eq('user_id', req.userId)
+      .maybeSingle();
+    if (error) {
+      console.error('GET /api/me/push-preferences error:', error.message);
+      if (error.code === '42P01' || /relation .* does not exist/i.test(error.message || '')) {
+        return res
+          .status(503)
+          .json({ error: 'push_preferences table missing — run migration 019_push_tokens_and_preferences.sql' });
+      }
+      return res.status(500).json({ error: 'Failed to load notification preferences' });
+    }
+    if (!data) {
+      return res.json({
+        master_enabled: true,
+        channels: { orders: true, promotions: true, account: true, general: true },
+        updated_at: null
+      });
+    }
+    res.json(data);
+  } catch (err) {
+    console.error('GET /api/me/push-preferences:', err);
+    res.status(500).json({ error: 'Failed to load notification preferences' });
+  }
+});
+
+app.patch('/api/me/push-preferences', pushPreferencesLimiter, authMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(pushPreferencesPatchBodySchema, req, res);
+    if (!body) return;
+    /** @type {Record<string, unknown>} */
+    const updates = { user_id: req.userId };
+    if (typeof body.master_enabled === 'boolean') updates.master_enabled = body.master_enabled;
+    if (body.channels && typeof body.channels === 'object') {
+      const existing = await supabase
+        .from('push_preferences')
+        .select('channels')
+        .eq('user_id', req.userId)
+        .maybeSingle();
+      const prev =
+        existing && existing.data && existing.data.channels && typeof existing.data.channels === 'object'
+          ? existing.data.channels
+          : { orders: true, promotions: true, account: true, general: true };
+      updates.channels = { ...prev, ...body.channels };
+    }
+    const { data, error } = await supabase
+      .from('push_preferences')
+      .upsert(updates, { onConflict: 'user_id' })
+      .select('master_enabled, channels, updated_at')
+      .single();
+    if (error) {
+      console.error('PATCH /api/me/push-preferences error:', error.message);
+      return res.status(500).json({ error: 'Failed to save notification preferences' });
+    }
+    res.json(data);
+  } catch (err) {
+    console.error('PATCH /api/me/push-preferences:', err);
+    res.status(500).json({ error: 'Failed to save notification preferences' });
+  }
+});
+
 // Forgot password: request a reset link (emailed via Resend; do not expose reset URLs in JSON)
 app.post('/api/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
@@ -5133,7 +5337,7 @@ app.post('/api/orders/:orderId/cancel', orderOpsLimiter, authMiddleware, async (
   try {
     const { data: order, error } = await supabase
       .from('orders')
-      .select('id, status, stripe_session_id')
+      .select('id, status, stripe_session_id, order_number')
       .eq('id', orderId)
       .eq('user_id', req.userId)
       .single();
@@ -5157,6 +5361,14 @@ app.post('/api/orders/:orderId/cancel', orderOpsLimiter, authMiddleware, async (
     if (!updated || updated.length === 0) {
       return res.status(409).json({ error: 'Order is no longer pending.' });
     }
+    pushNotifications
+      .notifyOrderStatusChange(supabase, {
+        userId: req.userId,
+        orderId: order.id,
+        orderNumber: order.order_number || '',
+        status: 'cancelled'
+      })
+      .catch((err) => console.error('Push notify order cancelled error:', err));
     res.json({ ok: true });
   } catch (err) {
     console.error('Cancel order error:', err);
@@ -5564,6 +5776,15 @@ app.post('/api/orders/confirm-by-session/:sessionId', orderOpsLimiter, async (re
       .single();
     if (orderForReceipt && orderForReceipt.customer_email) {
       sendOrderReceiptEmail(orderForReceipt).catch((err) => console.error('Receipt email error (confirm-by-session):', err));
+    }
+    if (orderForReceipt && orderForReceipt.user_id) {
+      pushNotifications
+        .notifyOrderPaid(supabase, {
+          userId: orderForReceipt.user_id,
+          orderId: orderForReceipt.id,
+          orderNumber: orderForReceipt.order_number || ''
+        })
+        .catch((err) => console.error('Push notify order paid (confirm-by-session) error:', err));
     }
 
     res.json({ updated: true, status: 'paid' });
