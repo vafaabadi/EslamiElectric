@@ -18,7 +18,8 @@
     "test:e2e:headed": "playwright test -c playwright.config.ts --headed",
     "e2e:headed": "node scripts/run-e2e-headed.mjs",
     "test:e2e:report": "playwright show-report",
-    "typecheck:e2e": "tsc -p tsconfig.playwright.json --noEmit"
+    "typecheck:e2e": "tsc -p tsconfig.playwright.json --noEmit",
+    "test": "node --test test/**/*.test.js"
   },
   "keywords": [
     "lighting",
