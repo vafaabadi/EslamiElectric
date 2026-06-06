@@ -202,6 +202,43 @@
     });
   }
 
+  async function submitPushBroadcast(ev) {
+    ev.preventDefault();
+    const form = document.getElementById('admin-push-form');
+    const statusEl = document.getElementById('admin-push-status');
+    if (!form) return;
+    const fd = new FormData(form);
+    const payload = {
+      title_en: String(fd.get('title_en') || '').trim(),
+      title_fa: String(fd.get('title_fa') || '').trim(),
+      body_en: String(fd.get('body_en') || '').trim(),
+      body_fa: String(fd.get('body_fa') || '').trim(),
+      channel: 'promotions'
+    };
+    if (statusEl) statusEl.textContent = 'Sending…';
+    const res = await fetch('/api/admin/push/broadcast', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify(payload)
+    });
+    const j = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok) {
+      if (statusEl) statusEl.textContent = j.error || 'Broadcast failed.';
+      showBanner(j.error || 'Broadcast failed.', 'error');
+      return;
+    }
+    const msg =
+      'Sent ' +
+      String(j.sent || 0) +
+      ' / ' +
+      String(j.targeted || 0) +
+      (j.skipped ? ' (FCM not configured on server)' : '');
+    if (statusEl) statusEl.textContent = msg;
+    showBanner(msg, 'ok');
+  }
+
   async function bootstrap() {
     const res = await fetch('/api/admin/orders', { headers: Object.assign({}, authHeaders()) });
     if (res.status === 401) {
@@ -241,6 +278,8 @@
     const payload = await res.json();
     await renderOrders(payload.orders || []);
     await loadAudit();
+    const pushForm = document.getElementById('admin-push-form');
+    if (pushForm) pushForm.addEventListener('submit', submitPushBroadcast);
   }
 
   if (!localStorage.getItem('token')) {

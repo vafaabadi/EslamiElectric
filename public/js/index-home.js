@@ -106,6 +106,7 @@ runWhenLocaleReady(function () {
 
     function setBasket(items) {
       localStorage.setItem(BASKET_KEY, JSON.stringify(items));
+      if (typeof window.syncBasketActivity === 'function') window.syncBasketActivity(items);
       updateBasketCount();
     }
 

@@ -20,7 +20,7 @@ Server resolves public URL from (first non-empty): `PUBLIC_SITE_URL`, `PUBLIC_BA
 
 **Content-Type:** `application/json` on POST/PATCH bodies unless noted.
 
-**Basket:** Primary storage is client-side (web: `localStorage` key `basket`; Android: DataStore). The server does not persist anonymous baskets. Logged-in users editing a **pending order** can load line items via `GET /api/orders/:orderId/basket-draft`.
+**Basket:** Primary storage is client-side (web: `localStorage` key `basket`; Android: DataStore). **v2:** clients debounce-sync snapshots to `PUT /api/me/basket-activity` (logged-in) or `PUT /api/basket-activity` (guests, `X-Basket-Session` UUID) for abandoned-basket push reminders. Logged-in users editing a **pending order** can load line items via `GET /api/orders/:orderId/basket-draft`.
 
 **Out of scope for mobile v1:** `POST /api/auth/telegram`, Telegram widget login, admin catalog/orders APIs.
 
@@ -421,6 +421,48 @@ Update master toggle or per-channel toggles. Channels are merged (omit a key to 
 **Response:** `200` — same shape as GET.
 
 **Errors:** `400` validation; `401`; `500`.
+
+---
+
+### `PUT /api/me/basket-activity` (v2)
+
+Upsert a basket snapshot for the current user (debounced on the client). Used by the abandoned-basket cron after 24h inactivity.
+
+**Auth:** Bearer required.
+
+**Body** (`basketActivityPutBodySchema`):
+
+```json
+{
+  "items": [
+    {
+      "id": "product-id",
+      "categoryId": "lighting",
+      "name": "LED Panel",
+      "name_fa": "",
+      "image_url": "https://…",
+      "price": 12.5,
+      "quantity": 2
+    }
+  ]
+}
+```
+
+**Response:** `200` `{ "ok": true, "itemCount": 2 }`
+
+**Errors:** `400` validation; `401`; `503` `basket_activity` table missing — run migration `020_basket_activity.sql`; `500`.
+
+---
+
+### `PUT /api/basket-activity` (v2, guest)
+
+Upsert a guest basket snapshot. Guests do not receive push reminders (no `user_id` / FCM token), but snapshots are stored for analytics and future flows.
+
+**Auth:** none — requires header `X-Basket-Session: <uuid>` (stable per install; Android DataStore).
+
+**Body / response:** same as `PUT /api/me/basket-activity`.
+
+**Errors:** `400` missing/invalid session header; `503` migration missing; `500`.
 
 ---
 

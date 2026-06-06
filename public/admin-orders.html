@@ -53,6 +53,29 @@
         </table>
       </div>
 
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <h2 class="text-sm font-semibold text-slate-800">Promotional push broadcast</h2>
+        <p class="text-xs text-slate-600">Sends to users with active FCM tokens and the <code class="bg-slate-100 px-1 rounded">promotions</code> channel enabled (max 500 per send).</p>
+        <form id="admin-push-form" class="grid gap-3 sm:grid-cols-2">
+          <label class="block text-xs text-slate-700">Title (EN)
+            <input type="text" name="title_en" required maxlength="120" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" placeholder="Summer sale">
+          </label>
+          <label class="block text-xs text-slate-700">Title (FA)
+            <input type="text" name="title_fa" required maxlength="120" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" dir="rtl" placeholder="فروش ویژه">
+          </label>
+          <label class="block text-xs text-slate-700 sm:col-span-2">Body (EN)
+            <textarea name="body_en" required maxlength="500" rows="2" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" placeholder="20% off selected items this week."></textarea>
+          </label>
+          <label class="block text-xs text-slate-700 sm:col-span-2">Body (FA)
+            <textarea name="body_fa" required maxlength="500" rows="2" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" dir="rtl" placeholder="۲۰٪ تخفیف روی اقلام منتخب این هفته."></textarea>
+          </label>
+          <div class="sm:col-span-2 flex flex-wrap items-center gap-2">
+            <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-slate-900 hover:bg-amber-400">Send broadcast</button>
+            <span id="admin-push-status" class="text-xs text-slate-600"></span>
+          </div>
+        </form>
+      </div>
+
       <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 class="text-sm font-semibold text-slate-800 mb-3">Audit log (catalog)</h2>
         <p id="admin-audit-empty" class="text-sm text-slate-600 hidden">No audit rows.</p>

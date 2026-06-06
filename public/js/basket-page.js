@@ -200,6 +200,7 @@ runWhenLocaleReady(function () {
         sessionStorage.removeItem(PENDING_ORDER_KEY);
         sessionStorage.removeItem(PENDING_ORDER_LABEL_KEY);
       }
+      if (typeof window.syncBasketActivity === 'function') window.syncBasketActivity(items);
       renderBasket();
     }
 

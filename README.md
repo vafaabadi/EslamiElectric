@@ -246,23 +246,37 @@ Tokens that FCM rejects (`messaging/registration-token-not-registered`) are mark
 
 ---
 
-## Abandoned basket reminders (v2 — deferred)
+## Abandoned basket reminders (v2)
 
-Baskets are stored **client-side only** (`localStorage` / Android DataStore). The server has `push_tokens` but no basket snapshot table, so a 24h abandoned-basket push cannot run without new schema.
+Run migrations **`020_basket_activity.sql`** and **`021_push_broadcast_log.sql`** in Supabase before enabling cron/broadcast.
 
-**Stub endpoint** (protected by `CRON_SECRET`):
+Clients sync basket snapshots on change (debounced 2s):
+
+- Logged-in: `PUT /api/me/basket-activity` with Bearer JWT
+- Guests (Android): `PUT /api/basket-activity` with `X-Basket-Session: <uuid>` header
+- Web: logged-in sync only via `public/js/basket-activity-sync.js`
+
+**Cron** (protected by `CRON_SECRET`):
 
 - `GET` or `POST` `/api/cron/abandoned-basket-reminders`
-- Vercel Cron entry in `vercel.json` (daily 10:00 UTC) — returns `{ implemented: false }` until v2.
+- Vercel Cron: daily **10:00 UTC** (`vercel.json`)
+- Selects `basket_activity` rows where `updated_at < now() - 24h`, `item_count > 0`, `reminder_sent_at` is null, `user_id` is set
+- Sends FCM via `lib/push-notifications.js` on the **`promotions`** channel with route `basket`; sets `reminder_sent_at`
 
-**Planned v2 design:**
+Set `CRON_SECRET` in Vercel env; cron requests must send `Authorization: Bearer <CRON_SECRET>`.
 
-1. Migration `basket_snapshots`: `user_id`, `items` (jsonb), `updated_at`, `reminder_sent_at`.
-2. Android/web PATCH snapshot on basket change (logged-in users with push token).
-3. Cron selects rows where `updated_at < now() - 24h`, items non-empty, `reminder_sent_at` null, user has active `push_tokens` and `promotions` channel enabled.
-4. Send FCM via `lib/push-notifications.js` with route `basket`; set `reminder_sent_at`.
+## Promotional push broadcast (admin)
 
-Set `CRON_SECRET` in Vercel env; cron requests must send `Authorization: Bearer <CRON_SECRET>` (same as `/api/cron/purge-accounts`).
+`POST /api/admin/push/broadcast` (admin JWT) — body: `{ title_en, title_fa, body_en, body_fa, channel: "promotions" }`. Max **500** recipients per call; logged in `push_broadcast_log`. UI on `admin-orders.html`.
+
+**curl example** (replace `TOKEN` with admin JWT):
+
+```bash
+curl -sS -X POST "https://www.eslamielectric.com/api/admin/push/broadcast" \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title_en":"Summer sale","title_fa":"???? ????","body_en":"20% off this week.","body_fa":"??? ????? ??? ????.","channel":"promotions"}'
+```
 
 ---
 
