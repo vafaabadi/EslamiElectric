@@ -4118,6 +4118,30 @@ app.post('/api/account/request-deletion', accountDeletionLimiter, authMiddleware
   }
 });
 
+/**
+ * Abandoned-basket reminder cron (v2 stub).
+ * Full implementation needs server-side basket snapshots — see README § Abandoned basket reminders.
+ * Vercel Cron issues GET; manual triggers may use POST. Auth: Authorization: Bearer <CRON_SECRET>
+ */
+async function abandonedBasketRemindersCron(req, res) {
+  const secret = (process.env.CRON_SECRET || '').trim();
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!secret || token !== secret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  res.json({
+    ok: true,
+    implemented: false,
+    message:
+      'Stub only. Baskets are client-local today; add basket_snapshots migration before sending reminders.',
+    sent: 0,
+    skipped: 0
+  });
+}
+app.get('/api/cron/abandoned-basket-reminders', abandonedBasketRemindersCron);
+app.post('/api/cron/abandoned-basket-reminders', abandonedBasketRemindersCron);
+
 /** Daily: permanently remove profile rows past retention (requires CRON_SECRET on Vercel Cron). */
 app.get('/api/cron/purge-accounts', async (req, res) => {
   const secret = (process.env.CRON_SECRET || '').trim();

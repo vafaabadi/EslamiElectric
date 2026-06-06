@@ -20,7 +20,7 @@ Server resolves public URL from (first non-empty): `PUBLIC_SITE_URL`, `PUBLIC_BA
 
 **Content-Type:** `application/json` on POST/PATCH bodies unless noted.
 
-**Basket:** Stored only on the client (web: `localStorage` key `basket`). The server has no basket endpoints.
+**Basket:** Primary storage is client-side (web: `localStorage` key `basket`; Android: DataStore). The server does not persist anonymous baskets. Logged-in users editing a **pending order** can load line items via `GET /api/orders/:orderId/basket-draft`.
 
 **Out of scope for mobile v1:** `POST /api/auth/telegram`, Telegram widget login, admin catalog/orders APIs.
 
@@ -257,6 +257,56 @@ App-managed token from email (not Supabase recovery page).
 ```
 
 **Errors:** `400` invalid/expired token or password rules.
+
+---
+
+### `GET /api/claim-account/:token`
+
+Validate a guest **claim account** link token (from the order confirmation email). Used before showing the set-password form.
+
+**Auth:** None.
+
+**Response:** `200`
+
+```json
+{ "valid": true, "email": "us***@example.com" }
+```
+
+`email` is masked for display. Mobile may deep-link `eslamielectric://claim-account?token=…` or accept a pasted token.
+
+**Errors:** `400` link already used or expired; `404` invalid token; `500`.
+
+---
+
+### `POST /api/claim-account`
+
+Create a password-backed account from a guest claim token and attach guest orders with the same email.
+
+**Body** (`claimAccountBodySchema`):
+
+```json
+{
+  "token": "<hex from email or deep link>",
+  "password": "newpass123",
+  "confirmPassword": "newpass123"
+}
+```
+
+`confirmPassword` optional in schema but must match when provided. Password min 8 characters.
+
+**Response:** `200`
+
+```json
+{
+  "ok": true,
+  "token": "<app_jwt>",
+  "message": "Account claimed. You can now view your orders."
+}
+```
+
+Store the returned JWT like `POST /api/login`. Guest orders with matching `customer_email` are linked to the new user.
+
+**Errors:** `400` invalid/expired token, password rules, or email already registered; `429` rate limit; `500`.
 
 ---
 

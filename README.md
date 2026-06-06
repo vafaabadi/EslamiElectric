@@ -246,6 +246,26 @@ Tokens that FCM rejects (`messaging/registration-token-not-registered`) are mark
 
 ---
 
+## Abandoned basket reminders (v2 — deferred)
+
+Baskets are stored **client-side only** (`localStorage` / Android DataStore). The server has `push_tokens` but no basket snapshot table, so a 24h abandoned-basket push cannot run without new schema.
+
+**Stub endpoint** (protected by `CRON_SECRET`):
+
+- `GET` or `POST` `/api/cron/abandoned-basket-reminders`
+- Vercel Cron entry in `vercel.json` (daily 10:00 UTC) — returns `{ implemented: false }` until v2.
+
+**Planned v2 design:**
+
+1. Migration `basket_snapshots`: `user_id`, `items` (jsonb), `updated_at`, `reminder_sent_at`.
+2. Android/web PATCH snapshot on basket change (logged-in users with push token).
+3. Cron selects rows where `updated_at < now() - 24h`, items non-empty, `reminder_sent_at` null, user has active `push_tokens` and `promotions` channel enabled.
+4. Send FCM via `lib/push-notifications.js` with route `basket`; set `reminder_sent_at`.
+
+Set `CRON_SECRET` in Vercel env; cron requests must send `Authorization: Bearer <CRON_SECRET>` (same as `/api/cron/purge-accounts`).
+
+---
+
 ## Author
 
 Built by a Test Automation Engineer as both a working shop web app and a demonstration of production-quality QA and DevSecOps practices.
