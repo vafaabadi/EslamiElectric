@@ -25,7 +25,9 @@ const {
   claimAccountLimiter,
   guestLookupLimiter,
   pushTokenLimiter,
-  pushPreferencesLimiter
+  pushPreferencesLimiter,
+  basketActivityLimiter,
+  adminPushBroadcastLimiter
 } = require('./lib/rate-limits');
 const { parseBody, parseQuery } = require('./lib/req-validation');
 const {
@@ -57,7 +59,9 @@ const {
   adminOrderPatchBodySchema,
   pushTokenPostBodySchema,
   pushTokenDeleteBodySchema,
-  pushPreferencesPatchBodySchema
+  pushPreferencesPatchBodySchema,
+  basketActivityPutBodySchema,
+  adminPushBroadcastBodySchema
 } = require('./lib/schemas/api');
 const pushNotifications = require('./lib/push-notifications');
 const crypto = require('crypto');
@@ -3431,6 +3435,61 @@ app.post(
 );
 
 /** Admin orders + audit log (migration 018: fulfillment_status, admin_notes on orders; catalog_admin_audit table). */
+app.post('/api/admin/push/broadcast', adminPushBroadcastLimiter, authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(adminPushBroadcastBodySchema, req, res);
+    if (!body) return;
+    const channel = body.channel || 'promotions';
+    const localizedContent = (locale) =>
+      locale === 'fa'
+        ? { title: body.title_fa, body: body.body_fa }
+        : { title: body.title_en, body: body.body_en };
+
+    const result = await pushNotifications.sendBroadcast({
+      supabase,
+      channel,
+      localizedContent,
+      maxRecipients: PUSH_BROADCAST_MAX_RECIPIENTS,
+      route: 'promotions'
+    });
+
+    const logRow = {
+      admin_user_id: req.userId,
+      channel,
+      title_en: body.title_en,
+      title_fa: body.title_fa,
+      body_en: body.body_en,
+      body_fa: body.body_fa,
+      recipients_targeted: result.targeted || 0,
+      sent: result.sent || 0,
+      failed: result.failed || 0
+    };
+    const { error: logErr } = await supabase.from('push_broadcast_log').insert(logRow);
+    if (logErr) {
+      console.error('POST /api/admin/push/broadcast log insert:', logErr.message);
+      if (logErr.code === '42P01' || /relation .* does not exist/i.test(logErr.message || '')) {
+        return res.status(503).json({
+          error: 'push_broadcast_log table missing — run migration 021_push_broadcast_log.sql',
+          ...result
+        });
+      }
+    }
+
+    res.json({
+      ok: true,
+      channel,
+      pushConfigured: pushNotifications.isConfigured(),
+      targeted: result.targeted || 0,
+      sent: result.sent || 0,
+      failed: result.failed || 0,
+      skipped: !!result.skipped
+    });
+  } catch (err) {
+    console.error('POST /api/admin/push/broadcast:', err);
+    res.status(500).json({ error: 'Broadcast failed' });
+  }
+});
+
 app.get('/api/admin/orders', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || ''), 10) || 40));
@@ -4118,10 +4177,64 @@ app.post('/api/account/request-deletion', accountDeletionLimiter, authMiddleware
   }
 });
 
+const BASKET_REMINDER_BATCH_SIZE = 50;
+const PUSH_BROADCAST_MAX_RECIPIENTS = 500;
+
+function isUuidString(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || '').trim()
+  );
+}
+
+function normalizeBasketActivityItems(items) {
+  return (items || []).map((item) => ({
+    id: item.id || null,
+    categoryId: item.categoryId ?? item.category_id ?? null,
+    name: item.name,
+    name_fa: item.name_fa ?? item.nameFa ?? null,
+    image_url: item.image_url ?? item.imageUrl ?? null,
+    price: item.price,
+    quantity: item.quantity
+  }));
+}
+
+function basketActivityItemCount(items) {
+  return (items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+}
+
+function basketActivityTableMissing(error) {
+  return error && (error.code === '42P01' || /relation .* does not exist/i.test(error.message || ''));
+}
+
+async function upsertBasketActivityRow({ userId, sessionId, items }) {
+  const normalized = normalizeBasketActivityItems(items);
+  const itemCount = basketActivityItemCount(normalized);
+  const nowIso = new Date().toISOString();
+  /** @type {Record<string, unknown>} */
+  const row = {
+    items_json: normalized,
+    item_count: itemCount,
+    updated_at: nowIso
+  };
+  if (userId) {
+    row.user_id = userId;
+    row.session_id = null;
+  } else if (sessionId) {
+    row.user_id = null;
+    row.session_id = sessionId;
+  }
+  if (itemCount > 0) row.reminder_sent_at = null;
+
+  const conflictKey = userId ? 'user_id' : 'session_id';
+  const { error } = await supabase.from('basket_activity').upsert(row, { onConflict: conflictKey });
+  return { error, itemCount };
+}
+
 /**
- * Abandoned-basket reminder cron (v2 stub).
- * Full implementation needs server-side basket snapshots — see README § Abandoned basket reminders.
- * Vercel Cron issues GET; manual triggers may use POST. Auth: Authorization: Bearer <CRON_SECRET>
+ * Abandoned-basket reminder cron (v2).
+ * Requires migration 020_basket_activity.sql. Sends FCM to logged-in users with non-empty baskets
+ * untouched for 24h+ (promotions channel). Vercel Cron issues GET; manual triggers may use POST.
+ * Auth: Authorization: Bearer <CRON_SECRET>
  */
 async function abandonedBasketRemindersCron(req, res) {
   const secret = (process.env.CRON_SECRET || '').trim();
@@ -4130,13 +4243,63 @@ async function abandonedBasketRemindersCron(req, res) {
   if (!secret || token !== secret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: rows, error } = await supabase
+    .from('basket_activity')
+    .select('id, user_id, item_count')
+    .gt('item_count', 0)
+    .is('reminder_sent_at', null)
+    .not('user_id', 'is', null)
+    .lt('updated_at', cutoff)
+    .limit(BASKET_REMINDER_BATCH_SIZE);
+
+  if (error) {
+    console.error('abandoned-basket-reminders query:', error.message);
+    if (basketActivityTableMissing(error)) {
+      return res.status(503).json({
+        error: 'basket_activity table missing — run migration 020_basket_activity.sql',
+        implemented: false
+      });
+    }
+    return res.status(500).json({ error: 'Failed to load basket activity' });
+  }
+
+  const candidates = Array.isArray(rows) ? rows : [];
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const row of candidates) {
+    if (!row || !row.user_id) {
+      skipped += 1;
+      continue;
+    }
+    const result = await pushNotifications.notifyAbandonedBasket(supabase, row.user_id);
+    if (result.skipped) {
+      skipped += 1;
+      continue;
+    }
+    sent += result.sent || 0;
+    failed += result.failed || 0;
+    if ((result.sent || 0) > 0) {
+      const { error: upErr } = await supabase
+        .from('basket_activity')
+        .update({ reminder_sent_at: new Date().toISOString() })
+        .eq('id', row.id);
+      if (upErr) console.error('abandoned-basket-reminders mark sent:', upErr.message);
+    } else {
+      skipped += 1;
+    }
+  }
+
   res.json({
     ok: true,
-    implemented: false,
-    message:
-      'Stub only. Baskets are client-local today; add basket_snapshots migration before sending reminders.',
-    sent: 0,
-    skipped: 0
+    implemented: true,
+    candidates: candidates.length,
+    sent,
+    failed,
+    skipped
   });
 }
 app.get('/api/cron/abandoned-basket-reminders', abandonedBasketRemindersCron);
@@ -4517,6 +4680,62 @@ app.get('/api/me/push-preferences', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('GET /api/me/push-preferences:', err);
     res.status(500).json({ error: 'Failed to load notification preferences' });
+  }
+});
+
+/**
+ * Basket activity sync (v2) — server snapshot for abandoned-basket reminders.
+ * Clients debounce PUT calls on basket change. Logged-in users only receive FCM reminders.
+ */
+app.put('/api/me/basket-activity', basketActivityLimiter, authMiddleware, async (req, res) => {
+  try {
+    const body = parseBody(basketActivityPutBodySchema, req, res);
+    if (!body) return;
+    const { error, itemCount } = await upsertBasketActivityRow({
+      userId: req.userId,
+      items: body.items
+    });
+    if (error) {
+      console.error('PUT /api/me/basket-activity upsert:', error.message);
+      if (basketActivityTableMissing(error)) {
+        return res
+          .status(503)
+          .json({ error: 'basket_activity table missing — run migration 020_basket_activity.sql' });
+      }
+      return res.status(500).json({ error: 'Failed to save basket activity' });
+    }
+    res.json({ ok: true, itemCount });
+  } catch (err) {
+    console.error('PUT /api/me/basket-activity:', err);
+    res.status(500).json({ error: 'Failed to save basket activity' });
+  }
+});
+
+app.put('/api/basket-activity', basketActivityLimiter, async (req, res) => {
+  try {
+    const sessionId = String(req.headers['x-basket-session'] || '').trim();
+    if (!isUuidString(sessionId)) {
+      return res.status(400).json({ error: 'X-Basket-Session header must be a UUID' });
+    }
+    const body = parseBody(basketActivityPutBodySchema, req, res);
+    if (!body) return;
+    const { error, itemCount } = await upsertBasketActivityRow({
+      sessionId,
+      items: body.items
+    });
+    if (error) {
+      console.error('PUT /api/basket-activity upsert:', error.message);
+      if (basketActivityTableMissing(error)) {
+        return res
+          .status(503)
+          .json({ error: 'basket_activity table missing — run migration 020_basket_activity.sql' });
+      }
+      return res.status(500).json({ error: 'Failed to save basket activity' });
+    }
+    res.json({ ok: true, itemCount });
+  } catch (err) {
+    console.error('PUT /api/basket-activity:', err);
+    res.status(500).json({ error: 'Failed to save basket activity' });
   }
 });
 

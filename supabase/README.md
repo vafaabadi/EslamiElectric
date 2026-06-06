@@ -57,7 +57,16 @@ Both tables enable RLS with no policies (server uses `SUPABASE_SERVICE_ROLE_KEY`
 
 Set `FIREBASE_SERVICE_ACCOUNT_JSON` (or `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`) in `.env` + Vercel env to enable actual sends. Without it, tokens still register and preferences still persist, but `firebase-admin` returns `skipped: true` and no push is delivered. See `.env.example`.
 
-## 7. Row Level Security (RLS)
+## 7. Basket activity + broadcast log (v2 engagement)
+
+Run after migration 019:
+
+- **`020_basket_activity.sql`** — `public.basket_activity` stores debounced basket snapshots (`user_id` for logged-in, `session_id` for guests). Used by `PUT /api/me/basket-activity`, `PUT /api/basket-activity`, and the abandoned-basket cron.
+- **`021_push_broadcast_log.sql`** — `public.push_broadcast_log` records admin promotional broadcasts from `POST /api/admin/push/broadcast`.
+
+Both tables enable RLS with no policies (server-only via service role).
+
+## 8. Row Level Security (RLS)
 
 - Migrations **`011_enable_rls_public_tables.sql`** enable RLS on `public.users`, `public.orders`, and `public.account_claims`.
 - **`013_rls_explicit_deny_anon_authenticated.sql`** adds policies so `anon` and `authenticated` (PostgREST) have **no** direct access to those tables. The app uses **`SUPABASE_SERVICE_ROLE_KEY` only on the server** (bypasses RLS for trusted operations).

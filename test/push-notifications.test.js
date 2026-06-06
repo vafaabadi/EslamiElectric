@@ -4,7 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  _internal: { buildMessage, orderConfirmedContent, orderStatusContent }
+  _internal: { buildMessage, orderConfirmedContent, orderStatusContent, abandonedBasketReminderContent }
 } = require('../lib/push-notifications');
 
 describe('push-notifications message builder', () => {
@@ -61,5 +61,11 @@ describe('push-notifications locale copy', () => {
   it('orderStatusContent falls back to processing for unknown status', () => {
     const fn = orderStatusContent('ORD-1', 'unknown_status');
     assert.equal(fn('en').title, 'Order in progress');
+  });
+
+  it('abandonedBasketReminderContent returns EN and FA copy', () => {
+    const fn = abandonedBasketReminderContent();
+    assert.equal(fn('en').title, 'Your basket is waiting');
+    assert.match(fn('fa').title, /سبد/);
   });
 });
