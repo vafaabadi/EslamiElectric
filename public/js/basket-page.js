@@ -29,7 +29,32 @@ runWhenLocaleReady(function () {
         createAccount: 'Sign Up',
         navLogout: 'Logout',
         proceedToCheckout: 'Proceed to checkout',
+        payWithCard: 'Pay with card',
+        payWithCrypto: 'Pay with crypto',
+        paymentMethodTitle: 'Payment method',
+        cryptoCheckoutTitle: 'Pay with crypto',
+        cryptoCheckoutHint: 'Send crypto to the address below or open the payment page. We will confirm automatically.',
+        cryptoTotalUsd: 'Total',
+        cryptoPayApprox: 'Send exactly',
+        cryptoPayHint: 'Send the exact crypto amount shown to the address below.',
+        cryptoAddressLabel: 'Pay to address',
+        cryptoSendHint: 'Send crypto to the address above.',
+        cryptoScanHint: 'Complete your crypto payment.',
+        cryptoWaiting: 'Waiting for payment…',
+        cryptoProcessing: 'Payment processing…',
+        cryptoPaid: 'Payment confirmed! Redirecting…',
+        cryptoFailed: 'Payment failed or expired. Try again or pay by card.',
+        cryptoStatusError: 'Could not check payment status.',
+        cryptoOpenInvoice: 'Open payment page',
+        cryptoCancel: 'Cancel crypto payment',
+        cryptoNetworkTitle: 'Payment network',
+        cryptoNetworkWarning: 'Send on {network} network only. Sending on another network may lose your funds.',
+        cryptoNetworkBadge: 'Network: {network}',
         checkoutError: 'Could not start checkout. Please try again.',
+        cryptoMisrouteError:
+          'Crypto checkout uses NOWPayments, not card payment. Hard-refresh this page (Ctrl+F5) and try again.',
+        cardPaymentUnavailable:
+          'Card payment is temporarily unavailable. Try crypto or try again later.',
         guestSectionTitle: 'Shipping & contact details (guest checkout)',
         guestName: 'Full name',
         guestEmail: 'Email',
@@ -112,7 +137,32 @@ runWhenLocaleReady(function () {
         createAccount: 'ایجاد حساب کاربری',
         navLogout: 'خروج',
         proceedToCheckout: 'ادامه به پرداخت',
+        payWithCard: 'پرداخت با کارت',
+        payWithCrypto: 'پرداخت با رمزارز',
+        paymentMethodTitle: 'روش پرداخت',
+        cryptoCheckoutTitle: 'پرداخت با رمزارز',
+        cryptoCheckoutHint: 'رمزارز را به آدرس زیر ارسال کنید یا صفحه پرداخت را باز کنید. تأیید به‌صورت خودکار انجام می‌شود.',
+        cryptoTotalUsd: 'مجموع',
+        cryptoPayApprox: 'ارسال دقیق',
+        cryptoPayHint: 'مبلغ دقیق رمزارز را به آدرس زیر ارسال کنید.',
+        cryptoAddressLabel: 'آدرس پرداخت',
+        cryptoSendHint: 'رمزارز را به آدرس بالا ارسال کنید.',
+        cryptoScanHint: 'پرداخت رمزارز را تکمیل کنید.',
+        cryptoWaiting: 'در انتظار پرداخت…',
+        cryptoProcessing: 'در حال پردازش پرداخت…',
+        cryptoPaid: 'پرداخت تأیید شد! در حال انتقال…',
+        cryptoFailed: 'پرداخت ناموفق یا منقضی شد. دوباره تلاش کنید یا با کارت بپردازید.',
+        cryptoStatusError: 'بررسی وضعیت پرداخت ممکن نشد.',
+        cryptoOpenInvoice: 'باز کردن صفحه پرداخت',
+        cryptoCancel: 'لغو پرداخت رمزارز',
+        cryptoNetworkTitle: 'شبکه پرداخت',
+        cryptoNetworkWarning: 'فقط روی شبکه {network} ارسال کنید. ارسال روی شبکه دیگر ممکن است وجوه شما را از بین ببرد.',
+        cryptoNetworkBadge: 'شبکه: {network}',
         checkoutError: 'شروع پرداخت ممکن نشد. دوباره تلاش کنید.',
+        cryptoMisrouteError:
+          'پرداخت رمزارز از NOWPayments است، نه کارت. صفحه را سخت‌رفرش کنید (Ctrl+F5) و دوباره تلاش کنید.',
+        cardPaymentUnavailable:
+          'پرداخت با کارت موقتاً در دسترس نیست. با رمزارز پرداخت کنید یا بعداً تلاش کنید.',
         guestSectionTitle: 'اطلاعات تماس و آدرس (خرید مهمان)',
         guestName: 'نام کامل',
         guestEmail: 'ایمیل',
@@ -180,6 +230,8 @@ runWhenLocaleReady(function () {
 
     let currentLang = localStorage.getItem('lang') || 'en';
     var checkoutProfileBlocked = false;
+    var cryptoPayCurrencies = [];
+    var cryptoDefaultPayCurrency = 'usdc';
     /** Same pattern as server `validationPatterns.email` (guest checkout). */
     var GUEST_EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -460,6 +512,21 @@ runWhenLocaleReady(function () {
       const navProfileEl = document.getElementById('nav-profile');
       if (navProfileEl && t.navProfile) navProfileEl.textContent = t.navProfile;
       document.getElementById('btn-checkout-text').textContent = t.proceedToCheckout;
+      var pmt = document.getElementById('payment-method-title');
+      if (pmt) pmt.textContent = t.paymentMethodTitle;
+      var lpc = document.getElementById('label-pay-card');
+      if (lpc) lpc.textContent = t.payWithCard;
+      var lpk = document.getElementById('label-pay-crypto');
+      if (lpk) lpk.textContent = t.payWithCrypto;
+      var cct = document.getElementById('crypto-checkout-title');
+      if (cct) cct.textContent = t.cryptoCheckoutTitle;
+      var cch = document.getElementById('crypto-checkout-hint');
+      if (cch) cch.textContent = t.cryptoCheckoutHint;
+      var cow = document.getElementById('crypto-open-invoice');
+      if (cow) cow.textContent = t.cryptoOpenInvoice;
+      var ccx = document.getElementById('crypto-cancel');
+      if (ccx) ccx.textContent = t.cryptoCancel;
+      if (cryptoPayCurrencies.length) renderCryptoNetworkOptions();
       const ft = document.getElementById('fulfillment-title');
       if (ft) ft.textContent = t.fulfillmentTitle;
       const fh = document.getElementById('fulfillment-hint');
@@ -544,6 +611,145 @@ runWhenLocaleReady(function () {
     function getFulfillment() {
       const r = document.querySelector('input[name="fulfillment"]:checked');
       return r && r.value === 'collection' ? 'collection' : 'delivery';
+    }
+
+    function getPaymentMethod() {
+      const r = document.querySelector('input[name="payment-method"]:checked');
+      return r && r.value === 'crypto' ? 'crypto' : 'stripe';
+    }
+
+    function syncPaymentMethodUI() {
+      document.querySelectorAll('input[name="payment-method"]').forEach(function (inp) {
+        const lab = inp.closest('label');
+        if (!lab) return;
+        if (inp.checked) {
+          lab.className =
+            'flex items-center gap-2 cursor-pointer border rounded-lg px-3 py-2 border-amber-500 bg-amber-50/80';
+        } else {
+          lab.className =
+            'flex items-center gap-2 cursor-pointer border rounded-lg px-3 py-2 border-slate-200 hover:border-slate-300';
+        }
+      });
+      syncCryptoNetworkUI();
+    }
+
+    function getSelectedPayCurrency() {
+      const picked = document.querySelector('input[name="crypto-network"]:checked');
+      if (picked && picked.value) return picked.value;
+      return cryptoDefaultPayCurrency || 'usdc';
+    }
+
+    function renderCryptoNetworkOptions() {
+      const section = document.getElementById('crypto-network-section');
+      const wrap = document.getElementById('crypto-network-options');
+      if (!section || !wrap) return;
+      wrap.innerHTML = '';
+      if (!cryptoPayCurrencies.length) {
+        section.classList.add('hidden');
+        return;
+      }
+      const t = translations[currentLang];
+      const titleEl = document.getElementById('crypto-network-title');
+      if (titleEl) titleEl.textContent = t.cryptoNetworkTitle || 'Payment network';
+      cryptoPayCurrencies.forEach(function (opt, idx) {
+        const ticker = opt.payCurrency || opt.pay_currency || '';
+        const label = opt.label || opt.networkLabel || ticker;
+        const lab = document.createElement('label');
+        lab.className =
+          'flex items-center gap-2 cursor-pointer border rounded-lg px-3 py-2 border-slate-200 hover:border-slate-300 w-full sm:max-w-xs';
+        const inp = document.createElement('input');
+        inp.type = 'radio';
+        inp.name = 'crypto-network';
+        inp.value = ticker;
+        inp.className = 'w-4 h-4 text-amber-600';
+        if (ticker === cryptoDefaultPayCurrency || idx === 0) {
+          inp.checked = true;
+          lab.className =
+            'flex items-center gap-2 cursor-pointer border rounded-lg px-3 py-2 border-amber-500 bg-amber-50/80 w-full sm:max-w-xs';
+        }
+        inp.addEventListener('change', syncCryptoNetworkOptionStyles);
+        const span = document.createElement('span');
+        span.textContent = label;
+        lab.appendChild(inp);
+        lab.appendChild(span);
+        wrap.appendChild(lab);
+      });
+      syncCryptoNetworkOptionStyles();
+    }
+
+    function syncCryptoNetworkOptionStyles() {
+      document.querySelectorAll('input[name="crypto-network"]').forEach(function (inp) {
+        const lab = inp.closest('label');
+        if (!lab) return;
+        if (inp.checked) {
+          lab.className =
+            'flex items-center gap-2 cursor-pointer border rounded-lg px-3 py-2 border-amber-500 bg-amber-50/80 w-full sm:max-w-xs';
+        } else {
+          lab.className =
+            'flex items-center gap-2 cursor-pointer border rounded-lg px-3 py-2 border-slate-200 hover:border-slate-300 w-full sm:max-w-xs';
+        }
+      });
+    }
+
+    function syncCryptoNetworkUI() {
+      const section = document.getElementById('crypto-network-section');
+      if (!section) return;
+      const cryptoSelected = getPaymentMethod() === 'crypto';
+      const showSelector = cryptoSelected && cryptoPayCurrencies.length > 1;
+      section.classList.toggle('hidden', !showSelector);
+    }
+
+    async function loadCryptoPayCurrencies() {
+      try {
+        const r = await fetch('/api/crypto-pay-currencies');
+        if (!r.ok) return;
+        const d = await r.json().catch(function () { return {}; });
+        if (!Array.isArray(d.currencies) || !d.currencies.length) return;
+        cryptoPayCurrencies = d.currencies;
+        cryptoDefaultPayCurrency = d.defaultPayCurrency || d.currencies[0].payCurrency || 'usdc';
+        renderCryptoNetworkOptions();
+        syncCryptoNetworkUI();
+      } catch (e) {
+        /* crypto optional */
+      }
+    }
+
+    function extractApiError(data, status, rawText, fallback) {
+      if (data && typeof data === 'object') {
+        if (data.error) return String(data.error);
+        if (data.npMessage) return String(data.npMessage);
+        if (data.message) return String(data.message);
+        if (data.code === 'CURRENCY_NOT_AVAILABLE' && data.payCurrency) {
+          return String(data.payCurrency).toUpperCase() + ' is not available for checkout.';
+        }
+      }
+      const snippet = rawText != null ? String(rawText).trim().slice(0, 240) : '';
+      if (/^error code: 502$/i.test(snippet) || /^error code: 503$/i.test(snippet)) {
+        return 'Payment server temporarily unavailable. Wait a moment and try again.';
+      }
+      if (snippet && !/^<!DOCTYPE/i.test(snippet) && !/^<html/i.test(snippet) && !/^error code:/i.test(snippet)) {
+        return snippet;
+      }
+      if (status) return fallback + ' (HTTP ' + status + ')';
+      return fallback;
+    }
+
+    function sanitizeCheckoutError(message, paymentMethod, tr) {
+      const msg = message != null ? String(message).trim() : '';
+      if (!msg) return tr.checkoutError;
+      if (paymentMethod === 'crypto' && (/sk_(test|live)_/i.test(msg) || /stripe/i.test(msg))) {
+        return tr.cryptoMisrouteError || tr.checkoutError;
+      }
+      if (/sk_(test|live)_/i.test(msg) || /expired api key/i.test(msg)) {
+        return tr.cardPaymentUnavailable || tr.checkoutError;
+      }
+      if (paymentMethod === 'crypto' && /not enabled in your NOWPayments account/i.test(msg)) {
+        return msg;
+      }
+      if (paymentMethod === 'crypto' && !/^NOWPayments/i.test(msg) && !/not enabled in your NOWPayments account/i.test(msg)) {
+        return 'NOWPayments: ' + msg;
+      }
+      return msg;
     }
 
     function syncFulfillmentUI() {
@@ -708,6 +914,10 @@ runWhenLocaleReady(function () {
       el.addEventListener('change', syncFulfillmentUI);
     });
 
+    document.querySelectorAll('input[name="payment-method"]').forEach(function (el) {
+      el.addEventListener('change', syncPaymentMethodUI);
+    });
+
     document.getElementById('lang-en').addEventListener('click', () => {
       currentLang = 'en';
       localStorage.setItem('lang', 'en');
@@ -862,6 +1072,87 @@ runWhenLocaleReady(function () {
         if (token && pendingOid) {
           body.pendingOrderId = pendingOid;
         }
+
+        syncPaymentMethodUI();
+        var paymentMethod = getPaymentMethod();
+        body.paymentMethod = paymentMethod;
+
+        if (paymentMethod === 'crypto') {
+          body.payCurrency = getSelectedPayCurrency();
+          const cryptoRes = await fetch('/api/create-crypto-payment', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body)
+          });
+          const cryptoRaw = await cryptoRes.text().catch(function () { return ''; });
+          let cryptoData = {};
+          try {
+            cryptoData = cryptoRaw ? JSON.parse(cryptoRaw) : {};
+          } catch (_) {
+            cryptoData = {};
+          }
+          if (!cryptoRes.ok) {
+            if (cryptoRes.status === 401 && cryptoData.code === 'SESSION_EXPIRED') {
+              localStorage.removeItem('token');
+              window.location.href = 'login.html';
+              return;
+            }
+            if (cryptoRes.status === 403 && cryptoData.code === 'PROFILE_INCOMPLETE') {
+              void loadCheckoutProfileGate();
+            }
+            var cryptoErr = sanitizeCheckoutError(
+              extractApiError(cryptoData, cryptoRes.status, cryptoRaw, t.checkoutError),
+              'crypto',
+              t
+            );
+            if (cryptoRes.status === 403 && cryptoData.code === 'PROFILE_INCOMPLETE' && Array.isArray(cryptoData.missing) && cryptoData.missing.length) {
+              var cryptoExtra = profileMissingPlainText(cryptoData.missing, t);
+              if (cryptoExtra) cryptoErr = cryptoErr + ' ' + cryptoExtra;
+            }
+            showCheckoutValidationError(errEl, btnCheckout, cryptoErr);
+            return;
+          }
+          if (window.EslamiCryptoCheckout && cryptoData.paymentId && (cryptoData.payAddress || cryptoData.invoiceUrl || cryptoData.gatewayUrl)) {
+            btnText.classList.remove('hidden');
+            btnLoading.classList.add('hidden');
+            updateCheckoutButtonState();
+            window.EslamiCryptoCheckout.startCryptoCheckout(cryptoData, t, {
+              onPaid: function (paymentId) {
+                localStorage.removeItem('basket');
+                sessionStorage.removeItem(PENDING_ORDER_KEY);
+                sessionStorage.removeItem(PENDING_ORDER_LABEL_KEY);
+                try {
+                  sessionStorage.setItem(
+                    'cryptoCheckoutSuccess',
+                    JSON.stringify({
+                      paymentId: paymentId,
+                      orderNumber: cryptoData.orderNumber || '',
+                      guestAccessToken: cryptoData.guestAccessToken || ''
+                    })
+                  );
+                } catch (e) {}
+                fetch('/api/orders/confirm-by-crypto/' + encodeURIComponent(paymentId), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: '{}'
+                }).catch(function () {});
+                var dest = cryptoData.successUrl || (window.location.pathname.replace(/\/basket\/?$/, '/checkout-success') + '?crypto_payment_id=' + encodeURIComponent(paymentId));
+                window.location.href = dest;
+              },
+              onFailed: function () {
+                updateCheckoutButtonState();
+              }
+            });
+            return;
+          }
+          var cryptoUiErr = 'Payment was created but checkout could not open.';
+          if (!window.EslamiCryptoCheckout) cryptoUiErr += ' Reload the page (Ctrl+F5) and try again.';
+          else if (!cryptoData.paymentId) cryptoUiErr += ' No payment id was returned.';
+          else cryptoUiErr += ' No pay address was returned.';
+          showCheckoutValidationError(errEl, btnCheckout, sanitizeCheckoutError(cryptoUiErr, 'crypto', t));
+          return;
+        }
+
         const res = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers,
@@ -877,7 +1168,7 @@ runWhenLocaleReady(function () {
           if (res.status === 403 && data.code === 'PROFILE_INCOMPLETE') {
             void loadCheckoutProfileGate();
           }
-          var errMsg = data.error || t.checkoutError;
+          var errMsg = sanitizeCheckoutError(data.error || t.checkoutError, 'stripe', t);
           if (res.status === 403 && data.code === 'PROFILE_INCOMPLETE' && Array.isArray(data.missing) && data.missing.length) {
             var extra = profileMissingPlainText(data.missing, t);
             if (extra) errMsg = errMsg + ' ' + extra;
@@ -891,7 +1182,12 @@ runWhenLocaleReady(function () {
         }
         showCheckoutValidationError(errEl, btnCheckout, t.checkoutError);
       } catch (e) {
-        showCheckoutValidationError(errEl, btnCheckout, t.checkoutError);
+        var netErr = e && e.message ? String(e.message) : t.checkoutError;
+        showCheckoutValidationError(
+          errEl,
+          btnCheckout,
+          getPaymentMethod() === 'crypto' ? sanitizeCheckoutError(netErr, 'crypto', t) : t.checkoutError
+        );
       }
       btnText.classList.remove('hidden');
       btnLoading.classList.add('hidden');
@@ -901,7 +1197,14 @@ runWhenLocaleReady(function () {
     (async function boot() {
       await loadPendingOrderDraftIfAny();
       await loadCheckoutProfileGate();
+      await loadCryptoPayCurrencies();
       applyPageLanguage();
+      syncPaymentMethodUI();
+      if (window.EslamiCryptoCheckout && typeof window.EslamiCryptoCheckout.bindCancel === 'function') {
+        window.EslamiCryptoCheckout.bindCancel(function () {
+          updateCheckoutButtonState();
+        });
+      }
       try {
         await initIntlPhoneInputs('#guest-phone');
         var gp = document.getElementById('guest-phone');

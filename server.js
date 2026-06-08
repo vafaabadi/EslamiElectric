@@ -1,5 +1,10 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
+require('./lib/ipv4-fetch');
+
+// Never load local .env on Vercel — a developer .env can point at staging and override production secrets.
+if (!process.env.VERCEL) {
+  require('dotenv').config({ path: path.join(__dirname, '.env'), override: false });
+}
 const {
   resolvePublicBaseUrl,
   getExplicitSiteUrlTrimmed,
@@ -21,13 +26,16 @@ const {
   accountDeletionLimiter,
   patchMeLimiter,
   checkoutSessionLimiter,
+  cryptoCheckoutLimiter,
+  cryptoStatusLimiter,
   orderOpsLimiter,
   claimAccountLimiter,
   guestLookupLimiter,
   pushTokenLimiter,
   pushPreferencesLimiter,
   basketActivityLimiter,
-  adminPushBroadcastLimiter
+  adminPushBroadcastLimiter,
+  chatLimiter
 } = require('./lib/rate-limits');
 const { parseBody, parseQuery } = require('./lib/req-validation');
 const {
@@ -61,9 +69,15 @@ const {
   pushTokenDeleteBodySchema,
   pushPreferencesPatchBodySchema,
   basketActivityPutBodySchema,
-  adminPushBroadcastBodySchema
+  adminPushBroadcastBodySchema,
+  chatBodySchema
 } = require('./lib/schemas/api');
 const pushNotifications = require('./lib/push-notifications');
+const {
+  registerCryptoCheckoutRoutes,
+  registerNowPaymentsWebhook
+} = require('./lib/routes/crypto-checkout-routes');
+const { registerChatRoutes } = require('./lib/routes/chat-routes');
 const crypto = require('crypto');
 const express = require('express');
 const compression = require('compression');
@@ -73,6 +87,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { ipv4Fetch } = require('./lib/ipv4-fetch');
 const { Resend } = require('resend');
 const https = require('https');
 
@@ -144,8 +159,15 @@ function readCategoriesJson() {
   }
 }
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function cleanEnvValue(val) {
+  return String(val || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .trim();
+}
+
+const supabaseUrl = cleanEnvValue(process.env.SUPABASE_URL);
+const supabaseServiceKey = cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
 const jwtSecret = process.env.JWT_SECRET;
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
@@ -155,10 +177,13 @@ if (!jwtSecret) {
   console.error('Missing JWT_SECRET in .env (use a long random string for signing tokens)');
   process.exit(1);
 }
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseClientOptions = { global: { fetch: ipv4Fetch } };
+const supabase = createClient(supabaseUrl, supabaseServiceKey, supabaseClientOptions);
 
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-const supabaseAnon = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+const supabaseAnonKey = cleanEnvValue(process.env.SUPABASE_ANON_KEY);
+const supabaseAnon = supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, supabaseClientOptions)
+  : null;
 
 const CATALOG_IMAGES_BUCKET = (process.env.CATALOG_IMAGES_BUCKET || 'product-images').trim() || 'product-images';
 
@@ -1257,6 +1282,14 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: 
     return res.status(500).send('Error recording order');
   }
   res.status(200).send('OK');
+});
+
+registerNowPaymentsWebhook(app, {
+  supabase,
+  sendOrderReceiptEmail,
+  sendTelegramMessage,
+  pushNotifications,
+  baseUrl
 });
 
 app.use(express.json());
@@ -5134,6 +5167,48 @@ app.post('/api/claim-account', claimAccountLimiter, async (req, res) => {
   }
 });
 
+function sanitizeCardCheckoutClientError(message) {
+  const msg = message != null ? String(message) : '';
+  if (!msg) return 'Failed to start card checkout. Please try again.';
+  if (/sk_(test|live)_/i.test(msg) || /expired api key/i.test(msg)) {
+    return 'Card payment is temporarily unavailable. Try again later or pay with crypto.';
+  }
+  return msg;
+}
+
+const cryptoCheckoutRouteDeps = {
+  cryptoCheckoutLimiter,
+  cryptoStatusLimiter,
+  orderOpsLimiter,
+  parseBody,
+  createCheckoutSessionBodySchema,
+  emptyJsonBodySchema,
+  jwt,
+  jwtSecret,
+  supabase,
+  getCheckoutProfileStatus,
+  validationPatterns,
+  isSyntheticTelegramAuthEmail,
+  generateOrderNumber,
+  trimDeliveryAdditionalInfo,
+  ORDER_RESUME_UUID,
+  baseUrl,
+  sendOrderReceiptEmail,
+  sendTelegramMessage,
+  pushNotifications
+};
+registerCryptoCheckoutRoutes(app, cryptoCheckoutRouteDeps);
+
+registerChatRoutes(app, {
+  chatLimiter,
+  parseBody,
+  chatBodySchema,
+  jwt,
+  jwtSecret,
+  supabase,
+  getAllProducts
+});
+
 // Stripe Checkout: create session (priceId, amount in cents, or lineItems from basket)
 app.post('/api/create-checkout-session', checkoutSessionLimiter, async (req, res) => {
   if (!stripe) {
@@ -5163,9 +5238,17 @@ app.post('/api/create-checkout-session', checkoutSessionLimiter, async (req, res
       shippingAddress,
       locale,
       fulfillmentType: rawFulfillment,
-      pendingOrderId: rawPendingOrderId
+      pendingOrderId: rawPendingOrderId,
+      paymentMethod: rawPaymentMethod
     } = parsed;
     const pendingOrderId = rawPendingOrderId != null ? String(rawPendingOrderId).trim() : '';
+
+    if (rawPaymentMethod === 'crypto') {
+      return res.status(400).json({
+        error:
+          'Crypto checkout must use NOWPayments (POST /api/create-crypto-payment), not card checkout.'
+      });
+    }
 
     if (userId) {
       const checkout = await getCheckoutProfileStatus(userId);
@@ -5427,7 +5510,7 @@ app.post('/api/create-checkout-session', checkoutSessionLimiter, async (req, res
     res.json({ url: session.url, sessionId: session.id });
   } catch (err) {
     console.error('Stripe checkout error:', err);
-    res.status(500).json({ error: err.message || 'Failed to create checkout session' });
+    res.status(500).json({ error: sanitizeCardCheckoutClientError(err.message) });
   }
 });
 

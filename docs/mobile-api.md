@@ -549,6 +549,119 @@ Logged-in **delivery** requires `shippingAddress.line1` (≥ 5 chars). Guest req
 
 ---
 
+### `POST /api/create-crypto-payment`
+
+**Auth:** Optional Bearer (logged-in). Guest checkout supported without token.
+
+**Body:** Same schema as `POST /api/create-checkout-session` (`createCheckoutSessionBodySchema`), plus optional `payCurrency` (NOWPayments ticker, e.g. `usdc`, `usdcsol`, `usdtsol`, `usdcbsc`, `usdtbsc`). Must be in `NOWPAYMENTS_ALLOWED_PAY_CURRENCIES`. Sui USDC/USDT is not supported by NOWPayments.
+
+**Response:** `200`
+
+```json
+{
+  "paymentId": "5077125051",
+  "payAddress": "0xd1cDE08A07cD25adEbEd35c3867a59228C09B606",
+  "payAmount": "24.98",
+  "payCurrency": "usdcbase",
+  "networkLabel": "Base",
+  "network": "base",
+  "invoiceUrl": "https://nowpayments.io/payment/?iid=…",
+  "gatewayUrl": "https://nowpayments.io/payment/?iid=…",
+  "orderId": "<uuid>",
+  "orderNumber": "ORD-…",
+  "guestAccessToken": "<hex>",
+  "status": "waiting",
+  "isFinal": false,
+  "pollInMs": 3000,
+  "amountTotal": 2500,
+  "currency": "usd",
+  "successUrl": "https://…/en/checkout-success?crypto_payment_id=5077125051",
+  "payment_method": "nowpayments"
+}
+```
+
+Show `networkLabel` prominently (wrong-chain sends lose funds). Show `payAddress` + `payAmount` on web; open `invoiceUrl` / `gatewayUrl` in **Chrome Custom Tab** when present. Poll **`GET /api/crypto-payments/:paymentId/status`** until `status` is `finished` (or use confirm endpoint on resume). `guestAccessToken` only for guest checkout.
+
+**Errors:** Same as Stripe checkout (`400`, `401`, `403`, `429`); `400` + `INVALID_PAY_CURRENCY` if ticker not allowed; `503` if NOWPayments env not configured; `502` upstream NOWPayments errors.
+
+---
+
+### `GET /api/crypto-pay-currencies`
+
+**Auth:** None.
+
+**Response:** `200`
+
+```json
+{
+  "defaultPayCurrency": "usdc",
+  "currencies": [
+    { "payCurrency": "usdc", "networkLabel": "Ethereum (ERC-20)", "network": "eth", "label": "Ethereum (ERC-20) (USDC)" },
+    { "payCurrency": "usdcsol", "networkLabel": "Solana", "network": "sol", "label": "Solana (USDC)" },
+    { "payCurrency": "usdtsol", "networkLabel": "Solana", "network": "sol", "label": "Solana (USDT)" },
+    { "payCurrency": "usdcbsc", "networkLabel": "BNB Smart Chain", "network": "bsc", "label": "BNB Smart Chain (USDC)" },
+    { "payCurrency": "usdtbsc", "networkLabel": "BNB Smart Chain", "network": "bsc", "label": "BNB Smart Chain (USDT)" }
+  ]
+}
+```
+
+Use for web/Android network selector before `POST /api/create-crypto-payment`.
+
+---
+
+### `GET /api/crypto-payments/:id/status`
+
+**Auth:** None (payment id is unguessable). Rate-limited.
+
+**Response:** `200`
+
+```json
+{
+  "ok": true,
+  "status": "confirming",
+  "isFinal": false,
+  "pollInMs": 3000,
+  "payAddress": "0xd1cDE08A07cD25adEbEd35c3867a59228C09B606",
+  "payAmount": "24.98",
+  "payCurrency": "usdcbase",
+  "networkLabel": "Base",
+  "network": "base",
+  "invoiceUrl": null,
+  "txHash": null,
+  "orderStatus": "pending",
+  "updated": false,
+  "terminalFailure": false
+}
+```
+
+When `status === "finished"`, server transitions matching order `pending` → `paid` (idempotent) and sends receipt/Telegram/push.
+
+### `POST /api/webhooks/nowpayments`
+
+**Auth:** `x-nowpayments-sig` HMAC-SHA512 (IPN secret). Called by NOWPayments on status changes.
+
+---
+
+### `GET /api/orders/by-crypto-payment/:paymentId`
+
+**Auth:** None.
+
+**Response:** `200` — same order shape as `by-session`, plus `payment_method`, `crypto_payment_id`.
+
+---
+
+### `POST /api/orders/confirm-by-crypto/:paymentId`
+
+**Auth:** None. Idempotent fallback when polling/webhook lag (Android resume, success page).
+
+**Body:** empty JSON `{}` or no body.
+
+**Response:** `200` — `{ "updated": true, "status": "paid", "paymentStatus": "finished" }`
+
+**Errors:** `400` if NOWPayments status not `finished`; `404` order not found.
+
+---
+
 ## Orders
 
 ### `GET /api/orders`
