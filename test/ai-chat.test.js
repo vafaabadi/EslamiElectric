@@ -6,7 +6,8 @@ const {
   buildCatalogSnippet,
   buildSystemPrompt,
   getChatConfig,
-  DEFAULT_MODEL
+  DEFAULT_GOOGLE_MODEL,
+  DEFAULT_GATEWAY_MODEL
 } = require('../lib/ai-chat');
 
 describe('buildCatalogSnippet', () => {
@@ -55,25 +56,101 @@ describe('buildSystemPrompt', () => {
 });
 
 describe('getChatConfig', () => {
-  it('reports disabled without API key', () => {
-    const prev = process.env.AI_GATEWAY_API_KEY;
-    delete process.env.AI_GATEWAY_API_KEY;
-    const cfg = getChatConfig();
-    assert.equal(cfg.ok, false);
-    if (prev) process.env.AI_GATEWAY_API_KEY = prev;
+  const envKeys = [
+    'GOOGLE_GENERATIVE_AI_API_KEY',
+    'GEMINI_API_KEY',
+    'AI_GATEWAY_API_KEY',
+    'AI_CHAT_MODEL'
+  ];
+
+  /** @param {Record<string, string | undefined>} snapshot */
+  function saveEnv(snapshot) {
+    for (const key of envKeys) {
+      snapshot[key] = process.env[key];
+    }
+  }
+
+  /** @param {Record<string, string | undefined>} snapshot */
+  function restoreEnv(snapshot) {
+    for (const key of envKeys) {
+      if (snapshot[key] === undefined) delete process.env[key];
+      else process.env[key] = snapshot[key];
+    }
+  }
+
+  /** @param {Record<string, string | undefined>} overrides */
+  function withEnv(overrides, fn) {
+    const snapshot = {};
+    saveEnv(snapshot);
+    for (const key of envKeys) {
+      delete process.env[key];
+    }
+    Object.assign(process.env, overrides);
+    try {
+      return fn();
+    } finally {
+      restoreEnv(snapshot);
+    }
+  }
+
+  it('reports disabled without any API key', () => {
+    withEnv({}, () => {
+      const cfg = getChatConfig();
+      assert.equal(cfg.ok, false);
+      assert.equal(cfg.provider, null);
+    });
   });
 
-  it('uses default model when key present', () => {
-    const prevKey = process.env.AI_GATEWAY_API_KEY;
-    const prevModel = process.env.AI_CHAT_MODEL;
-    process.env.AI_GATEWAY_API_KEY = 'test-key';
-    delete process.env.AI_CHAT_MODEL;
-    const cfg = getChatConfig();
-    assert.equal(cfg.ok, true);
-    assert.equal(cfg.model, DEFAULT_MODEL);
-    if (prevKey !== undefined) process.env.AI_GATEWAY_API_KEY = prevKey;
-    else delete process.env.AI_GATEWAY_API_KEY;
-    if (prevModel !== undefined) process.env.AI_CHAT_MODEL = prevModel;
-    else delete process.env.AI_CHAT_MODEL;
+  it('prefers Google when GOOGLE_GENERATIVE_AI_API_KEY is set', () => {
+    withEnv({ GOOGLE_GENERATIVE_AI_API_KEY: 'google-key' }, () => {
+      const cfg = getChatConfig();
+      assert.equal(cfg.ok, true);
+      assert.equal(cfg.provider, 'google');
+      assert.equal(cfg.model, DEFAULT_GOOGLE_MODEL);
+    });
+  });
+
+  it('uses GEMINI_API_KEY when GOOGLE_GENERATIVE_AI_API_KEY is unset', () => {
+    withEnv({ GEMINI_API_KEY: 'gemini-key' }, () => {
+      const cfg = getChatConfig();
+      assert.equal(cfg.ok, true);
+      assert.equal(cfg.provider, 'google');
+      assert.equal(cfg.model, DEFAULT_GOOGLE_MODEL);
+    });
+  });
+
+  it('prefers Google over gateway when both keys are set', () => {
+    withEnv(
+      {
+        GOOGLE_GENERATIVE_AI_API_KEY: 'google-key',
+        AI_GATEWAY_API_KEY: 'gateway-key'
+      },
+      () => {
+        const cfg = getChatConfig();
+        assert.equal(cfg.provider, 'google');
+      }
+    );
+  });
+
+  it('falls back to gateway when only AI_GATEWAY_API_KEY is set', () => {
+    withEnv({ AI_GATEWAY_API_KEY: 'gateway-key' }, () => {
+      const cfg = getChatConfig();
+      assert.equal(cfg.ok, true);
+      assert.equal(cfg.provider, 'gateway');
+      assert.equal(cfg.model, DEFAULT_GATEWAY_MODEL);
+    });
+  });
+
+  it('respects AI_CHAT_MODEL override', () => {
+    withEnv(
+      {
+        GOOGLE_GENERATIVE_AI_API_KEY: 'google-key',
+        AI_CHAT_MODEL: 'gemini-2.5-flash'
+      },
+      () => {
+        const cfg = getChatConfig();
+        assert.equal(cfg.model, 'gemini-2.5-flash');
+      }
+    );
   });
 });

@@ -29,6 +29,8 @@
   ],
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/gateway": "^3.0.127",
+    "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/openai": "^3.0.68",
     "@stripe/stripe-js": "^8.9.0",
     "@supabase/supabase-js": "^2.98.0",

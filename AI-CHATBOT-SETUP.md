@@ -15,40 +15,69 @@ Chat history is stored in the browser (`sessionStorage`) for v1 — the server i
 
 ## Required environment variables
 
-### `AI_GATEWAY_API_KEY` (required for chat)
+### `GOOGLE_GENERATIVE_AI_API_KEY` (recommended — free tier)
 
-Vercel AI Gateway API key. Create one in the [Vercel dashboard](https://vercel.com/docs/ai-gateway) (AI Gateway → API keys).
+Get a free API key from [Google AI Studio](https://aistudio.google.com/apikey). No credit card required for the free tier.
+
+```bash
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_studio_key
+```
+
+On Vercel: Project → Settings → Environment Variables → add for **Production** and **Preview**.
+
+**Free tier limits** (subject to change — see [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing)):
+
+- Rate limits apply per model (requests per minute/day and tokens per minute).
+- Free-tier input and output tokens are free of charge for supported models.
+- Content may be used to improve Google products on the free tier.
+- If you see `429` / quota errors, check your limits in AI Studio or upgrade to a paid tier.
+
+**Alias:** `GEMINI_API_KEY` is also accepted if `GOOGLE_GENERATIVE_AI_API_KEY` is not set.
+
+### `AI_CHAT_MODEL` (optional)
+
+Model ID passed to the active provider. Defaults depend on which key is configured:
+
+| Provider | Default model |
+|----------|----------------|
+| Google (direct) | `gemini-2.0-flash` |
+| Vercel AI Gateway | `openai/gpt-4o-mini` |
+
+Examples:
+
+```bash
+AI_CHAT_MODEL=gemini-2.0-flash
+# AI_CHAT_MODEL=gemini-2.5-flash
+```
+
+Other Google models available on the free tier may include `gemini-2.5-flash`, `gemini-2.0-flash-lite`, etc. — check [Google AI Studio](https://aistudio.google.com/) for current model IDs.
+
+### `AI_GATEWAY_API_KEY` (optional fallback)
+
+If **no** Google key is set, chat falls back to [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) when this key is present (backward compatible).
 
 ```bash
 AI_GATEWAY_API_KEY=your_gateway_key
 ```
 
-On Vercel: Project → Settings → Environment Variables → add for Production and Preview.
-
-### `AI_CHAT_MODEL` (optional)
-
-Gateway model string. List models:
+List gateway models:
 
 ```bash
 curl https://ai-gateway.vercel.sh/v1/models
 ```
 
-Default if unset:
-
-```text
-openai/gpt-4o-mini
-```
-
-Examples:
+Gateway example:
 
 ```bash
 AI_CHAT_MODEL=openai/gpt-4o-mini
-# AI_CHAT_MODEL=anthropic/claude-sonnet-4
+# AI_CHAT_MODEL=anthropic/claude-sonnet-4.6
 ```
+
+**Priority:** Google direct (`GOOGLE_GENERATIVE_AI_API_KEY` or `GEMINI_API_KEY`) → AI Gateway (`AI_GATEWAY_API_KEY`). You do not need both; Google is preferred when configured.
 
 ## Local development
 
-1. Copy `.env.example` → `.env` and set `AI_GATEWAY_API_KEY`.
+1. Copy `.env.example` → `.env` and set `GOOGLE_GENERATIVE_AI_API_KEY` (get key at https://aistudio.google.com/apikey).
 2. Start the server:
 
    ```bash
@@ -62,7 +91,7 @@ AI_CHAT_MODEL=openai/gpt-4o-mini
    curl http://localhost:3000/api/chat/status
    ```
 
-   Expect `{"enabled":true,"model":"openai/gpt-4o-mini"}` when configured.
+   Expect `{"enabled":true,"provider":"google","model":"gemini-2.0-flash"}` when configured.
 
 5. Test a message (streaming):
 
@@ -74,10 +103,12 @@ AI_CHAT_MODEL=openai/gpt-4o-mini
 
 ## Vercel deployment
 
-1. Add `AI_GATEWAY_API_KEY` to Vercel env (Production + Preview).
+1. Add `GOOGLE_GENERATIVE_AI_API_KEY` to Vercel env (Production + Preview).
 2. Optionally set `AI_CHAT_MODEL`.
 3. Deploy — no extra build step; chat routes run in `server.js` like other API routes.
 4. Verify: `https://your-domain.com/api/chat/status`
+
+Until the Google key is set on Vercel, `/api/chat` returns **503** and the widget shows that the assistant is unavailable.
 
 ## Frontend behaviour
 
@@ -96,19 +127,20 @@ Included on public shop pages (same set as WhatsApp FAB): home, products, basket
 npm test
 ```
 
-Includes `test/ai-chat.test.js` for prompt/catalog helpers.
+Includes `test/ai-chat.test.js` for prompt/catalog helpers and provider config.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| `503` / “not configured” | Set `AI_GATEWAY_API_KEY` and redeploy |
-| `429` | Rate limit — wait 15 minutes or reduce traffic |
-| Empty stream | Check Vercel function logs; confirm model ID via gateway models URL |
+| `503` / “not configured” | Set `GOOGLE_GENERATIVE_AI_API_KEY` on Vercel (or `AI_GATEWAY_API_KEY` as fallback) and redeploy |
+| `429` (Google) | Free-tier rate limit — wait or check quotas in AI Studio |
+| `429` (Gateway) | Rate limit — wait 15 minutes or reduce traffic |
+| Empty stream | Check server logs; confirm model ID is valid for your provider |
 | Widget missing | Ensure page includes `<script defer src="/js/chatbot.js"></script>` |
 
 ## Security notes
 
-- Do not commit `.env` or gateway keys.
+- Do not commit `.env` or API keys.
 - Assistant system prompt forbids asking for passwords, card numbers, or seed phrases.
 - Catalog snippet is a capped sample (48 products), not live stock.
