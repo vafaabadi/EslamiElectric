@@ -20,7 +20,8 @@
       errorGeneric: 'Something went wrong. Please try again.',
       errorRateLimit: 'Too many messages. Please wait a moment.',
       errorOffline: 'Could not reach the server. Check your connection.',
-      errorDisabled: 'AI assistant is not available right now. Try WhatsApp or call us.'
+      errorDisabled: 'AI assistant is not available right now. Try WhatsApp or call us.',
+      errorEmpty: 'The assistant returned no reply. The server may be out of AI quota — try again shortly.'
     },
     fa: {
       title: 'دستیار فروشگاه اسلامی الکتریک',
@@ -36,7 +37,8 @@
       errorGeneric: 'خطایی رخ داد. لطفاً دوباره تلاش کنید.',
       errorRateLimit: 'پیام‌های زیاد. لطفاً کمی صبر کنید.',
       errorOffline: 'ارتباط با سرور برقرار نشد.',
-      errorDisabled: 'دستیار در دسترس نیست. از واتساپ یا تماس استفاده کنید.'
+      errorDisabled: 'دستیار در دسترس نیست. از واتساپ یا تماس استفاده کنید.',
+      errorEmpty: 'پاسخی دریافت نشد. ممکن است سهمیه هوش مصنوعی تمام شده باشد — کمی بعد دوباره تلاش کنید.'
     }
   };
 
@@ -83,6 +85,21 @@
       var trimmed = messages.slice(-MAX_STORED);
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
     } catch (e) {}
+  }
+
+  async function readServerError(res, fallback) {
+    var contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (contentType.indexOf('application/json') !== -1) {
+      try {
+        var errBody = await res.json();
+        if (errBody && errBody.error) return String(errBody.error);
+      } catch (e1) {}
+    }
+    try {
+      var errText = await res.text();
+      if (errText && errText.trim() && errText.length < 600) return errText.trim();
+    } catch (e2) {}
+    return fallback;
   }
 
   function getAuthHeaders() {
@@ -239,13 +256,12 @@
 
       if (!res.ok) {
         var errMsg = t('errorGeneric');
-        if (res.status === 429) errMsg = t('errorRateLimit');
-        else if (res.status === 503) errMsg = t('errorDisabled');
-        else {
-          try {
-            var errBody = await res.json();
-            if (errBody && errBody.error) errMsg = errBody.error;
-          } catch (e2) {}
+        if (res.status === 429) {
+          errMsg = await readServerError(res, t('errorRateLimit'));
+        } else if (res.status === 503) {
+          errMsg = await readServerError(res, t('errorDisabled'));
+        } else {
+          errMsg = await readServerError(res, errMsg);
         }
         assistantEl.remove();
         appendMessage('error', errMsg, true);
@@ -253,8 +269,27 @@
         return;
       }
 
+      var responseType = (res.headers.get('content-type') || '').toLowerCase();
+      if (responseType.indexOf('application/json') !== -1) {
+        var jsonBody = await res.json();
+        assistantEl.remove();
+        appendMessage(
+          'error',
+          (jsonBody && jsonBody.error) || t('errorGeneric'),
+          true
+        );
+        setBusy(false);
+        return;
+      }
+
       if (!res.body || !res.body.getReader) {
         assistantText = await res.text();
+        if (!assistantText.trim()) {
+          assistantEl.remove();
+          appendMessage('error', t('errorEmpty'), true);
+          setBusy(false);
+          return;
+        }
         assistantEl.innerHTML = formatContent(assistantText);
         state.messages.push({ role: 'assistant', content: assistantText });
         saveHistory(state.messages);
@@ -277,7 +312,7 @@
         saveHistory(state.messages);
       } else {
         assistantEl.remove();
-        appendMessage('error', t('errorGeneric'), true);
+        appendMessage('error', t('errorEmpty'), true);
       }
     } catch (err) {
       assistantEl.remove();

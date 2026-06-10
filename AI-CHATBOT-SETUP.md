@@ -40,13 +40,13 @@ Model ID passed to the active provider. Defaults depend on which key is configur
 
 | Provider | Default model |
 |----------|----------------|
-| Google (direct) | `gemini-2.0-flash` |
+| Google (direct) | `gemini-2.5-flash-lite` |
 | Vercel AI Gateway | `openai/gpt-4o-mini` |
 
 Examples:
 
 ```bash
-AI_CHAT_MODEL=gemini-2.0-flash
+AI_CHAT_MODEL=gemini-2.5-flash-lite
 # AI_CHAT_MODEL=gemini-2.5-flash
 ```
 
@@ -66,14 +66,22 @@ List gateway models:
 curl https://ai-gateway.vercel.sh/v1/models
 ```
 
-Gateway example:
+Gateway examples (paid after Vercel’s $5/month credits; list models with `curl https://ai-gateway.vercel.sh/v1/models`):
 
 ```bash
 AI_CHAT_MODEL=openai/gpt-4o-mini
+# AI_CHAT_MODEL=google/gemini-2.5-flash-lite   # cheaper Gemini via gateway
+# AI_CHAT_MODEL=google/gemini-2.5-flash
 # AI_CHAT_MODEL=anthropic/claude-sonnet-4.6
 ```
 
-**Priority:** Google direct (`GOOGLE_GENERATIVE_AI_API_KEY` or `GEMINI_API_KEY`) → AI Gateway (`AI_GATEWAY_API_KEY`). You do not need both; Google is preferred when configured.
+**Priority:** Google direct (`GOOGLE_GENERATIVE_AI_API_KEY` or `GEMINI_API_KEY`) → AI Gateway (`AI_GATEWAY_API_KEY`). You do not need both; **Google direct is the free path** for a low-traffic shop.
+
+| Path | Cost (typical) | Best for |
+|------|----------------|----------|
+| Google direct + Flash / Flash-Lite | **Free** within AI Studio quotas | Production chatbot at shop traffic |
+| Vercel AI Gateway + any model | **$5/mo credits**, then pay-as-you-go (no markup) | One key, many providers, no Google account |
+| Gateway + `google/gemini-*` | Same as gateway (not Google’s free tier) | Staying on gateway but switching to Gemini |
 
 ## Local development
 
@@ -91,7 +99,7 @@ AI_CHAT_MODEL=openai/gpt-4o-mini
    curl http://localhost:3000/api/chat/status
    ```
 
-   Expect `{"enabled":true,"provider":"google","model":"gemini-2.0-flash"}` when configured.
+   Expect `{"enabled":true,"provider":"google","model":"gemini-2.5-flash-lite"}` when configured.
 
 5. Test a message (streaming):
 
@@ -136,7 +144,8 @@ Includes `test/ai-chat.test.js` for prompt/catalog helpers and provider config.
 | `503` / “not configured” | Set `GOOGLE_GENERATIVE_AI_API_KEY` on Vercel (or `AI_GATEWAY_API_KEY` as fallback) and redeploy |
 | `429` (Google) | Free-tier rate limit — wait or check quotas in AI Studio |
 | `429` (Gateway) | Rate limit — wait 15 minutes or reduce traffic |
-| Empty stream | Check server logs; confirm model ID is valid for your provider |
+| Empty stream / generic error | Often quota on `gemini-2.0-flash` (free tier limit 0). Default is now `gemini-2.5-flash-lite`. Check Vercel logs for `RetryError` / `429`. |
+| Wrong key type | Use a **Google AI Studio** key from https://aistudio.google.com/apikey. Keys often start with `AIzaSy`; some newer keys use other prefixes but must be from AI Studio, not Vertex. |
 | Widget missing | Ensure page includes `<script defer src="/js/chatbot.js"></script>` |
 
 ## Security notes

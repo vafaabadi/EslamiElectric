@@ -6,6 +6,7 @@ const {
   buildCatalogSnippet,
   buildSystemPrompt,
   getChatConfig,
+  mapChatApiError,
   DEFAULT_GOOGLE_MODEL,
   DEFAULT_GATEWAY_MODEL
 } = require('../lib/ai-chat');
@@ -141,6 +142,10 @@ describe('getChatConfig', () => {
     });
   });
 
+  it('defaults to gemini-2.5-flash-lite for Google', () => {
+    assert.equal(DEFAULT_GOOGLE_MODEL, 'gemini-2.5-flash-lite');
+  });
+
   it('respects AI_CHAT_MODEL override', () => {
     withEnv(
       {
@@ -152,5 +157,25 @@ describe('getChatConfig', () => {
         assert.equal(cfg.model, 'gemini-2.5-flash');
       }
     );
+  });
+});
+
+describe('mapChatApiError', () => {
+  it('maps quota errors to 429', () => {
+    const mapped = mapChatApiError(new Error('You exceeded your current quota (429)'));
+    assert.equal(mapped.status, 429);
+    assert.match(mapped.message, /quota/i);
+  });
+
+  it('maps invalid key errors to 503', () => {
+    const mapped = mapChatApiError(new Error('API key not valid. Please pass a valid API key.'));
+    assert.equal(mapped.status, 503);
+    assert.match(mapped.message, /aistudio\.google\.com/i);
+  });
+
+  it('maps unknown model errors to 503', () => {
+    const mapped = mapChatApiError(new Error('models/foo is not found for API version v1beta'));
+    assert.equal(mapped.status, 503);
+    assert.match(mapped.message, /model/i);
   });
 });
