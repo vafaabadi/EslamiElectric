@@ -64,7 +64,7 @@ jobs:
       # scan is passing consistently.
       - name: SonarCloud Scan
         continue-on-error: true
-        uses: SonarSource/sonarqube-scan-action@v6.0.0   # v5 had CVE-2025-59844 + CVE-2025-58178
+        uses: SonarSource/sonarqube-scan-action@v8.2.0   # v5 had CVE-2025-59844 + CVE-2025-58178
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
